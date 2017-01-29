@@ -3,9 +3,6 @@ package data;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import ceramalex.filemaker.config.ImportConfig;
-import ceramalex.filemaker.dataaccess.SQLDataConnector;
-
 /**
  * Singleton-Wrapper fuer MySQL-Datenzugriff
  * @author Patrick Gunia
@@ -17,7 +14,7 @@ public class SQLSyncConnector {
 	private static SQLSyncConnector mInstance = null;
 	
 	/** Instanz des MySQL-Connectors */
-	private MySQLDataAccess mDataAccess = null;
+	private SQLDataAccess mDataAccess = null;
 	private static String url, user, pwd, db;
 	
 	//-------------------------------------------------------------------------------
@@ -30,16 +27,17 @@ public class SQLSyncConnector {
 
 	//-------------------------------------------------------------------------------
 	
-	/** Default-Konstruktor mit Initialisierung der Datenbankverbindung */
-	private SQLSyncConnector() {
+	/** Default-Konstruktor mit Initialisierung der Datenbankverbindung 
+	 * @throws SQLException */
+	private SQLSyncConnector() throws SQLException {
 		// JDBC-Verbindung herstellen
 		if (url == null || user == null || pwd == null || db == null)
-			this.mDataAccess = new MySQLDataAccess("jdbc:mysql://arachne.uni-koeln.de:3306/", "root", "Celt1!wedged", "ceramalex");
+			this.mDataAccess = new SQLDataAccess("jdbc:mysql://arachne.uni-koeln.de:3306/", "root", "Celt1!wedged", "ceramalex");
 		else
-			this.mDataAccess = new MySQLDataAccess(url, user, pwd, db);
+			this.mDataAccess = new SQLDataAccess(url, user, pwd, db);
 	}
 	
-	public static SQLSyncConnector initPrefs(String u, String us, String p, String d) {
+	public static SQLSyncConnector initPrefs(String u, String us, String p, String d) throws SQLException {
 		url = u;
 		user = us;
 		pwd = p;

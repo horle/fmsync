@@ -1,12 +1,19 @@
 package gui;
 
+import gui.ConnectionWorker.SyncStatus;
+
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.EventQueue;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.FilenameFilter;
 import java.text.NumberFormat;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
@@ -18,10 +25,14 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
+import javax.swing.ScrollPaneConstants;
+import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -33,14 +44,9 @@ import javax.swing.text.NumberFormatter;
 
 import data.SQLSyncConnector;
 
-import javax.swing.JPasswordField;
-import java.awt.FlowLayout;
-import java.awt.BorderLayout;
-import javax.swing.ScrollPaneConstants;
-
 public class MainWindow {
 
-	private JFrame frmCeramalexsync;
+	private JFrame frame;
 	private JPanel panelFMF;
 	private JPanel panelPrefs;
 	private JPanel panelLog;
@@ -83,7 +89,7 @@ public class MainWindow {
 			public void run() {
 				try {
 					MainWindow window = new MainWindow();
-					window.frmCeramalexsync.setVisible(true);
+					window.frame.setVisible(true);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
@@ -104,29 +110,29 @@ public class MainWindow {
 	private void initialize() {
 		connected = false;
 		
-		frmCeramalexsync = new JFrame();
-		frmCeramalexsync.setTitle("CeramAlexSync");
-		frmCeramalexsync.setBounds(100, 100, 697, 583);
-		frmCeramalexsync.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frmCeramalexsync.getContentPane().setLayout(null);
+		frame = new JFrame();
+		frame.setTitle("CeramAlexSync");
+		frame.setBounds(100, 100, 697, 583);
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		frame.getContentPane().setLayout(null);
 		
 		panelFMF = new JPanel();
 		panelFMF.setBorder(new TitledBorder(new LineBorder(new Color(0, 0, 0)), "FileMaker File(s)", TitledBorder.LEADING, TitledBorder.TOP, null, null));
 		panelFMF.setBounds(12, 89, 478, 127);
-		frmCeramalexsync.getContentPane().add(panelFMF);
+		frame.getContentPane().add(panelFMF);
 		panelFMF.setLayout(null);
 		
 		btnAddFile = new JButton("Directory");
-		btnAddFile.addMouseListener(new MouseAdapter() {
+		btnAddFile.addActionListener(new ActionListener() {
 			@Override
-			public void mouseClicked(MouseEvent arg0) {
+			public void actionPerformed(ActionEvent arg0) {
 				JFileChooser chooser = new JFileChooser();
 				FileNameExtensionFilter filter = new FileNameExtensionFilter("FileMaker Files (*.fmp12, *.tab)", "fmp12", "tab");
 				chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
 				chooser.addChoosableFileFilter(filter);
 				chooser.setAcceptAllFileFilterUsed(false);
 				
-				int result = chooser.showOpenDialog(frmCeramalexsync);
+				int result = chooser.showOpenDialog(frame);
 				if (result == JFileChooser.APPROVE_OPTION) {
 					File[] filesInDir = chooser.getSelectedFile().listFiles(new FilenameFilter() {
 						public boolean accept (File dir, String name) {
@@ -144,9 +150,9 @@ public class MainWindow {
 		panelFMF.add(btnAddFile);
 		
 		btnRemFile = new JButton("Clear list");
-		btnRemFile.addMouseListener(new MouseAdapter() {
+		btnRemFile.addActionListener(new ActionListener() {
 			@Override
-			public void mouseClicked(MouseEvent arg0) {
+			public void actionPerformed(ActionEvent arg0) {
 				model.clear();
 			}
 		});
@@ -162,7 +168,7 @@ public class MainWindow {
 		panelPrefs = new JPanel();
 		panelPrefs.setBorder(new TitledBorder(new LineBorder(new Color(0, 0, 0)), "Preferences", TitledBorder.LEADING, TitledBorder.TOP, null, null));
 		panelPrefs.setBounds(12, 228, 478, 190);
-		frmCeramalexsync.getContentPane().add(panelPrefs);
+		frame.getContentPane().add(panelPrefs);
 		panelPrefs.setLayout(null);
 		
 		lblAddress = new JLabel("MySQL Server Address");
@@ -240,7 +246,7 @@ public class MainWindow {
 		panelLog = new JPanel();
 		panelLog.setBorder(new TitledBorder(new LineBorder(new Color(0, 0, 0)), "Log", TitledBorder.LEADING, TitledBorder.TOP, null, null));
 		panelLog.setBounds(12, 430, 478, 112);
-		frmCeramalexsync.getContentPane().add(panelLog);
+		frame.getContentPane().add(panelLog);
 		panelLog.setLayout(new BorderLayout(0, 0));
 				
 		txtLog = new JTextArea();
@@ -256,7 +262,7 @@ public class MainWindow {
 		panelActions = new JPanel();
 		panelActions.setBorder(new TitledBorder(new LineBorder(new Color(0, 0, 0)), "Actions", TitledBorder.LEADING, TitledBorder.TOP, null, null));
 		panelActions.setBounds(502, 89, 181, 453);
-		frmCeramalexsync.getContentPane().add(panelActions);
+		frame.getContentPane().add(panelActions);
 		panelActions.setLayout(null);
 		
 		btnDownload = new JToggleButton("Download");
@@ -268,44 +274,94 @@ public class MainWindow {
 		panelActions.add(btnUpload);
 		
 		btnConnect = new JButton("Connect to DB");
-		btnConnect.addMouseListener(new MouseAdapter() {
+		btnConnect.addActionListener(new ActionListener() {
 			@Override
-			public void mouseClicked(MouseEvent arg0) {
+			public void actionPerformed(ActionEvent arg0) {
+				
 				if (!connected){
 					String a = txtAddress.getText();
 					int port = Integer.parseInt(txtPort.getText());
 					String user = txtUser.getText();
 					String pwd = new String(txtPass.getPassword());// "pvnnyEMpQHSfBXvW";
-					txtLog.append("Trying to connect to "+a+" as "+ user +" ...\n");
-					try {
+					
+					SwingWorker<Void,Void> watcher = new SwingWorker<Void,Void>() {
+
+						@Override
+						protected Void doInBackground() throws Exception {
+							
+							ConnectionWorker worker = new ConnectionWorker(txtLog, btnConnect, lblConnect, txtPort, txtAddress) {
 						
-						SQLSyncConnector connector = SQLSyncConnector.initPrefs(a+":"+port+"/",user,pwd,"ceramalex");
-						if (connector.isConnected()){
-							connected = true;
-							lblConnect.setText("Connected to DB.");
-							btnConnect.setText("Disconnect");
-							txtLog.append("Connected to "+a+".\n");
-							txtPort.setEnabled(false);
-							txtAddress.setEnabled(false);
+								// neuer thread für hintergrund
+								@Override
+								protected Void doInBackground() {
+									SyncStatus connecting = new SyncStatus("Trying to connect to "+a+" as "+ user +" ...\n", "Not connected.", "Connecting ...", false, false, false);
+									SyncStatus open = new SyncStatus("Connected to "+a+".\n", "Connected to MySQL DB.", "Disconnect", true, false, false);
+									SyncStatus closedError = new SyncStatus("Connection as "+user+" to "+a+" on port "+port+" failed!\n", "Not connected.", "Connect to DB", true, true, true);
+									
+									publish(connecting);
+									
+									try {
+										SQLSyncConnector connector = SQLSyncConnector.initPrefs(a+":"+port+"/",user,pwd,"ceramalex");
+										if (connector.isConnected()){
+											connected = true;
+											publish(open);
+										}
+									} catch (Exception e) {
+										publish(closedError);
+										JOptionPane.showMessageDialog(frame, "Connection error. Wrong URL, username or password.", "Connection failure", JOptionPane.WARNING_MESSAGE);
+										this.cancel(true);
+									}
+									return null;
+								}
+								@Override
+								protected void done() {
+									SyncStatus closed = new SyncStatus(null, "Not connected.", "Connect to DB", true, true, true);
+									publish(closed);
+								}
+							};
+							worker.execute();
+							try {
+								worker.get(5, TimeUnit.SECONDS);
+							} catch (InterruptedException | ExecutionException | TimeoutException e1) {
+								worker.cancel(true);
+								txtLog.append("Connection timed out.\n");
+								JOptionPane.showMessageDialog(frame, "Timeout while trying to contact the server.", "Timeout", JOptionPane.INFORMATION_MESSAGE);
+							}
+							return null;
 						}
-					} catch (Exception e) {
-						JOptionPane.showMessageDialog(frmCeramalexsync, "Connection error. Wrong URL, username or password.", "Invalid URL?", JOptionPane.WARNING_MESSAGE);
-						lblConnect.setText("Not connected.");
-						txtLog.append("Connection as "+user+" to "+a+" on port "+port+" failed.\n");
-					}
+					};
+					watcher.execute();
 				}
+				// disconnect ...
 				else {
-					SQLSyncConnector connector = SQLSyncConnector.getInstance();
-					if (connector.close()){
-						connected = false;
-						lblConnect.setText("Not connected.");
-						btnConnect.setText("Connect to DB");
-						txtLog.append("Connection closed.\n");
-						txtPort.setEnabled(true);
-						txtAddress.setEnabled(true);
-					}
-					else
-						JOptionPane.showMessageDialog(frmCeramalexsync, "Connection could not be closed!", "Closing not successful", JOptionPane.ERROR_MESSAGE);
+					
+					ConnectionWorker worker = new ConnectionWorker(txtLog, btnConnect, lblConnect, txtPort, txtAddress) {
+						
+						// neuer thread für hintergrund
+						@Override
+						protected Void doInBackground() {
+							System.out.println(EventQueue.isDispatchThread());
+							String a = txtAddress.getText();
+							int port = Integer.parseInt(txtPort.getText());
+							String user = txtUser.getText();
+							
+							SyncStatus closed = new SyncStatus("Connection closed.\n", "Not connected.", "Connect to DB", true, true, true);
+							SyncStatus closedError = new SyncStatus("Connection as "+user+" to "+a+" on port "+port+" failed!\n", "Not connected.", "Connect to DB", true, true, true);
+										
+							SQLSyncConnector connector = SQLSyncConnector.getInstance();
+							
+							if (connector.close()){
+								connected = false;
+								publish(closed);
+							}
+							else{
+								publish(closedError);
+								JOptionPane.showMessageDialog(frame, "Connection could not be closed!", "Closing not successful", JOptionPane.ERROR_MESSAGE);
+							}
+							return null;
+						}
+					};
+					worker.execute();
 				}
 			}
 		});
@@ -344,7 +400,8 @@ public class MainWindow {
 		
 		JLabel lblPicture = new JLabel("");
 		lblPicture.setBounds(12, 12, 671, 70);
-		frmCeramalexsync.getContentPane().add(lblPicture);
+		frame.getContentPane().add(lblPicture);
 	
 	}
 }
+
