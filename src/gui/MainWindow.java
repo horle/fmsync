@@ -7,14 +7,17 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.FilenameFilter;
+import java.net.URL;
 import java.sql.SQLException;
 import java.text.NumberFormat;
+import java.util.ArrayList;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import javax.swing.DefaultListModel;
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
@@ -64,8 +67,8 @@ public class MainWindow {
 	private JTextField txtAddress;
 	private JFormattedTextField txtPort;
 	private JTextArea txtLog;
-	private JList<String> listFiles;
-	private DefaultListModel<String> model;
+	private JList<File> listFiles;
+	private DefaultListModel<File> model;
 	
 	private JLabel lblPort;
 	private JLabel lblAddress;
@@ -80,7 +83,6 @@ public class MainWindow {
 	private JToggleButton btnUpload;
 	private JButton btnConnect;
 	private JButton btnStart;
-	private JButton btnCancel;
 	private JButton btnAddFile;
 	private JButton btnRemFile;
 	
@@ -156,7 +158,7 @@ public class MainWindow {
 					});
 					model.clear();
 					for (File f : filesInDir) {
-						model.addElement(f.getName());
+						model.addElement(f);
 					}
 				}
 			}
@@ -174,8 +176,8 @@ public class MainWindow {
 		btnRemFile.setBounds(340, 73, 126, 25);
 		panelFMF.add(btnRemFile);
 		
-		model = new DefaultListModel<String>();
-		listFiles = new JList<String>();
+		model = new DefaultListModel<File>();
+		listFiles = new JList<File>();
 		listFiles.setModel(model);
 		listFiles.setBounds(12, 25, 316, 90);
 		panelFMF.add(listFiles);
@@ -439,27 +441,69 @@ public class MainWindow {
 		btnStart.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				//notify ...
+				
+				/**
+				 * Create watch dog SwingWorker to manage progress
+				 */
+				SwingWorker<Void,Void> watcher = new SwingWorker<Void,Void>(){
+
+					@Override
+					protected Void doInBackground() throws Exception {
+						
+						ArrayList<File> files = new ArrayList<File>();
+						
+						if (files.isEmpty()){
+							SwingUtilities.invokeLater(new Runnable(){
+								@Override
+								public void run() {
+									JOptionPane.showMessageDialog(frame, "No FileMaker files selected!", "Missing input", JOptionPane.WARNING_MESSAGE);
+									return;
+								};
+							});
+						}
+						
+						for (int i = 0; i < listFiles.getModel().getSize(); i ++){
+							files.add(listFiles.getModel().getElementAt(i));
+						}
+						
+						if(btnDownload.isSelected()){
+							
+							/**
+							 * Create SwingWorker to manage download
+							 */
+//							SwingWorker<Boolean,Void> worker = new SwingWorker<Boolean,Void>(){
+//		
+//								@Override
+//								protected Boolean doInBackground() throws Exception {
+//									
+//									return CallManager.getInstance().startDownload();
+//								}
+//								
+//							};
+//							worker.execute();
+						}
+						if(btnUpload.isSelected()){
+							
+							/**
+							 * Create SwingWorker to manage download
+							 */		
+//							SwingWorker<Boolean,Void> worker = new SwingWorker<Boolean,Void>(){
+//		
+//								@Override
+//								protected Boolean doInBackground() throws Exception {
+//									
+//									return CallManager.getInstance().startUpload();
+//								}
+//							};
+//							worker.execute();
+						}
+						return null;
+					}
+				};
+				watcher.execute();
 			}
 		});
 		panelActions.add(btnStart);
-		
-		btnCancel = new JButton("Cancel");
-		btnCancel.setBounds(12, 368, 157, 25);
-		btnCancel.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent arg0) {
-				if(btnDownload.isSelected()){
-					
-					
-				}
-				if(btnUpload.isSelected()){
-					
-					
-				}
-			}
-		});
-		panelActions.add(btnCancel);
 		
 		txtUser = new JTextField();
 		txtUser.setText("ceramalex");
@@ -479,7 +523,8 @@ public class MainWindow {
 		lblUser.setBounds(12, 143, 157, 15);
 		panelActions.add(lblUser);
 		
-		JLabel lblPicture = new JLabel("");
+		URL url = getClass().getResource("/resources/logo.png");		
+		JLabel lblPicture = new JLabel(new ImageIcon(url));
 		lblPicture.setBounds(12, 12, 671, 70);
 		frame.getContentPane().add(lblPicture);
 	
