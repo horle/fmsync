@@ -22,7 +22,7 @@ import org.apache.log4j.Logger;
 public abstract class AbstractDatabase {
 	
 	/** Logging-Instanz */
-	protected static Logger logger = Logger.getLogger("abstractdatabase");
+	protected static Logger logger = Logger.getLogger("data.abstractdatabase");
 
 	/** Liefert den Namen des zu ladenden Treibers */
 	abstract protected String getDriverName();
@@ -76,8 +76,8 @@ public abstract class AbstractDatabase {
 	
 		} catch (SQLException e) {
 			logger.error("Driver:"+e);
-			System.out.println(e);
-			return;
+			System.out.println("Driver:"+e);
+			throw e;	//throw to gui ...
 		}
 		// Verbindungswarnungen holen + ";serverDataSource=" + dbName
 		SQLWarning warning = null;
@@ -224,6 +224,8 @@ public abstract class AbstractDatabase {
 	 * @return true, falls verbunden.
 	 */
 	protected boolean isConnected() throws SQLException {
+		if (cn == null)
+			return false;
 		return cn.isValid(5);
 	}
 

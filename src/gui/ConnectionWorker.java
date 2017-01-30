@@ -11,9 +11,15 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingWorker;
 
-public abstract class ConnectionWorker extends SwingWorker<Void, SyncStatus> {
+/**
+ * Abstract SwingWorker class to update GUI elements in main window
+ * 
+ * @author horle (Felix Kussmaul)
+ */
+
+public abstract class ConnectionWorker extends SwingWorker<Boolean, SyncStatus> {
 	
-	// gui elements to update
+	// GUI elements to update
 	private final JTextArea txtLog;
 	private final JButton btnConnect;
 	private final JLabel lblConnect;
@@ -21,12 +27,8 @@ public abstract class ConnectionWorker extends SwingWorker<Void, SyncStatus> {
 	private final JTextField txtAddress;
 	
 	/**
-	 * Creates a worker instance
+	 * Constructor: Creates a SwingWorker instance
 	 * 
-	 * @param a address from textfield
-	 * @param p port from textfield
-	 * @param u user from textfield
-	 * @param pw password from textfield
 	 * @param tLog logging textarea
 	 * @param bConnect connect button
 	 * @param lConnect connect label
@@ -41,18 +43,28 @@ public abstract class ConnectionWorker extends SwingWorker<Void, SyncStatus> {
 		this.txtLog = tLog;
 	}
 	
-	//verarbeite status in der gui
+	/**
+	 * Process all GUI elements from publish calls (list)
+	 * 
+	 * @param statusList list of SyncStatus
+	 */
 	@Override
 	protected void process(List<SyncStatus> statusList){
-		SyncStatus last = statusList.get(statusList.size()-1);
-		lblConnect.setText(last.lblConnect);
-		btnConnect.setText(last.btnConnectText);
-		btnConnect.setEnabled(last.btnConnectEn);
-		txtPort.setEnabled(last.txtPortEn);
-		txtAddress.setEnabled(last.txtAddressEn);
-		txtLog.append(last.logMsg);
+		for (SyncStatus status : statusList) {
+			lblConnect.setText(status.lblConnect);
+			btnConnect.setText(status.btnConnectText);
+			btnConnect.setEnabled(status.btnConnectEn);
+			txtPort.setEnabled(status.txtPortEn);
+			txtAddress.setEnabled(status.txtAddressEn);
+			txtLog.append(status.logMsg);
+		}
 	}
 	
+	/**
+	 * Private class ("struct") for representing GUI element status
+	 * 
+	 * @author horle (Felix Kussmaul)
+	 */
 	protected class SyncStatus {
 		private String logMsg;
 		private String lblConnect;
@@ -60,6 +72,17 @@ public abstract class ConnectionWorker extends SwingWorker<Void, SyncStatus> {
 		private boolean btnConnectEn;
 		private boolean txtAddressEn;
 		private boolean txtPortEn;
+		
+		/**
+		 * Constructor
+		 * 
+		 * @param logMsg log message
+		 * @param lblConnect connect label
+		 * @param btnConnectText connect button label
+		 * @param btnConnectEn connect button enabled?
+		 * @param txtAddressEn address textfield enabled?
+		 * @param txtPortEn port textfield enabled?
+		 */
 		public SyncStatus(String logMsg, String lblConnect,
 				String btnConnectText, boolean btnConnectEn,
 				boolean txtAddressEn, boolean txtPortEn) {

@@ -3,6 +3,8 @@ package data;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.apache.log4j.Logger;
+
 /**
  * Singleton-Wrapper fuer MySQL-Datenzugriff
  * @author Patrick Gunia
@@ -16,6 +18,8 @@ public class SQLSyncConnector {
 	/** Instanz des MySQL-Connectors */
 	private SQLDataAccess mDataAccess = null;
 	private static String url, user, pwd, db;
+	
+	private static Logger logger = Logger.getLogger("gui.mainwindow");
 	
 	//-------------------------------------------------------------------------------
 

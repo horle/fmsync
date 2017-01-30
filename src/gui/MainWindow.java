@@ -1,7 +1,5 @@
 package gui;
 
-import gui.ConnectionWorker.SyncStatus;
-
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.EventQueue;
@@ -9,8 +7,9 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.FilenameFilter;
+import java.sql.SQLException;
 import java.text.NumberFormat;
-import java.util.List;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -39,10 +38,20 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.text.AbstractDocument;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
+import javax.swing.text.DefaultCaret;
 import javax.swing.text.DocumentFilter;
 import javax.swing.text.NumberFormatter;
 
+import org.apache.log4j.Logger;
+import org.apache.log4j.xml.DOMConfigurator;
+
 import data.SQLSyncConnector;
+
+/**
+ * CeramalexSync main window to control DB sync actions
+ * 
+ * @author horle (Felix Kussmaul)
+ */
 
 public class MainWindow {
 
@@ -81,10 +90,15 @@ public class MainWindow {
 	private JPasswordField txtPass;
 	private JScrollPane scrollPane;
 
+	private final int CONN_TIMEOUT = 5;
+	protected static Logger logger = Logger.getLogger("gui.mainwindow");
+
 	/**
 	 * Launch the application.
 	 */
 	public static void main(String[] args) {
+		
+		DOMConfigurator.configureAndWatch("ressource/log4j.xml");
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
@@ -111,6 +125,7 @@ public class MainWindow {
 		connected = false;
 		
 		frame = new JFrame();
+		frame.setResizable(false);
 		frame.setTitle("CeramAlexSync");
 		frame.setBounds(100, 100, 697, 583);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -253,6 +268,8 @@ public class MainWindow {
 		txtLog.setEditable(false);
 		txtLog.setLineWrap(true);
 		txtLog.setWrapStyleWord(true);
+		DefaultCaret caret = (DefaultCaret)txtLog.getCaret();
+		caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
 		
 		scrollPane = new JScrollPane(txtLog);
 		scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
@@ -278,25 +295,40 @@ public class MainWindow {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				
+				String a = txtAddress.getText();
+				int port = Integer.parseInt(txtPort.getText());
+				String user = txtUser.getText();
+				String pwd = new String(txtPass.getPassword());// "pvnnyEMpQHSfBXvW";
+				
+				/**
+				 * Establish new connection to DB
+				 */
 				if (!connected){
-					String a = txtAddress.getText();
-					int port = Integer.parseInt(txtPort.getText());
-					String user = txtUser.getText();
-					String pwd = new String(txtPass.getPassword());// "pvnnyEMpQHSfBXvW";
 					
+					/**
+					 * Create watch dog SwingWorker to control timeout 
+					 */
 					SwingWorker<Void,Void> watcher = new SwingWorker<Void,Void>() {
-
+						
 						@Override
 						protected Void doInBackground() throws Exception {
 							
+							/**
+							 * SwingWorker to connect to DB and update GUI elements
+							 * 
+							 * @return true if connection established
+							 * @return false if connection failed
+							 */
 							ConnectionWorker worker = new ConnectionWorker(txtLog, btnConnect, lblConnect, txtPort, txtAddress) {
-						
-								// neuer thread für hintergrund
+								
+								SyncStatus closed = new SyncStatus(null, "Not connected.", "Connect to DB", true, true, true);
+								SyncStatus connecting = new SyncStatus("Trying to connect to "+a+" as "+ user +" ...\n", "Not connected.", "Connecting ...", false, false, false);
+								SyncStatus open = new SyncStatus("Connected to "+a+".\n", "Connected to DB.", "Disconnect", true, false, false);
+								SyncStatus closedError = new SyncStatus("Connection as "+user+" to "+a+" on port "+port+" failed!\n", "Not connected.", "Connect to DB", true, true, true);
+								SyncStatus timeoutError = new SyncStatus("Connection establishment to DB timed out.\n", "Not connected.", "Connect to DB", true, true, true);
+								
 								@Override
-								protected Void doInBackground() {
-									SyncStatus connecting = new SyncStatus("Trying to connect to "+a+" as "+ user +" ...\n", "Not connected.", "Connecting ...", false, false, false);
-									SyncStatus open = new SyncStatus("Connected to "+a+".\n", "Connected to MySQL DB.", "Disconnect", true, false, false);
-									SyncStatus closedError = new SyncStatus("Connection as "+user+" to "+a+" on port "+port+" failed!\n", "Not connected.", "Connect to DB", true, true, true);
+								protected Boolean doInBackground() throws InterruptedException {
 									
 									publish(connecting);
 									
@@ -305,26 +337,46 @@ public class MainWindow {
 										if (connector.isConnected()){
 											connected = true;
 											publish(open);
+											return true;
 										}
-									} catch (Exception e) {
+										else
+											return false;
+									} catch (SQLException e) {
 										publish(closedError);
-										JOptionPane.showMessageDialog(frame, "Connection error. Wrong URL, username or password.", "Connection failure", JOptionPane.WARNING_MESSAGE);
-										this.cancel(true);
+//										this.cancel(true);
+										SwingUtilities.invokeLater(new Runnable(){
+											@Override
+											public void run() {
+												String msg = "";
+												if (e.getMessage().startsWith("Communications link failure"))
+													msg = "Server does not answer.";
+												if (e.getMessage().startsWith("Access denied"))
+													msg = "Access denied. Wrong user name or password.";
+												JOptionPane.showMessageDialog(frame, "Connection error: "+msg, "Connection failure", JOptionPane.WARNING_MESSAGE);
+											};
+										});
+										return false;
 									}
-									return null;
 								}
 								@Override
 								protected void done() {
-									SyncStatus closed = new SyncStatus(null, "Not connected.", "Connect to DB", true, true, true);
-									publish(closed);
+									try {
+										// connection open?
+										if (!this.get()){
+											publish(closed);
+										}
+									} catch (InterruptedException | ExecutionException e) {
+										publish(closedError);
+									} catch (CancellationException e) {
+										publish(timeoutError);
+									}
 								}
 							};
 							worker.execute();
 							try {
-								worker.get(5, TimeUnit.SECONDS);
+								worker.get(CONN_TIMEOUT, TimeUnit.SECONDS);
 							} catch (InterruptedException | ExecutionException | TimeoutException e1) {
 								worker.cancel(true);
-								txtLog.append("Connection timed out.\n");
 								JOptionPane.showMessageDialog(frame, "Timeout while trying to contact the server.", "Timeout", JOptionPane.INFORMATION_MESSAGE);
 							}
 							return null;
@@ -332,33 +384,43 @@ public class MainWindow {
 					};
 					watcher.execute();
 				}
-				// disconnect ...
+				
+				/**
+				 * Disconnect current connection
+				 */
 				else {
 					
+					/**
+					 * SwingWorker to disconnect and update GUI elements
+					 * 
+					 * @return true if connection closed
+					 * @return false if closing connection failed
+					 */
 					ConnectionWorker worker = new ConnectionWorker(txtLog, btnConnect, lblConnect, txtPort, txtAddress) {
 						
-						// neuer thread für hintergrund
+						SyncStatus closed = new SyncStatus("Connection closed.\n", "Not connected.", "Connect to DB", true, true, true);
+						SyncStatus closedError = new SyncStatus("Connection as "+user+" to "+a+" on port "+port+" failed!\n", "Not connected.", "Connect to DB", true, true, true);
+						
 						@Override
-						protected Void doInBackground() {
-							System.out.println(EventQueue.isDispatchThread());
-							String a = txtAddress.getText();
-							int port = Integer.parseInt(txtPort.getText());
-							String user = txtUser.getText();
-							
-							SyncStatus closed = new SyncStatus("Connection closed.\n", "Not connected.", "Connect to DB", true, true, true);
-							SyncStatus closedError = new SyncStatus("Connection as "+user+" to "+a+" on port "+port+" failed!\n", "Not connected.", "Connect to DB", true, true, true);
+						protected Boolean doInBackground() {
 										
 							SQLSyncConnector connector = SQLSyncConnector.getInstance();
 							
 							if (connector.close()){
 								connected = false;
 								publish(closed);
+								return true;
 							}
 							else{
 								publish(closedError);
-								JOptionPane.showMessageDialog(frame, "Connection could not be closed!", "Closing not successful", JOptionPane.ERROR_MESSAGE);
+								SwingUtilities.invokeLater(new Runnable(){
+									@Override
+									public void run() {
+										JOptionPane.showMessageDialog(frame, "Connection could not be closed!", "Closing not successful", JOptionPane.ERROR_MESSAGE);
+									};
+								});
+								return false;
 							}
-							return null;
 						}
 					};
 					worker.execute();
@@ -374,10 +436,29 @@ public class MainWindow {
 		
 		btnStart = new JButton("START");
 		btnStart.setBounds(12, 405, 157, 25);
+		btnStart.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				//notify ...
+			}
+		});
 		panelActions.add(btnStart);
 		
 		btnCancel = new JButton("Cancel");
 		btnCancel.setBounds(12, 368, 157, 25);
+		btnCancel.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				if(btnDownload.isSelected()){
+					
+					
+				}
+				if(btnUpload.isSelected()){
+					
+					
+				}
+			}
+		});
 		panelActions.add(btnCancel);
 		
 		txtUser = new JTextField();
