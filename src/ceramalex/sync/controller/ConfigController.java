@@ -19,6 +19,9 @@ public class ConfigController {
 	/** Passwort der MySQL-Datenbank */
 	private String mySQLPassword = null;
 	
+	/** Passwort der MySQL-Datenbank */
+	private String mySQLDB = null;
+	
 	/** URL der FM-Datenbank */
 	private String fmURL = null;
 	
@@ -27,6 +30,9 @@ public class ConfigController {
 	
 	/** Passwort der FM-Datenbank */
 	private String fmPassword = null;
+	
+	/** Passwort der FM-Datenbank */
+	private String fmDB = null;
 	
 	/** Array mit Feldern, die aus den Key-Value-Maps geloescht werden */
 	private String[] removeFields = null;
@@ -41,24 +47,24 @@ public class ConfigController {
 	private String numericFields[] = null;
 
 	public static ConfigController getInstance() {
-		if(control == null) throw new AssertionError("not initialized! initPrefs()");
+		if(control == null)
+			control = new ConfigController();
 		return control;
 	}
 	
 	private ConfigController() {
-		
+		setPrefs("","","","","","", "", "");
 	}
 	
-	public ConfigController initPrefs(String sqlURL, String sqlUser, String sqlPwd, String fURL, String fUser, String fPwd) throws SQLException {
+	public void setPrefs(String sqlURL, String sqlUser, String sqlPwd, String sqlDB, String fURL, String fUser, String fPwd, String fDB) {
 		this.mySQLURL = sqlURL;
 		this.mySQLUser = sqlUser;
 		this.mySQLPassword = sqlPwd;
+		this.mySQLDB = sqlDB;
 		this.fmURL = fURL;
 		this.fmUser = fUser;
 		this.fmPassword = fPwd;
-			
-		control = new ConfigController();
-		return control;
+		this.fmDB = fDB;
 	}
 
 	public String getMySQLURL() {
@@ -131,6 +137,22 @@ public class ConfigController {
 
 	public void setFieldRewrites(Map<String, String> fieldRewrites) {
 		this.fieldRewrites = fieldRewrites;
+	}
+
+	public String getMySQLDB() {
+		return mySQLDB;
+	}
+
+	public String getFmDB() {
+		return fmDB;
+	}
+
+	public void setMySQLDB(String mySQLDB) {
+		this.mySQLDB = mySQLDB;
+	}
+
+	public void setFmDB(String fmDB) {
+		this.fmDB = fmDB;
 	}
 
 }

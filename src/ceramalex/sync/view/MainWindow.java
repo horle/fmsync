@@ -3,33 +3,28 @@ package ceramalex.sync.view;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.EventQueue;
+import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.File;
-import java.io.FilenameFilter;
 import java.net.URL;
 import java.sql.SQLException;
 import java.text.NumberFormat;
-import java.util.ArrayList;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import javax.swing.DefaultListModel;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
-import javax.swing.JFileChooser;
 import javax.swing.JFormattedTextField;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
-import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
+import javax.swing.JSeparator;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
@@ -38,7 +33,6 @@ import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
-import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.text.AbstractDocument;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
@@ -61,23 +55,22 @@ import ceramalex.sync.data.CallManager;
 
 public class MainWindow {
 
+	private static final String FM_URL_PREFIX = "jdbc:filemaker://";
+	private static final String MYSQL_URL_PREFIX = "jdbc:mysql://";
 	private JFrame frame;
-	private JPanel panelFMF;
 	private JPanel panelPrefs;
 	private JPanel panelLog;
 	private JPanel panelActions;
 	
-	private JTextField txtAddress;
-	private JFormattedTextField txtPort;
+	private JTextField txtMySQLAddress;
+	private JFormattedTextField txtMySQLPort;
 	private JTextArea txtLog;
-	private JList<File> listFiles;
-	private DefaultListModel<File> model;
 	
-	private JLabel lblPort;
-	private JLabel lblAddress;
+	private JLabel lblMySQLPort;
+	private JLabel lblMySQLAddress;
 	private JLabel lblAuthor;
 	private JLabel lblPlace;
-	private JLabel lblConnect;
+	private JLabel lblMySQLConnect;
 	
 	private JComboBox<String> cmbPlace;
 	private JComboBox<String> cmbAuthor;
@@ -86,19 +79,32 @@ public class MainWindow {
 	private JToggleButton btnUpload;
 	private JButton btnConnect;
 	private JButton btnStart;
-	private JButton btnAddFile;
-	private JButton btnRemFile;
 	
-	private final String URL_PREFIX = "jdbc:mysql://";
+
 	private boolean connected;
-	private JTextField txtUser;
-	private JPasswordField txtPass;
+	private JTextField txtMySQLUser;
+	private JPasswordField txtMySQLPass;
 	private JScrollPane scrollPane;
-	private JProgressBar progressBar;
+//	private JProgressBar progressBar;
 
 	private final int CONN_TIMEOUT = 5;
 	protected static Logger logger = Logger.getLogger("gui.mainwindow");
 	private static ConfigController config;
+	private JTextField txtFMAddress;
+	private JFormattedTextField txtFMPort;
+	private JLabel lblFMPort;
+	private JLabel lblFMAddress;
+	private JLabel lblFMPass;
+	private JPasswordField txtFMPass;
+	private JLabel lblFMUser;
+	private JTextField txtFMUser;
+	private JLabel lblFMConnect;
+	private JLabel lblMySQLDB;
+	private JTextField txtMySQLDB;
+	private JTextField txtFMDB;
+	private JLabel lblFMDB;
+	private JLabel lblMySQLPass;
+	private JLabel lblMySQLUser;
 
 	/**
 	 * Launch the application.
@@ -136,77 +142,31 @@ public class MainWindow {
 		frame = new JFrame();
 		frame.setResizable(false);
 		frame.setTitle("CeramAlexSync");
-		frame.setBounds(100, 100, 697, 583);
+		frame.setBounds(100, 100, 800, 553);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.getContentPane().setLayout(null);
 		
-		panelFMF = new JPanel();
-		panelFMF.setBorder(new TitledBorder(new LineBorder(new Color(0, 0, 0)), "FileMaker File(s)", TitledBorder.LEADING, TitledBorder.TOP, null, null));
-		panelFMF.setBounds(12, 89, 478, 127);
-		frame.getContentPane().add(panelFMF);
-		panelFMF.setLayout(null);
-		
-		btnAddFile = new JButton("Directory");
-		btnAddFile.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent arg0) {
-				JFileChooser chooser = new JFileChooser();
-				FileNameExtensionFilter filter = new FileNameExtensionFilter("FileMaker Files (*.fmp12, *.tab)", "fmp12", "tab");
-				chooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-				chooser.addChoosableFileFilter(filter);
-				chooser.setAcceptAllFileFilterUsed(false);
-				
-				int result = chooser.showOpenDialog(frame);
-				if (result == JFileChooser.APPROVE_OPTION) {
-					File[] filesInDir = chooser.getSelectedFile().listFiles(new FilenameFilter() {
-						public boolean accept (File dir, String name) {
-							return name.toLowerCase().endsWith(".fmp12") || name.toLowerCase().endsWith(".tab");
-						}
-					});
-					model.clear();
-					for (File f : filesInDir) {
-						model.addElement(f);
-					}
-				}
-			}
-		});
-		btnAddFile.setBounds(340, 36, 126, 25);
-		panelFMF.add(btnAddFile);
-		
-		btnRemFile = new JButton("Clear list");
-		btnRemFile.addActionListener(new ActionListener() {
-			@Override
-			public void actionPerformed(ActionEvent arg0) {
-				model.clear();
-			}
-		});
-		btnRemFile.setBounds(340, 73, 126, 25);
-		panelFMF.add(btnRemFile);
-		
-		model = new DefaultListModel<File>();
-		listFiles = new JList<File>();
-		listFiles.setModel(model);
-		listFiles.setBounds(12, 25, 316, 90);
-		panelFMF.add(listFiles);
+//		DefaultListModel<File> model = new DefaultListModel<File>();
 		
 		panelPrefs = new JPanel();
-		panelPrefs.setBorder(new TitledBorder(new LineBorder(new Color(0, 0, 0)), "Preferences", TitledBorder.LEADING, TitledBorder.TOP, null, null));
-		panelPrefs.setBounds(12, 228, 478, 190);
+		panelPrefs.setBorder(new TitledBorder(new LineBorder(new Color(0, 0, 0)), "Database preferences", TitledBorder.LEADING, TitledBorder.TOP, null, new Color(51, 51, 51)));
+		panelPrefs.setBounds(12, 89, 566, 281);
 		frame.getContentPane().add(panelPrefs);
 		panelPrefs.setLayout(null);
 		
-		lblAddress = new JLabel("MySQL Server Address");
-		lblAddress.setBounds(12, 22, 325, 15);
-		panelPrefs.add(lblAddress);
+		lblMySQLAddress = new JLabel("MySQL Server Address");
+		lblMySQLAddress.setFont(new Font("Dialog", Font.PLAIN, 12));
+		lblMySQLAddress.setBounds(12, 25, 315, 15);
+		panelPrefs.add(lblMySQLAddress);
 		
-		txtAddress = new JTextField(50);
-		txtAddress.setBounds(12, 43, 325, 24);
-		panelPrefs.add(txtAddress);
-		txtAddress.setText(URL_PREFIX + "arachne.dainst.org");
-		((AbstractDocument) txtAddress.getDocument()).setDocumentFilter(new DocumentFilter() {
+		txtMySQLAddress = new JTextField(50);
+		txtMySQLAddress.setBounds(12, 46, 315, 24);
+		panelPrefs.add(txtMySQLAddress);
+		txtMySQLAddress.setText(MYSQL_URL_PREFIX + "arachne.dainst.org");
+		((AbstractDocument) txtMySQLAddress.getDocument()).setDocumentFilter(new DocumentFilter() {
 			@Override
             public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr) throws BadLocationException {
-                if (offset < URL_PREFIX.length()) {
+                if (offset < MYSQL_URL_PREFIX.length()) {
                     return;
                 }
                 super.insertString(fb, offset, string, attr);
@@ -214,25 +174,25 @@ public class MainWindow {
 
             @Override
             public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs) throws BadLocationException {
-                if (offset < URL_PREFIX.length()) {
-                    length = Math.max(0, length - URL_PREFIX.length());
-                    offset = URL_PREFIX.length();
+                if (offset < MYSQL_URL_PREFIX.length()) {
+                    length = Math.max(0, length - MYSQL_URL_PREFIX.length());
+                    offset = MYSQL_URL_PREFIX.length();
                 }
                 super.replace(fb, offset, length, text, attrs);
             }
 
             @Override
             public void remove(FilterBypass fb, int offset, int length) throws BadLocationException {
-                if (offset < URL_PREFIX.length()) {
-                    length = Math.max(0, length + offset - URL_PREFIX.length());
-                    offset = URL_PREFIX.length();
+                if (offset < MYSQL_URL_PREFIX.length()) {
+                    length = Math.max(0, length + offset - MYSQL_URL_PREFIX.length());
+                    offset = MYSQL_URL_PREFIX.length();
                 }
                 if (length > 0) {
                     super.remove(fb, offset, length);
                 }
             }
 		});
-		txtAddress.setColumns(10);
+		txtMySQLAddress.setColumns(10);
 		
 		NumberFormat format = NumberFormat.getInstance();
 	    NumberFormatter formatter = new NumberFormatter(format);
@@ -241,35 +201,148 @@ public class MainWindow {
 	    formatter.setMinimum(0);
 	    formatter.setMaximum(65535);
 	    formatter.setAllowsInvalid(false);
-		txtPort = new JFormattedTextField(formatter);
-		txtPort.setBounds(343, 43, 123, 24);
-		panelPrefs.add(txtPort);
-		txtPort.setValue(3306);	//default port mySQL
-		txtPort.setColumns(10);
+		txtMySQLPort = new JFormattedTextField(formatter);
+		txtMySQLPort.setBounds(334, 46, 65, 24);
+		panelPrefs.add(txtMySQLPort);
+		txtMySQLPort.setValue(3306);	//default port mySQL
+		txtMySQLPort.setColumns(10);
 		
-		lblPort = new JLabel("Port");
-		lblPort.setBounds(343, 22, 123, 15);
-		panelPrefs.add(lblPort);
+		lblMySQLPort = new JLabel("Port");
+		lblMySQLPort.setFont(new Font("Dialog", Font.PLAIN, 12));
+		lblMySQLPort.setBounds(334, 25, 65, 15);
+		panelPrefs.add(lblMySQLPort);
 		
-		lblPlace = new JLabel("Particular Place");
-		lblPlace.setBounds(12, 79, 454, 15);
-		panelPrefs.add(lblPlace);
+		lblFMAddress = new JLabel("FileMaker Server Address");
+		lblFMAddress.setFont(new Font("Dialog", Font.PLAIN, 12));
+		lblFMAddress.setBounds(12, 164, 315, 15);
+		panelPrefs.add(lblFMAddress);
 		
-		lblAuthor = new JLabel("Particular Author");
-		lblAuthor.setBounds(12, 136, 454, 15);
-		panelPrefs.add(lblAuthor);
+		txtFMAddress = new JTextField(10);
+		txtFMAddress.setText("jdbc:mysql://arachne.dainst.org");
+		txtFMAddress.setBounds(12, 185, 315, 24);
+		txtFMAddress.setText(FM_URL_PREFIX + "134.95.115.20");
+		((AbstractDocument) txtMySQLAddress.getDocument()).setDocumentFilter(new DocumentFilter() {
+			@Override
+            public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr) throws BadLocationException {
+                if (offset < FM_URL_PREFIX.length()) {
+                    return;
+                }
+                super.insertString(fb, offset, string, attr);
+            }
+
+            @Override
+            public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs) throws BadLocationException {
+                if (offset < FM_URL_PREFIX.length()) {
+                    length = Math.max(0, length - FM_URL_PREFIX.length());
+                    offset = FM_URL_PREFIX.length();
+                }
+                super.replace(fb, offset, length, text, attrs);
+            }
+
+            @Override
+            public void remove(FilterBypass fb, int offset, int length) throws BadLocationException {
+                if (offset < FM_URL_PREFIX.length()) {
+                    length = Math.max(0, length + offset - FM_URL_PREFIX.length());
+                    offset = FM_URL_PREFIX.length();
+                }
+                if (length > 0) {
+                    super.remove(fb, offset, length);
+                }
+            }
+		});
+		panelPrefs.add(txtFMAddress);
 		
-		cmbPlace = new JComboBox<String>();
-		cmbPlace.setBounds(12, 100, 454, 24);
-		panelPrefs.add(cmbPlace);
+		lblFMPort = new JLabel("Port");
+		lblFMPort.setFont(new Font("Dialog", Font.PLAIN, 12));
+		lblFMPort.setBounds(334, 164, 65, 15);
+		panelPrefs.add(lblFMPort);
 		
-		cmbAuthor = new JComboBox<String>();
-		cmbAuthor.setBounds(12, 155, 454, 24);
-		panelPrefs.add(cmbAuthor);
+		txtFMPort = new JFormattedTextField(formatter);
+		txtFMPort.setColumns(10);
+		txtFMPort.setBounds(334, 185, 65, 24);
+		txtFMPort.setValue(2399);
+		txtFMPort.setEditable(false);
+		panelPrefs.add(txtFMPort);
+		
+		lblMySQLUser = new JLabel("MySQL Username");
+		lblMySQLUser.setBounds(12, 82, 200, 15);
+		panelPrefs.add(lblMySQLUser);
+		lblMySQLUser.setFont(new Font("Dialog", Font.PLAIN, 12));
+		
+		txtMySQLUser = new JTextField();
+		txtMySQLUser.setBounds(12, 106, 200, 24);
+		panelPrefs.add(txtMySQLUser);
+		txtMySQLUser.setText("ceramalex");
+		txtMySQLUser.setColumns(10);
+		
+		lblMySQLPass = new JLabel("MySQL Password");
+		lblMySQLPass.setBounds(220, 82, 165, 15);
+		panelPrefs.add(lblMySQLPass);
+		lblMySQLPass.setFont(new Font("Dialog", Font.PLAIN, 12));
+		
+		txtMySQLPass = new JPasswordField();
+		txtMySQLPass.setBounds(220, 106, 165, 24);
+		panelPrefs.add(txtMySQLPass);
+		
+		lblFMPass = new JLabel("MySQL Password");
+		lblFMPass.setFont(new Font("Dialog", Font.PLAIN, 12));
+		lblFMPass.setBounds(220, 221, 165, 15);
+		panelPrefs.add(lblFMPass);
+		
+		txtFMPass = new JPasswordField();
+		txtFMPass.setBounds(220, 245, 165, 24);
+		panelPrefs.add(txtFMPass);
+		
+		lblFMUser = new JLabel("MySQL Username");
+		lblFMUser.setFont(new Font("Dialog", Font.PLAIN, 12));
+		lblFMUser.setBounds(12, 221, 200, 15);
+		panelPrefs.add(lblFMUser);
+		
+		txtFMUser = new JTextField();
+		txtFMUser.setText("admin");
+		txtFMUser.setColumns(10);
+		txtFMUser.setBounds(12, 245, 200, 24);
+		panelPrefs.add(txtFMUser);
+		
+		JSeparator separator = new JSeparator();
+		separator.setBounds(12, 148, 542, 2);
+		panelPrefs.add(separator);
+		
+		lblMySQLDB = new JLabel("Database");
+		lblMySQLDB.setFont(new Font("Dialog", Font.PLAIN, 12));
+		lblMySQLDB.setBounds(406, 25, 148, 15);
+		panelPrefs.add(lblMySQLDB);
+		
+		txtMySQLDB = new JTextField();
+		txtMySQLDB.setColumns(10);
+		txtMySQLDB.setBounds(406, 46, 148, 24);
+		txtMySQLDB.setText("ceramalex");
+		panelPrefs.add(txtMySQLDB);
+		
+		txtFMDB = new JTextField();
+		txtFMDB.setColumns(10);
+		txtFMDB.setBounds(406, 185, 148, 24);
+		txtFMDB.setText("");
+		panelPrefs.add(txtFMDB);
+		
+		lblFMDB = new JLabel("Database");
+		lblFMDB.setFont(new Font("Dialog", Font.PLAIN, 12));
+		lblFMDB.setBounds(406, 164, 148, 15);
+		panelPrefs.add(lblFMDB);
+		
+		lblMySQLConnect = new JLabel("Not connected to MySQL.");
+		lblMySQLConnect.setBounds(394, 110, 160, 15);
+		panelPrefs.add(lblMySQLConnect);
+		lblMySQLConnect.setFont(new Font("Dialog", Font.PLAIN, 12));
+		
+		lblFMConnect = new JLabel("Not connected to FM.");
+		lblFMConnect.setBounds(394, 249, 160, 15);
+		panelPrefs.add(lblFMConnect);
+		lblFMConnect.setFont(new Font("Dialog", Font.PLAIN, 12));
 		
 		panelLog = new JPanel();
 		panelLog.setBorder(new TitledBorder(new LineBorder(new Color(0, 0, 0)), "Log", TitledBorder.LEADING, TitledBorder.TOP, null, null));
-		panelLog.setBounds(12, 430, 478, 112);
+		panelLog.setBounds(12, 382, 566, 138);
 		frame.getContentPane().add(panelLog);
 		panelLog.setLayout(new BorderLayout(0, 0));
 				
@@ -287,30 +360,37 @@ public class MainWindow {
 		
 		panelActions = new JPanel();
 		panelActions.setBorder(new TitledBorder(new LineBorder(new Color(0, 0, 0)), "Actions", TitledBorder.LEADING, TitledBorder.TOP, null, null));
-		panelActions.setBounds(502, 89, 181, 453);
+		panelActions.setBounds(590, 89, 196, 431);
 		frame.getContentPane().add(panelActions);
 		panelActions.setLayout(null);
 		
 		btnDownload = new JToggleButton("Download");
-		btnDownload.setBounds(12, 73, 157, 25);
+		btnDownload.setEnabled(false);
+		btnDownload.setFont(new Font("Dialog", Font.PLAIN, 12));
+		btnDownload.setBounds(12, 73, 172, 25);
 		panelActions.add(btnDownload);
 		
 		btnUpload = new JToggleButton("Upload");
-		btnUpload.setBounds(12, 36, 157, 25);
+		btnUpload.setEnabled(false);
+		btnUpload.setFont(new Font("Dialog", Font.PLAIN, 12));
+		btnUpload.setBounds(12, 36, 172, 25);
 		panelActions.add(btnUpload);
 		
-		btnConnect = new JButton("Connect to DB");
+		btnConnect = new JButton("Connect to DBs");
+		btnConnect.setFont(new Font("Dialog", Font.PLAIN, 12));
 		btnConnect.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				
-				String a = txtAddress.getText();
-				int port = Integer.parseInt(txtPort.getText());
-				String user = txtUser.getText();
-				String pwd = new String(txtPass.getPassword());// "pvnnyEMpQHSfBXvW";
+				String a = txtMySQLAddress.getText();
+				int port = Integer.parseInt(txtMySQLPort.getText());
+				String user = txtMySQLUser.getText();
+				String pwd = new String(txtMySQLPass.getPassword());// "pvnnyEMpQHSfBXvW";
+				String mDB = txtMySQLDB.getText();
 				
 				config.setMySQLURL(a + ":" + port);
 				config.setMySQLUser(user);
+				config.setMySQLDB(mDB);
 				config.setMySQLPassword(pwd);
 				
 				/**
@@ -329,13 +409,13 @@ public class MainWindow {
 							/**
 							 * SwingWorker to connect to DB and update GUI elements
 							 */
-							ConnectionWorker worker = new ConnectionWorker(txtLog, btnConnect, lblConnect, txtPort, txtAddress) {
+							ConnectionWorker worker = new ConnectionWorker(txtLog, btnConnect, lblMySQLConnect, txtMySQLPort, txtMySQLAddress) {
 								
-								SyncStatus closed = new SyncStatus(null, "Not connected.", "Connect to DB", true, true, true);
-								SyncStatus connecting = new SyncStatus("Trying to connect to "+a+" as "+ user +" ...\n", "Not connected.", "Connecting ...", false, false, false);
-								SyncStatus open = new SyncStatus("Connected to "+a+".\n", "Connected to DB.", "Disconnect", true, false, false);
-								SyncStatus closedError = new SyncStatus("Connection as "+user+" to "+a+" on port "+port+" failed!\n", "Not connected.", "Connect to DB", true, true, true);
-								SyncStatus timeoutError = new SyncStatus("Connection establishment to DB timed out.\n", "Not connected.", "Connect to DB", true, true, true);
+								SyncStatus fClosed = new SyncStatus(null, "Not connected.", "Connect to DB", true, true, true);
+								SyncStatus fConnecting = new SyncStatus("Trying to connect to "+a+" as "+ user +" ...\n", "Not connected.", "Connecting ...", false, false, false);
+								SyncStatus fOpen = new SyncStatus("Connected to "+a+".\n", "Connected to DB.", "Disconnect", true, false, false);
+								SyncStatus fClosedError = new SyncStatus("Connection as "+user+" to "+a+" on port "+port+" failed!\n", "Not connected.", "Connect to DB", true, true, true);
+								SyncStatus fTimeoutError = new SyncStatus("Connection establishment to DB timed out.\n", "Not connected.", "Connect to DB", true, true, true);
 								
 								/**
 								 * @return true if connection established
@@ -344,28 +424,30 @@ public class MainWindow {
 								@Override
 								protected Boolean doInBackground() throws InterruptedException {
 									
-									publish(connecting);
+									publish(fConnecting);
 									
 									try {
 										SQLAccessController mySQLConnector = SQLAccessController.getInstance();
 										if (mySQLConnector.isMySQLConnected()){
 											connected = true;
-											publish(open);
+											publish(fOpen);
 											return true;
 										}
 										else
 											return false;
 									} catch (SQLException e) {
-										publish(closedError);
+										publish(fClosedError);
 //										this.cancel(true);
 										SwingUtilities.invokeLater(new Runnable(){
 											@Override
 											public void run() {
-												String msg = "";
+												String msg = "Common error.";
 												if (e.getMessage().startsWith("Communications link failure"))
 													msg = "Server does not answer.";
 												if (e.getMessage().startsWith("Access denied"))
 													msg = "Access denied. Wrong user name or password.";
+												if (e.getMessage().startsWith("No suitable driver"))
+													msg = e.getMessage();
 												JOptionPane.showMessageDialog(frame, "Connection error: "+msg, "Connection failure", JOptionPane.WARNING_MESSAGE);
 											};
 										});
@@ -377,12 +459,12 @@ public class MainWindow {
 									try {
 										// connection open?
 										if (!this.get()){
-											publish(closed);
+											publish(fClosed);
 										}
 									} catch (InterruptedException | ExecutionException e) {
-										publish(closedError);
+										publish(fClosedError);
 									} catch (CancellationException e) {
-										publish(timeoutError);
+										publish(fTimeoutError);
 									}
 								}
 							};
@@ -407,10 +489,10 @@ public class MainWindow {
 					/**
 					 * SwingWorker to disconnect and update GUI elements
 					 */
-					ConnectionWorker worker = new ConnectionWorker(txtLog, btnConnect, lblConnect, txtPort, txtAddress) {
+					ConnectionWorker worker = new ConnectionWorker(txtLog, btnConnect, lblMySQLConnect, txtMySQLPort, txtMySQLAddress) {
 						
-						SyncStatus closed = new SyncStatus("Connection closed.\n", "Not connected.", "Connect to DB", true, true, true);
-						SyncStatus closedError = new SyncStatus("Connection as "+user+" to "+a+" on port "+port+" failed!\n", "Not connected.", "Connect to DB", true, true, true);
+						SyncStatus fClosed = new SyncStatus("Connection closed.\n", "Not connected.", "Connect to DB", true, true, true);
+						SyncStatus fClosedError = new SyncStatus("Connection as "+user+" to "+a+" on port "+port+" failed!\n", "Not connected.", "Connect to DB", true, true, true);
 						
 						/**
 						 *	@return true if connection closed
@@ -429,11 +511,11 @@ public class MainWindow {
 							
 							if (connector.close()){
 								connected = false;
-								publish(closed);
+								publish(fClosed);
 								return true;
 							}
 							else{
-								publish(closedError);
+								publish(fClosedError);
 								SwingUtilities.invokeLater(new Runnable(){
 									@Override
 									public void run() {
@@ -448,15 +530,12 @@ public class MainWindow {
 				}
 			}
 		});
-		btnConnect.setBounds(12, 259, 157, 25);
+		btnConnect.setBounds(12, 357, 172, 25);
 		panelActions.add(btnConnect);
 		
-		lblConnect = new JLabel("Not connected.");
-		lblConnect.setBounds(12, 296, 157, 15);
-		panelActions.add(lblConnect);
-		
 		btnStart = new JButton("START");
-		btnStart.setBounds(12, 405, 157, 25);
+		btnStart.setEnabled(false);
+		btnStart.setBounds(12, 394, 172, 25);
 		btnStart.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
@@ -469,32 +548,32 @@ public class MainWindow {
 					@Override
 					protected Void doInBackground() throws Exception {
 						
-						ArrayList<File> files = new ArrayList<File>();
-						
-						if (listFiles.getModel().getSize() == 0){
-							SwingUtilities.invokeLater(new Runnable(){
-								@Override
-								public void run() {
-									JOptionPane.showMessageDialog(frame, "No FileMaker files selected!", "Missing input", JOptionPane.WARNING_MESSAGE);
-									return;
-								};
-							});
-						}
-						
-						for (int i = 0; i < listFiles.getModel().getSize(); i ++){
-							files.add(listFiles.getModel().getElementAt(i));
-						}
+//						ArrayList<File> files = new ArrayList<File>();
+//						
+//						if (listFiles.getModel().getSize() == 0){
+//							SwingUtilities.invokeLater(new Runnable(){
+//								@Override
+//								public void run() {
+//									JOptionPane.showMessageDialog(frame, "No FileMaker files selected!", "Missing input", JOptionPane.WARNING_MESSAGE);
+//									return;
+//								};
+//							});
+//						}
+//						
+//						for (int i = 0; i < listFiles.getModel().getSize(); i ++){
+//							files.add(listFiles.getModel().getElementAt(i));
+//						}
 						
 						if(btnDownload.isSelected()){
 							
-							SwingUtilities.invokeLater(new Runnable(){
-								@Override
-								public void run() {
-									progressBar.setVisible(true);
-									progressBar.setStringPainted(true);
-									progressBar.setValue(0);
-								};
-							});
+//							SwingUtilities.invokeLater(new Runnable(){
+//								@Override
+//								public void run() {
+//									progressBar.setVisible(true);
+//									progressBar.setStringPainted(true);
+//									progressBar.setValue(0);
+//								};
+//							});
 							
 							/**
 							 * Create SwingWorker to manage download
@@ -533,31 +612,35 @@ public class MainWindow {
 		});
 		panelActions.add(btnStart);
 		
-		txtUser = new JTextField();
-		txtUser.setText("ceramalex");
-		txtUser.setBounds(12, 167, 157, 24);
-		panelActions.add(txtUser);
-		txtUser.setColumns(10);
+		cmbPlace = new JComboBox<String>();
+		cmbPlace.setBounds(12, 208, 172, 24);
+		panelActions.add(cmbPlace);
+		cmbPlace.setEnabled(false);
 		
-		txtPass = new JPasswordField();
-		txtPass.setBounds(12, 223, 157, 24);
-		panelActions.add(txtPass);
+		lblPlace = new JLabel("Particular Place");
+		lblPlace.setBounds(12, 187, 157, 15);
+		panelActions.add(lblPlace);
+		lblPlace.setFont(new Font("Dialog", Font.PLAIN, 12));
 		
-		JLabel lblPass = new JLabel("MySQL Password");
-		lblPass.setBounds(12, 203, 157, 15);
-		panelActions.add(lblPass);
+		lblAuthor = new JLabel("Particular Author");
+		lblAuthor.setBounds(12, 244, 157, 15);
+		panelActions.add(lblAuthor);
+		lblAuthor.setFont(new Font("Dialog", Font.PLAIN, 12));
 		
-		JLabel lblUser = new JLabel("MySQL Username");
-		lblUser.setBounds(12, 143, 157, 15);
-		panelActions.add(lblUser);
+		cmbAuthor = new JComboBox<String>();
+		cmbAuthor.setBounds(12, 263, 172, 24);
+		panelActions.add(cmbAuthor);
+		cmbAuthor.setEnabled(false);
 		
-		progressBar = new JProgressBar(0, listFiles.getModel().getSize());
-		progressBar.setBounds(12, 368, 157, 25);
-		panelActions.add(progressBar);
+		JButton btnChooseTables = new JButton("Choose tables");
+		btnChooseTables.setEnabled(false);
+		btnChooseTables.setFont(new Font("Dialog", Font.PLAIN, 12));
+		btnChooseTables.setBounds(12, 150, 172, 25);
+		panelActions.add(btnChooseTables);
 		
-		URL url = getClass().getResource("/resources/logo.png");		
+		URL url = getClass().getResource("/ceramalex/sync/resources/logo.png");		
 		JLabel lblPicture = new JLabel(new ImageIcon(url));
-		lblPicture.setBounds(12, 12, 671, 70);
+		lblPicture.setBounds(12, 12, 774, 70);
 		frame.getContentPane().add(lblPicture);
 	
 	}

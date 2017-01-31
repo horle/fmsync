@@ -42,8 +42,8 @@ public class SQLAccessController {
 	private SQLAccessController() throws SQLException {
 		
 		config = ConfigController.getInstance();
-		this.mDataAccess = new MySQLDataAccess(config.getMySQLURL(), config.getMySQLUser(), config.getMySQLPassword(), "ceramalex");
-		this.fDataAccess = new FMDataAccess(config.getFmURL(), config.getFmUser(), config.getFmPassword(), null);
+		this.mDataAccess = new MySQLDataAccess(config.getMySQLURL(), config.getMySQLUser(), config.getMySQLPassword(), config.getMySQLDB());
+		this.fDataAccess = new FMDataAccess(config.getFmURL(), config.getFmUser(), config.getFmPassword(), config.getFmDB());
 	}
 		
 	public boolean close() {

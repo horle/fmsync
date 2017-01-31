@@ -69,7 +69,7 @@ public abstract class AbstractDatabase {
 			logger.error("::::"+e);
 		}
 		
-		// eine Verbindung mit FileMaker herstellen
+		// eine Verbindung mit DB herstellen
 		try {
 			DriverManager.registerDriver(d);
 			this.cn = DriverManager.getConnection(getConnectionURL(dbUrl, user, pwd, serverDataSource));

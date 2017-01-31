@@ -22,7 +22,7 @@ public class MySQLDataAccess extends AbstractDatabase {
 		String result = url;
 		
 		// Datenbankname
-		result += serverDataSource;
+		result += "/"+serverDataSource;
 		result += "?user=" + user;
 		result += "&password=" + pwd;
 		
