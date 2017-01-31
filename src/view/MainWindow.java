@@ -1,4 +1,4 @@
-package gui;
+package view;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -28,6 +28,7 @@ import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
+import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
@@ -49,6 +50,7 @@ import org.apache.log4j.Logger;
 import org.apache.log4j.xml.DOMConfigurator;
 
 import data.SQLSyncConnector;
+import data.CallManager;
 
 /**
  * CeramalexSync main window to control DB sync actions
@@ -91,6 +93,7 @@ public class MainWindow {
 	private JTextField txtUser;
 	private JPasswordField txtPass;
 	private JScrollPane scrollPane;
+	private JProgressBar progressBar;
 
 	private final int CONN_TIMEOUT = 5;
 	protected static Logger logger = Logger.getLogger("gui.mainwindow");
@@ -452,7 +455,7 @@ public class MainWindow {
 						
 						ArrayList<File> files = new ArrayList<File>();
 						
-						if (files.isEmpty()){
+						if (listFiles.getModel().getSize() == 0){
 							SwingUtilities.invokeLater(new Runnable(){
 								@Override
 								public void run() {
@@ -468,34 +471,43 @@ public class MainWindow {
 						
 						if(btnDownload.isSelected()){
 							
+							SwingUtilities.invokeLater(new Runnable(){
+								@Override
+								public void run() {
+									progressBar.setVisible(true);
+									progressBar.setStringPainted(true);
+									progressBar.setValue(0);
+								};
+							});
+							
 							/**
 							 * Create SwingWorker to manage download
 							 */
-//							SwingWorker<Boolean,Void> worker = new SwingWorker<Boolean,Void>(){
-//		
-//								@Override
-//								protected Boolean doInBackground() throws Exception {
-//									
-//									return CallManager.getInstance().startDownload();
-//								}
-//								
-//							};
-//							worker.execute();
+							ProgressWorker worker = new ProgressWorker(){
+		
+								@Override
+								protected Boolean doInBackground() throws Exception {
+									
+									return CallManager.getInstance().startDownload();
+								}
+								
+							};
+							worker.execute();
 						}
 						if(btnUpload.isSelected()){
 							
 							/**
 							 * Create SwingWorker to manage download
 							 */		
-//							SwingWorker<Boolean,Void> worker = new SwingWorker<Boolean,Void>(){
-//		
-//								@Override
-//								protected Boolean doInBackground() throws Exception {
-//									
-//									return CallManager.getInstance().startUpload();
-//								}
-//							};
-//							worker.execute();
+							SwingWorker<Boolean,Void> worker = new SwingWorker<Boolean,Void>(){
+		
+								@Override
+								protected Boolean doInBackground() throws Exception {
+									
+									return CallManager.getInstance().startUpload();
+								}
+							};
+							worker.execute();
 						}
 						return null;
 					}
@@ -522,6 +534,10 @@ public class MainWindow {
 		JLabel lblUser = new JLabel("MySQL Username");
 		lblUser.setBounds(12, 143, 157, 15);
 		panelActions.add(lblUser);
+		
+		progressBar = new JProgressBar(0, listFiles.getModel().getSize());
+		progressBar.setBounds(12, 368, 157, 25);
+		panelActions.add(progressBar);
 		
 		URL url = getClass().getResource("/resources/logo.png");		
 		JLabel lblPicture = new JLabel(new ImageIcon(url));

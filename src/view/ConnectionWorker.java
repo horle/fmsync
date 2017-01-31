@@ -1,6 +1,4 @@
-package gui;
-
-import gui.ConnectionWorker.SyncStatus;
+package view;
 
 import java.util.List;
 
@@ -10,6 +8,8 @@ import javax.swing.JLabel;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingWorker;
+
+import view.ConnectionWorker.SyncStatus;
 
 /**
  * Abstract SwingWorker class to update GUI elements in main window
