@@ -1,4 +1,4 @@
-package view;
+package ceramalex.sync.view;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -49,8 +49,9 @@ import javax.swing.text.NumberFormatter;
 import org.apache.log4j.Logger;
 import org.apache.log4j.xml.DOMConfigurator;
 
-import data.SQLSyncConnector;
-import data.CallManager;
+import ceramalex.sync.controller.ConfigController;
+import ceramalex.sync.controller.SQLAccessController;
+import ceramalex.sync.data.CallManager;
 
 /**
  * CeramalexSync main window to control DB sync actions
@@ -97,6 +98,7 @@ public class MainWindow {
 
 	private final int CONN_TIMEOUT = 5;
 	protected static Logger logger = Logger.getLogger("gui.mainwindow");
+	private static ConfigController config;
 
 	/**
 	 * Launch the application.
@@ -104,6 +106,8 @@ public class MainWindow {
 	public static void main(String[] args) {
 		
 		DOMConfigurator.configureAndWatch("ressource/log4j.xml");
+		config = ConfigController.getInstance();
+		
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
@@ -305,6 +309,10 @@ public class MainWindow {
 				String user = txtUser.getText();
 				String pwd = new String(txtPass.getPassword());// "pvnnyEMpQHSfBXvW";
 				
+				config.setMySQLURL(a + ":" + port);
+				config.setMySQLUser(user);
+				config.setMySQLPassword(pwd);
+				
 				/**
 				 * Establish new connection to DB
 				 */
@@ -320,9 +328,6 @@ public class MainWindow {
 							
 							/**
 							 * SwingWorker to connect to DB and update GUI elements
-							 * 
-							 * @return true if connection established
-							 * @return false if connection failed
 							 */
 							ConnectionWorker worker = new ConnectionWorker(txtLog, btnConnect, lblConnect, txtPort, txtAddress) {
 								
@@ -332,14 +337,18 @@ public class MainWindow {
 								SyncStatus closedError = new SyncStatus("Connection as "+user+" to "+a+" on port "+port+" failed!\n", "Not connected.", "Connect to DB", true, true, true);
 								SyncStatus timeoutError = new SyncStatus("Connection establishment to DB timed out.\n", "Not connected.", "Connect to DB", true, true, true);
 								
+								/**
+								 * @return true if connection established
+								 * @return false if connection failed
+								 */
 								@Override
 								protected Boolean doInBackground() throws InterruptedException {
 									
 									publish(connecting);
 									
 									try {
-										SQLSyncConnector connector = SQLSyncConnector.initPrefs(a+":"+port+"/",user,pwd,"ceramalex");
-										if (connector.isConnected()){
+										SQLAccessController mySQLConnector = SQLAccessController.getInstance();
+										if (mySQLConnector.isMySQLConnected()){
 											connected = true;
 											publish(open);
 											return true;
@@ -397,19 +406,26 @@ public class MainWindow {
 					
 					/**
 					 * SwingWorker to disconnect and update GUI elements
-					 * 
-					 * @return true if connection closed
-					 * @return false if closing connection failed
 					 */
 					ConnectionWorker worker = new ConnectionWorker(txtLog, btnConnect, lblConnect, txtPort, txtAddress) {
 						
 						SyncStatus closed = new SyncStatus("Connection closed.\n", "Not connected.", "Connect to DB", true, true, true);
 						SyncStatus closedError = new SyncStatus("Connection as "+user+" to "+a+" on port "+port+" failed!\n", "Not connected.", "Connect to DB", true, true, true);
 						
+						/**
+						 *	@return true if connection closed
+						 *  @return false if closing connection failed
+						 */
 						@Override
 						protected Boolean doInBackground() {
 										
-							SQLSyncConnector connector = SQLSyncConnector.getInstance();
+							SQLAccessController connector = null;
+							try {
+								connector = SQLAccessController.getInstance();
+							} catch (SQLException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
 							
 							if (connector.close()){
 								connected = false;
@@ -497,7 +513,7 @@ public class MainWindow {
 						if(btnUpload.isSelected()){
 							
 							/**
-							 * Create SwingWorker to manage download
+							 * Create SwingWorker to manage upload
 							 */		
 							SwingWorker<Boolean,Void> worker = new SwingWorker<Boolean,Void>(){
 		

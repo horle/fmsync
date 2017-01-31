@@ -1,13 +1,12 @@
-package data;
+package ceramalex.sync.data;
 
 import java.sql.SQLException;
 
-public class SQLDataAccess extends AbstractDatabase {
-	
+public class MySQLDataAccess extends AbstractDatabase {
 	
 	//-------------------------------------------------------------------------------
-	public SQLDataAccess(String dbUrl,String user, String pwd, String serverDataSource) throws SQLException {
-		super(dbUrl,user,pwd, serverDataSource);
+	public MySQLDataAccess(String dbUrl,String user, String pwd, String serverDataSource) throws SQLException {
+		super(dbUrl, user, pwd, serverDataSource);
 	}
 	
 	//-------------------------------------------------------------------------------
@@ -17,7 +16,6 @@ public class SQLDataAccess extends AbstractDatabase {
 	}
 
 	//-------------------------------------------------------------------------------
-
 	@Override
 	protected String getConnectionURL(String url, String user, String pwd,
 			String serverDataSource) {

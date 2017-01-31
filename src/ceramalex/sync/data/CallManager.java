@@ -1,4 +1,4 @@
-package data;
+package ceramalex.sync.data;
 
 import org.apache.log4j.xml.DOMConfigurator;
 
@@ -29,7 +29,6 @@ public class CallManager {
 	}
 	
 	public boolean startUpload(){
-		DOMConfigurator.configureAndWatch("ressource/log4j.xml");
 		ImportController importController = new ImportController();
 		// importController.process();
 		

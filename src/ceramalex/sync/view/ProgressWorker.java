@@ -1,4 +1,4 @@
-package view;
+package ceramalex.sync.view;
 
 import java.util.List;
 

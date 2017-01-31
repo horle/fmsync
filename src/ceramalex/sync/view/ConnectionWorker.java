@@ -1,4 +1,4 @@
-package view;
+package ceramalex.sync.view;
 
 import java.util.List;
 
@@ -9,7 +9,7 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingWorker;
 
-import view.ConnectionWorker.SyncStatus;
+import ceramalex.sync.view.ConnectionWorker.SyncStatus;
 
 /**
  * Abstract SwingWorker class to update GUI elements in main window

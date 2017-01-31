@@ -1,4 +1,4 @@
-package data;
+package ceramalex.sync.data;
 
 import java.sql.Connection;
 import java.sql.Driver;
@@ -223,7 +223,7 @@ public abstract class AbstractDatabase {
 	 * Liefert Status der Verbindung als boolean
 	 * @return true, falls verbunden.
 	 */
-	protected boolean isConnected() throws SQLException {
+	public boolean isConnected() throws SQLException {
 		if (cn == null)
 			return false;
 		return cn.isValid(5);
