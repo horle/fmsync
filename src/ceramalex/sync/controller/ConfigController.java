@@ -13,6 +13,9 @@ public class ConfigController {
 	/** URL der MySQL-Datenbank */
 	private String mySQLURL = null;
 	
+	/** URL der MySQL-Datenbank */
+	private String mySQLPort = null;
+	
 	/** User der MySQL-Datenbank */
 	private String mySQLUser = null;
 	
@@ -53,11 +56,12 @@ public class ConfigController {
 	}
 	
 	private ConfigController() {
-		setPrefs("","","","","","", "", "");
+		setPrefs("","","","","","", "", "", "");
 	}
 	
-	public void setPrefs(String sqlURL, String sqlUser, String sqlPwd, String sqlDB, String fURL, String fUser, String fPwd, String fDB) {
+	public void setPrefs(String sqlURL, String sqlUser, String sqlPwd, String sqlDB, String fURL, String fUser, String fPwd, String fDB, String sqlPort) {
 		this.mySQLURL = sqlURL;
+		this.mySQLPort = sqlPort;
 		this.mySQLUser = sqlUser;
 		this.mySQLPassword = sqlPwd;
 		this.mySQLDB = sqlDB;
@@ -153,6 +157,14 @@ public class ConfigController {
 
 	public void setFmDB(String fmDB) {
 		this.fmDB = fmDB;
+	}
+
+	public String getMySQLPort() {
+		return mySQLPort;
+	}
+
+	public void setMySQLPort(String mySQLPort) {
+		this.mySQLPort = mySQLPort;
 	}
 
 }

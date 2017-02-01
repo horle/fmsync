@@ -1,15 +1,18 @@
 package ceramalex.sync.view;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JComponent;
 import javax.swing.JFormattedTextField;
 import javax.swing.JLabel;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JToggleButton;
 import javax.swing.SwingWorker;
-
-import ceramalex.sync.view.ConnectionWorker.SyncStatus;
+import javax.swing.text.JTextComponent;
 
 /**
  * Abstract SwingWorker class to update GUI elements in main window
@@ -18,80 +21,112 @@ import ceramalex.sync.view.ConnectionWorker.SyncStatus;
  */
 
 public abstract class ConnectionWorker extends SwingWorker<Boolean, SyncStatus> {
-	
+
 	// GUI elements to update
 	private final JTextArea txtLog;
 	private final JButton btnConnect;
-	private final JLabel lblConnect;
-	private final JFormattedTextField txtPort;
-	private final JTextField txtAddress;
-	
+	private final JButton btnStart;
+	private final JLabel lblConnectMySQL;
+	private final JLabel lblConnectFM;
+	// list of textfields that have just to be enabled
+	private final ArrayList<JTextComponent> txtList;
+	// list of elements in action panel to be enabled
+	private final ArrayList<JComponent> actionList;
+
 	/**
 	 * Constructor: Creates a SwingWorker instance
 	 * 
-	 * @param tLog logging textarea
-	 * @param bConnect connect button
-	 * @param lConnect connect label
-	 * @param tPort textfield port
-	 * @param tAddress textfield address
+	 * @param tLog
+	 *            logging textarea
+	 * @param bConnect
+	 *            connect button
+	 * @param lConnect
+	 *            connect label
+	 * @param tPort
+	 *            textfield port
+	 * @param tAddressMS
+	 *            textfield mysql address
+	 * @param tAddressFM
+	 *            textfield fm address
+	 * @param tDBMS
+	 *            textfield mysql db
+	 * @param tDBFM
+	 *            textfield fm db
+	 * @param tUserMS
+	 *            textfield mysql user
+	 * @param tUserFM
+	 *            textfield fm user
+	 * @param tPassMS
+	 *            textfield mysql pass
+	 * @param tPassFM
+	 *            textfield fm pass
+	 * @param btnDownload
+	 *            toggle btn download
+	 * @param btnUpload
+	 *            toggle btn upload
+	 * @param btnStart
+	 *            start btn
+	 * @param cmbPlace
+	 *            dropdown place
+	 * @param cmbAuthor
+	 *            dropdown author
 	 */
-	public ConnectionWorker(JTextArea tLog, JButton bConnect, JLabel lConnect, JFormattedTextField tPort, JTextField tAddress) {
-		this.txtAddress = tAddress;
+	public ConnectionWorker(JTextArea tLog, JButton bConnect,
+			JLabel lConnectMS, JLabel lConnectFM, JFormattedTextField tPort,
+			JTextField tAddressMS, JTextField tAddressFM, JTextField tDBMS,
+			JTextField tDBFM, JTextField tUserMS, JTextField tUserFM,
+			JTextField tPassMS, JTextField tPassFM, JToggleButton btnUpload,
+			JToggleButton btnDownload, JButton btnStart,
+			JComboBox<String> cmbAuthor, JComboBox<String> cmbPlace) {
+
 		this.btnConnect = bConnect;
-		this.lblConnect = lConnect;
-		this.txtPort = tPort;
+		this.btnStart = btnStart;
+		this.lblConnectMySQL = lConnectMS;
+		this.lblConnectFM = lConnectFM;
 		this.txtLog = tLog;
+
+		this.txtList = new ArrayList<JTextComponent>();
+		this.actionList = new ArrayList<JComponent>();
+
+		txtList.add(tAddressMS);
+		txtList.add(tAddressFM);
+		txtList.add(tAddressMS);
+		txtList.add(tPort);
+		txtList.add(tDBMS);
+		txtList.add(tDBFM);
+		txtList.add(tUserMS);
+		txtList.add(tUserFM);
+		txtList.add(tPassMS);
+		txtList.add(tPassFM);
+		
+		actionList.add(btnUpload);
+		actionList.add(btnDownload);
+		actionList.add(cmbAuthor);
+		actionList.add(cmbPlace);
 	}
-	
+
 	/**
 	 * Process all GUI elements from publish calls (list)
 	 * 
-	 * @param statusList list of SyncStatus
+	 * @param statusList
+	 *            list of SyncStatus
 	 */
 	@Override
-	protected void process(List<SyncStatus> statusList){
+	protected void process(List<SyncStatus> statusList) {
 		for (SyncStatus status : statusList) {
-			lblConnect.setText(status.lblConnect);
-			btnConnect.setText(status.btnConnectText);
-			btnConnect.setEnabled(status.btnConnectEn);
-			txtPort.setEnabled(status.txtPortEn);
-			txtAddress.setEnabled(status.txtAddressEn);
-			txtLog.append(status.logMsg);
-		}
-	}
-	
-	/**
-	 * Private class ("struct") for representing GUI element status
-	 * 
-	 * @author horle (Felix Kussmaul)
-	 */
-	protected class SyncStatus {
-		private String logMsg;
-		private String lblConnect;
-		private String btnConnectText;
-		private boolean btnConnectEn;
-		private boolean txtAddressEn;
-		private boolean txtPortEn;
-		
-		/**
-		 * Constructor
-		 * 
-		 * @param logMsg log message
-		 * @param lblConnect connect label
-		 * @param btnConnectText connect button label
-		 * @param btnConnectEn connect button enabled?
-		 * @param txtAddressEn address textfield enabled?
-		 * @param txtPortEn port textfield enabled?
-		 */
-		public SyncStatus(String logMsg, String lblConnect,
-				String btnConnectText, boolean btnConnectEn,
-				boolean txtAddressEn, boolean txtPortEn) {
-			this.logMsg = logMsg;
-			this.lblConnect = lblConnect;
-			this.btnConnectText = btnConnectText;
-			this.btnConnectEn = btnConnectEn;
-			this.txtAddressEn = txtAddressEn;
-			this.txtPortEn = txtPortEn;
+			lblConnectMySQL.setText(status.getLblConnectMySQL());
+			lblConnectFM.setText(status.getLblConnectFM());
+			btnConnect.setText(status.getBtnConnectText());
+			txtLog.append(status.getLogMsg());
+
+			btnConnect.setEnabled(status.isBtnConnectEn());
+
+			for (JTextComponent comp : txtList) {
+				comp.setEnabled(status.isTxtEn());
+			}
+			for (JComponent comp : actionList) {
+				comp.setEnabled(status.isActionEn());
+			}
 		}
 	}
 }

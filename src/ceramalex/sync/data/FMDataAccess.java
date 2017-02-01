@@ -27,6 +27,8 @@ public class FMDataAccess extends AbstractDatabase {
 		resultURL += "&password="+ pwd;
 		System.out.println(resultURL);
 		return resultURL;
+		
+//		return "jdbc:filemaker://134.95.115.20/test?user=admin&password=";
 	}
 	//-------------------------------------------------------------------------------
 
