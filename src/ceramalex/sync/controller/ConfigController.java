@@ -6,60 +6,73 @@ import java.util.Map;
 public class ConfigController {
 
 	private static ConfigController control;
-	
+
 	/** Tabellen, die von MySQL nach FM importiert werden sollen */
 	private String[] tables = null;
-	
+
 	/** URL der MySQL-Datenbank */
 	private String mySQLURL = null;
-	
+
 	/** URL der MySQL-Datenbank */
 	private String mySQLPort = null;
-	
+
 	/** User der MySQL-Datenbank */
 	private String mySQLUser = null;
-	
+
 	/** Passwort der MySQL-Datenbank */
 	private String mySQLPassword = null;
-	
+
 	/** Passwort der MySQL-Datenbank */
 	private String mySQLDB = null;
-	
+
 	/** URL der FM-Datenbank */
 	private String fmURL = null;
-	
+
 	/** User der FM-Datenbank */
 	private String fmUser = null;
-	
+
 	/** Passwort der FM-Datenbank */
 	private String fmPassword = null;
-	
+
 	/** Passwort der FM-Datenbank */
 	private String fmDB = null;
-	
+
 	/** Array mit Feldern, die aus den Key-Value-Maps geloescht werden */
 	private String[] removeFields = null;
-	
-	/** Map mit Rewrite-Rules fuer Tabellen => aendert die Tabelle vom Key-Wert auf den Value-Wert */
+
+	/**
+	 * Map mit Rewrite-Rules fuer Tabellen => aendert die Tabelle vom Key-Wert
+	 * auf den Value-Wert
+	 */
 	private Map<String, String> tableRewrites = null;
-	
-	/** Map mit Rewrite-Rules fuer Felder => aendert das Mapping von Quelle auf Ziel */
+
+	/**
+	 * Map mit Rewrite-Rules fuer Felder => aendert das Mapping von Quelle auf
+	 * Ziel
+	 */
 	private Map<String, String> fieldRewrites = null;
-	
-	/** Map mit Rewrite-Rules fuer Felder => aendert das Mapping von Quelle auf Ziel */
+
+	/**
+	 * Map mit Rewrite-Rules fuer Felder => aendert das Mapping von Quelle auf
+	 * Ziel
+	 */
 	private String numericFields[] = null;
 
 	public static ConfigController getInstance() {
-		if(control == null)
+		if (control == null)
 			control = new ConfigController();
 		return control;
 	}
-	
+
 	private ConfigController() {
-		setPrefs("","","","","","", "", "", "");
+		setPrefs("jdbc:mysql://arachne.dainst.org", "root", "Celt1!wedged",
+				"ceramalex", "jdbc:filemaker://localhost", "admin", "btbw", "iDAIAbstractCeramalex", "3306");
 	}
-	
-	public void setPrefs(String sqlURL, String sqlUser, String sqlPwd, String sqlDB, String fURL, String fUser, String fPwd, String fDB, String sqlPort) {
+
+	public void setPrefs(String sqlURL, String sqlUser, String sqlPwd,
+			String sqlDB, String fURL, String fUser, String fPwd, String fDB,
+			String sqlPort) {
+		// filemaker port is fix ...
 		this.mySQLURL = sqlURL;
 		this.mySQLPort = sqlPort;
 		this.mySQLUser = sqlUser;
@@ -165,6 +178,13 @@ public class ConfigController {
 
 	public void setMySQLPort(String mySQLPort) {
 		this.mySQLPort = mySQLPort;
+	}
+
+	public boolean isInitialised() {
+		return !( mySQLURL.isEmpty() || mySQLPort.isEmpty() || mySQLUser.isEmpty()
+				|| mySQLPassword.isEmpty() || mySQLDB.isEmpty()
+				|| fmURL.isEmpty() || fmUser.isEmpty() || fmPassword.isEmpty()
+				|| fmDB.isEmpty() );
 	}
 
 }
