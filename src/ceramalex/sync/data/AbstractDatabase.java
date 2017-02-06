@@ -1,6 +1,7 @@
 package ceramalex.sync.data;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -80,7 +81,7 @@ public abstract class AbstractDatabase {
 		Driver d = null;
 		try {
 			d = (Driver) Class.forName(getDriverName()).newInstance();
-		} catch (Exception e) {
+		} catch (InstantiationException | ClassNotFoundException | IllegalAccessException e) {
 			logger.error("::::" + e);
 		}
 
@@ -110,7 +111,7 @@ public abstract class AbstractDatabase {
 				logger.warn(warning);
 				warning = warning.getNextWarning();
 			}
-		} catch (Exception e) {
+		} catch (SQLException e) {
 			System.out.println("stacktrace");
 			e.printStackTrace();
 		}
@@ -147,7 +148,7 @@ public abstract class AbstractDatabase {
 				rs.beforeFirst();
 				return rs;
 			}
-		} catch (Exception e) {
+		} catch (SQLException e) {
 			e.printStackTrace();
 			return null;
 		}
@@ -168,11 +169,11 @@ public abstract class AbstractDatabase {
 
 		try {
 			// logger.info(sql);
-			// System.out.println("ITIS"+sql.toString());
+			System.out.println(sql);
 			PreparedStatement prepStatement = cn.prepareStatement(sql);
 			prepStatement.execute();
 			prepStatement.close();
-		} catch (Exception e) {
+		} catch (SQLException e) {
 			logger.error("ITIS:" + sql);
 			e.printStackTrace();
 			return false;
@@ -188,16 +189,34 @@ public abstract class AbstractDatabase {
 	 *            ResultSet, fuer das die Metadaten geholt werden sollen
 	 * @return ResultMetaDaten fuer uebergebenes ResultSet
 	 */
-	public ResultSetMetaData getMetaData(ResultSet rs) {
+	public ResultSetMetaData getTableMetaData(ResultSet rs) {
 
 		try {
 			ResultSetMetaData rsmd = rs.getMetaData();
 			return rsmd;
-		} catch (Exception e) {
+		} catch (SQLException e) {
 			e.printStackTrace();
 			return null;
 		}
 	}
+	
+	// -------------------------------------------------------------------------------
+		/**
+		 * Methode liefert die Metadaten fuer das uebergebene ResultSet
+		 * 
+		 * @return MetaDaten fuer datenbank
+		 */
+		public ResultSet getDBMetaData() {
+
+			try {
+				String[] types = {"TABLE"};
+				ResultSet md = cn.getMetaData().getTables(null, null, "%", types);
+				return md;
+			} catch (SQLException e) {
+				e.printStackTrace();
+				return null;
+			}
+		}
 
 	// -------------------------------------------------------------------------------
 	/**
@@ -210,9 +229,9 @@ public abstract class AbstractDatabase {
 	 */
 	public int getColumnCount(ResultSet rs) {
 		try {
-			ResultSetMetaData rsmd = this.getMetaData(rs);
+			ResultSetMetaData rsmd = this.getTableMetaData(rs);
 			return rsmd.getColumnCount();
-		} catch (Exception e) {
+		} catch (SQLException e) {
 			e.printStackTrace();
 			return 0;
 		}

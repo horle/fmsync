@@ -256,7 +256,6 @@ public class MainWindow {
 		panelPrefs.add(lblFMAddress);
 
 		txtFMAddress = new JTextField(10);
-		txtFMAddress.setText("jdbc:mysql://arachne.dainst.org");
 		txtFMAddress.setBounds(12, 185, 315, 24);
 		txtFMAddress.setText(FM_URL_PREFIX + "localhost");
 		((AbstractDocument) txtFMAddress.getDocument())
@@ -368,7 +367,7 @@ public class MainWindow {
 		txtFMDB = new JTextField();
 		txtFMDB.setColumns(10);
 		txtFMDB.setBounds(406, 185, 148, 24);
-		txtFMDB.setText("");
+		txtFMDB.setText("iDAIAbstractCeramalex");
 		panelPrefs.add(txtFMDB);
 
 		lblFMDB = new JLabel("Database");
