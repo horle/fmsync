@@ -439,15 +439,16 @@ public class MainWindow {
 				 * Establish new connections to DBs
 				 */
 				if (!connected) {
-
 					/**
 					 * Create watch dog SwingWorker to control timeout
 					 */
-					SwingWorker<Void, Void> watcher = new SwingWorker<Void, Void>() {
+					SwingWorker<Void, SyncStatus> watcher = new SwingWorker<Void, SyncStatus>() {
 
 						@Override
 						protected Void doInBackground() throws Exception {
 
+							
+							
 							/**
 							 * SwingWorkers to connect to DBs and update GUI
 							 * elements
@@ -471,15 +472,18 @@ public class MainWindow {
 									publish(connecting);
 
 									try {
-										SQLAccessController sqlConnector = SQLAccessController
-												.getInstance();
-										if (sqlConnector.isMySQLConnected()
-												&& sqlConnector.isFMConnected()) {
+										this.setSqlControl(SQLAccessController
+												.getInstance());
+										this.getSqlControl().connect();
+										if (this.getSqlControl().isMySQLConnected()
+												&& this.getSqlControl().isFMConnected()) {
 											connected = true;
 											publish(open);
 											return true;
-										} else
+										} else{
+											this.getSqlControl().close();
 											return false;
+										}
 									} catch (SQLException e) {
 
 										String msg = manageErrorMsg(e);
@@ -507,14 +511,18 @@ public class MainWindow {
 								@Override
 								protected void done() {
 									try {
-										if (!this.isCancelled()){
-											if (!this.get()) {
+										// close connection!
+										if(worker.getSqlControl() != null && !worker.getSqlControl().close())
+											throw new SQLException();
+										worker.cancel(true);
+										if (worker.isCancelled()){
+											if (worker.get()) {
 												publish(closed);
-											}
+											}else
+												publish(closedError);
 										}else
 											publish(closedError);
-										// connection open?
-
+										
 									} catch (InterruptedException
 											| ExecutionException e) {
 										publish(closedError
@@ -522,6 +530,9 @@ public class MainWindow {
 									} catch (CancellationException e) {
 										publish(closedError
 												.setLogAppend("Connection timed out."));
+									} catch (SQLException e) {
+										publish(closedError
+												.setLogAppend("Error closing the connection."));
 									}
 								}
 							};
@@ -539,12 +550,20 @@ public class MainWindow {
 								
 							} catch (TimeoutException e2){
 								worker.cancel(true);
-								JOptionPane
-										.showMessageDialog(
-												frame,
-												"Timeout while trying to contact the server.",
-												"Timeout",
-												JOptionPane.INFORMATION_MESSAGE);
+								publish(closedError
+										.setLogAppend("Connection timed out."));
+								SwingUtilities.invokeLater(new Runnable() {
+									@Override
+									public void run() {
+										JOptionPane
+											.showMessageDialog(
+													frame,
+													"Timeout while trying to contact the server.",
+													"Timeout",
+													JOptionPane.INFORMATION_MESSAGE);
+									};
+								});
+								System.out.println("cancelled: "+worker.isCancelled()+"; done: "+worker.isDone());
 							}
 							return null;
 						}
@@ -585,11 +604,11 @@ public class MainWindow {
 							if (connector.close()) {
 								connected = false;
 								publish(closed
-										.setLogMsg("Connection closed."));
+										.setLogAppend("Connection closed."));
 								return true;
 							} else {
 								publish(closedError
-										.setLogMsg("Connection could not be closed."));
+										.setLogAppend("Error: Connection could not be closed."));
 								SwingUtilities.invokeLater(new Runnable() {
 									@Override
 									public void run() {

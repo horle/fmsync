@@ -14,6 +14,8 @@ import javax.swing.JToggleButton;
 import javax.swing.SwingWorker;
 import javax.swing.text.JTextComponent;
 
+import ceramalex.sync.controller.SQLAccessController;
+
 /**
  * Abstract SwingWorker class to update GUI elements in main window
  * 
@@ -22,6 +24,7 @@ import javax.swing.text.JTextComponent;
 
 public abstract class ConnectionWorker extends SwingWorker<Boolean, SyncStatus> {
 
+	private SQLAccessController sqlControl;
 	// GUI elements to update
 	private final JTextArea txtLog;
 	private final JButton btnConnect;
@@ -128,5 +131,13 @@ public abstract class ConnectionWorker extends SwingWorker<Boolean, SyncStatus> 
 				comp.setEnabled(status.isActionEn());
 			}
 		}
+	}
+
+	public SQLAccessController getSqlControl() {
+		return sqlControl;
+	}
+
+	public void setSqlControl(SQLAccessController sqlControl) {
+		this.sqlControl = sqlControl;
 	}
 }

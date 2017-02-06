@@ -142,4 +142,8 @@ public class SQLAccessController {
 		return fDataAccess.doSqlQuery(sql);
 	}
 	// -------------------------------------------------------------------------------
+
+	public boolean connect() throws SQLException {
+		return mDataAccess.createConnection() && fDataAccess.createConnection();		
+	}
 }

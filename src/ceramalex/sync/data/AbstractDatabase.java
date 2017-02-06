@@ -9,8 +9,11 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.util.concurrent.TimeoutException;
 
 import org.apache.log4j.Logger;
+
+import com.mysql.jdbc.exceptions.jdbc4.CommunicationsException;
 
 /**
  * 
@@ -20,6 +23,8 @@ import org.apache.log4j.Logger;
  */
 
 public abstract class AbstractDatabase {
+	
+	private String dbURL, user, pwd, serverDataSource;
 
 	/** Logging-Instanz */
 	protected static Logger logger = Logger.getLogger("data.abstractdatabase");
@@ -56,9 +61,17 @@ public abstract class AbstractDatabase {
 	public AbstractDatabase(String dbUrl, String user, String pwd,
 			String serverDataSource) throws SQLException {
 
-		createConnection(dbUrl, user, pwd, serverDataSource);
+		this.dbURL = dbUrl;
+		this.user = user;
+		this.pwd = pwd;
+		this.serverDataSource = serverDataSource;
+	//	createConnection(dbUrl, user, pwd, serverDataSource);
 	}
 
+	public boolean createConnection() throws SQLException {
+		return createConnection(dbURL, user, pwd, serverDataSource);
+	}
+	
 	// -------------------------------------------------------------------------------
 	/**
 	 * Methode erzeugt eine Verbindung zu einer Datenbank
@@ -70,7 +83,7 @@ public abstract class AbstractDatabase {
 	 * @param sPwd
 	 *            Passwort fuer den uerbegebenen User
 	 */
-	protected void createConnection(String dbUrl, String user, String pwd,
+	public boolean createConnection(String dbUrl, String user, String pwd,
 			String serverDataSource) throws SQLException {
 
 		logger.info("DBURL: '" + dbUrl + "' User: '" + user + "' Pass: '" + pwd
@@ -87,16 +100,17 @@ public abstract class AbstractDatabase {
 		// eine Verbindung mit DB herstellen
 		try {
 			DriverManager.registerDriver(d);
+			DriverManager.setLoginTimeout(5);
 			this.cn = DriverManager.getConnection(getConnectionURL(dbUrl, user,
 					pwd, serverDataSource));
-
-		} catch (SQLException e) {
+		}
+		catch (SQLException e) {
 			logger.error("Driver:" + e);
 			System.out.println("Driver:" + e);
 			String eMsg = e.getMessage();
 			if (getDriverName().contains("mysql"))
 				eMsg = "MySQL: " + eMsg;
-			throw new SQLException(eMsg); // throw to gui ...
+			throw new SQLException(eMsg); // throw to gui ... 
 		}
 		// Verbindungswarnungen holen + ";serverDataSource=" + dbName
 		SQLWarning warning = null;
@@ -104,7 +118,7 @@ public abstract class AbstractDatabase {
 			warning = cn.getWarnings();
 			if (warning == null) {
 				logger.trace("Keine Warnungen");
-				return;
+				return true;
 			}
 			while (warning != null) {
 				logger.warn(warning);
@@ -121,6 +135,7 @@ public abstract class AbstractDatabase {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
+		return true;
 	}
 
 	// -------------------------------------------------------------------------------
@@ -237,8 +252,8 @@ public abstract class AbstractDatabase {
 	/** Destruktor (nur fuer Verbindung!) */
 	public boolean closeConnection() {
 		try {
-			this.cn.close();
-			this.cn = null;
+			if (cn != null)
+				this.cn.close();
 		} catch (SQLException e) {
 			e.printStackTrace();
 			return false;
