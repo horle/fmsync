@@ -173,8 +173,6 @@ public class MainWindow {
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.getContentPane().setLayout(null);
 
-		// DefaultListModel<File> model = new DefaultListModel<File>();
-
 		panelPrefs = new JPanel();
 		panelPrefs.setBorder(new TitledBorder(
 				new LineBorder(new Color(0, 0, 0)), "Database preferences",
@@ -528,7 +526,7 @@ public class MainWindow {
 												.setLogAppend(manageErrorMsg(e)));
 									} catch (CancellationException e) {
 										publish(closedError
-												.setLogAppend("Connection timed out."));
+												.setLogAppend("Connection aborted."));
 									} catch (SQLException e) {
 										publish(closedError
 												.setLogAppend("Error closing the connection."));
@@ -750,6 +748,7 @@ public class MainWindow {
 	}
 
 	protected void reconfigure() {
+		System.out.println("reconfiguring ...");
 		config.setMySQLURL(txtMySQLAddress.getText() + ":"
 				+ txtMySQLPort.getText());
 		config.setMySQLUser(txtMySQLUser.getText());

@@ -9,6 +9,7 @@ import controller.MySQLToFilemakerController;
 
 /**
  * Singleton class to manage calls to PGunia projects
+ * DEPRECATED
  * 
  * @author horle (Felix Kussmaul)
  */

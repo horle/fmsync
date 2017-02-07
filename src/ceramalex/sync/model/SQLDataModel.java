@@ -1,6 +1,7 @@
 package ceramalex.sync.model;
 
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 
@@ -16,6 +17,7 @@ public class SQLDataModel {
 		ArrayList<String> msNames = new ArrayList<String>();
 	
 		sqlAccess = SQLAccessController.getInstance();
+		sqlAccess.connect();
 		ResultSet metaFM = sqlAccess.getFMMetaData();
 		ResultSet metaMS = sqlAccess.getMySQLMetaData();
 				
@@ -39,7 +41,7 @@ public class SQLDataModel {
 				msNames.add(metaMS.getString("TABLE_NAME"));
 			}
 			
-			// gemeinsame tables!
+			// common tables!
 			for (int i = 0; i < msNames.size(); i++){
 				for (int j = 0; j < fmNames.size(); j++){
 					if (msNames.get(i).toLowerCase().equals(fmNames.get(j).toLowerCase())){
@@ -75,9 +77,35 @@ public class SQLDataModel {
 							System.err.println("has to be downloaded: " + (fT==null?mT+" from arachne":fT+" from filemaker"));
 							continue;
 						}
-						// lücke zwischen einträgen? zB id: 67, 69, 70
-						if (!(""+count+1).equals(fT)){
-							sqlAccess.doFMUpdate(""); // id updaten?!
+						// luecke zwischen eintraegen? zB id: 67, 69, 70
+						if (!(""+count+1).equals(fT) && !(fT.equals(mT))){
+							System.out.println("update "+fT+" with "+(count+1)+", ms is "+mT);
+							
+							// get all common fields in this table
+							System.out.println("calculating common fields");
+							ArrayList<String> commonFields = new ArrayList<String>();
+							commonFields = getCommonFields(m, f);
+							
+							// check each other field for equality, if so, update ID to mysql
+							int col = commonFields.size();
+							System.out.println("checking each of the fields ("+col+") in fm entry " + fT + " of table "+commonTables.get(i));
+							boolean res = true;
+							for (int l = 1; l < col; l++){ // start after ID field, this is not equal anyway
+								String s1 = m.getString(commonFields.get(l).toLowerCase());
+								String s2 = f.getString(commonFields.get(l));
+								s1 = s1 == null ? "" : s1;
+								s2 = s2 == null ? "" : s2;
+
+								System.out.println("testing "+s1+" and "+s2+" for equality:");
+								
+								if (!(s1.equals(s2))) {
+									res = false;
+									System.out.println(commonFields.get(l) +" not equal!");
+								}
+							}
+							System.out.println("each field equal? "+res);
+							//f.updateInt(1, count+1);
+//							sqlAccess.doFMUpdate(""); // id updaten?!
 						}
 						
 						if (!fT.equals(mT)){
@@ -99,6 +127,29 @@ public class SQLDataModel {
 		// TODO
 	}
 	
+	/**
+	 * get common fields in table x represented in fm and ms
+	 * filter "FMP" columns, etc
+	 * @param m
+	 * @param f
+	 * @return
+	 */
+	private ArrayList<String> getCommonFields(ResultSet m, ResultSet f) throws SQLException {
+		ArrayList<String> result = new ArrayList<String>();
+		ResultSetMetaData metaFMTab = f.getMetaData();
+		ResultSetMetaData metaMSTab = m.getMetaData();
+		
+		for (int i = 1; i <= metaFMTab.getColumnCount(); i++){
+			for (int j = 1; j <= metaMSTab.getColumnCount(); j++){
+				if (metaFMTab.getColumnName(i).toLowerCase().equals(metaMSTab.getColumnName(j).toLowerCase())){
+					result.add(metaFMTab.getColumnName(i));
+				}
+			}
+		}
+		
+		return result;
+	}
+
 	public static void main(String[] args) {
 		try {
 			(new SQLDataModel()).getDiffByUUID("");

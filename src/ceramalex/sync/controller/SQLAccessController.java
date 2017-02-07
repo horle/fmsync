@@ -1,6 +1,5 @@
 package ceramalex.sync.controller;
 
-import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
@@ -51,13 +50,9 @@ public class SQLAccessController {
 	private SQLAccessController() throws SQLException {
 
 		config = ConfigController.getInstance();
-		if (config.isInitialised()) {
-			this.mDataAccess = new MySQLDataAccess(config.getMySQLURL(),
-					config.getMySQLUser(), config.getMySQLPassword(),
-					config.getMySQLDB());
-			this.fDataAccess = new FMDataAccess(config.getFmURL(),
-					config.getFmUser(), config.getFmPassword(), config.getFmDB());
-		} else throw new IllegalStateException("config has not been completely initialised!");
+//		if (config.isInitialised()) {
+			
+//		} else throw new IllegalStateException("config has not been completely initialised!");
 	}
 
 	public boolean close() {
@@ -70,7 +65,8 @@ public class SQLAccessController {
 	}
 
 	public boolean isFMConnected() throws SQLException {
-		return this.fDataAccess.isConnected();
+//		return this.fDataAccess.isConnected();
+		return true;
 	}
 	
 	public ResultSet getMySQLMetaData() throws SQLException {
@@ -155,6 +151,13 @@ public class SQLAccessController {
 	// -------------------------------------------------------------------------------
 
 	public boolean connect() throws SQLException {
+		
+		mDataAccess = new MySQLDataAccess(config.getMySQLURL(),
+				config.getMySQLUser(), config.getMySQLPassword(),
+				config.getMySQLDB());
+		fDataAccess = new FMDataAccess(config.getFmURL(),
+				config.getFmUser(), config.getFmPassword(), config.getFmDB());
+		
 		return mDataAccess.createConnection() && fDataAccess.createConnection();		
 	}
 }
