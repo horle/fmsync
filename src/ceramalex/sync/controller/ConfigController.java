@@ -66,7 +66,7 @@ public class ConfigController {
 
 	private ConfigController() {
 		setPrefs("jdbc:mysql://arachne.dainst.org", "root", "Celt1!wedged",
-				"ceramalex", "jdbc:filemaker://10.0.2.15", "admin", "btbw", "iDAIAbstractCeramalex", "3306");
+				"ceramalex", "jdbc:filemaker://localhost", "admin", "btbw", "iDAIAbstractCeramalex", "3306");
 	}
 
 	public void setPrefs(String sqlURL, String sqlUser, String sqlPwd,

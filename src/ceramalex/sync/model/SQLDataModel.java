@@ -59,64 +59,106 @@ public class SQLDataModel {
 
 			// if (sqlAccess.isFMConnected()) {
 //			System.out.println("fm connected");
-			ResultSet f,m;
+			
+			// get common tables from DBs
+			ResultSet fTab,mTab;
 			for (int i = 0; i < commonTables.size(); i++) {
-				f = sqlAccess.doFMQuery("SELECT * FROM "
+				fTab = sqlAccess.doFMQuery("SELECT * FROM "
 						+ commonTables.get(i));
-				m = sqlAccess.doMySQLQuery("SELECT * FROM "
+				mTab = sqlAccess.doMySQLQuery("SELECT * FROM "
 						+ commonTables.get(i).toLowerCase());
 				
 				int count = 0;
 				
-				if (f != null && m != null) {
-					while (f.next() && m.next()){	// check both
-						String fT = f.getString(1);
-						String mT = m.getString(1);
+				if (fTab != null && mTab != null) {
+					// iterate through both table PKs //TODO: muss nicht eindeutig sein, bessere logik!
+					while (fTab.next() && mTab.next()){
+						int fID = fTab.getInt(1);
+						int mID = mTab.getInt(1);
 						
-						if (fT == null || mT == null){
-							System.err.println("has to be downloaded: " + (fT==null?mT+" from arachne":fT+" from filemaker"));
+						if (fID == 0 || mID == 0){
+							System.err.println("has to be downloaded: ID \"" + (fID==0?mID+"\" from arachne":fID+"\" from filemaker"));
 							continue;
 						}
-						// luecke zwischen eintraegen? zB id: 67, 69, 70
-						if (!(""+count+1).equals(fT) && !(fT.equals(mT))){
-							System.out.println("update "+fT+" with "+(count+1)+", ms is "+mT);
-							
-							// get all common fields in this table
-							System.out.println("calculating common fields");
+						
+						// luecke zwischen eintraegen? zB id: 67, 69, 75
+						if (fID != mID){
+							System.out.println(commonTables.get(i)+ ": " + mID + " in mysql does not equal " + fID + " in filemaker");
+														
+							// get all common field names in this table
 							ArrayList<String> commonFields = new ArrayList<String>();
-							commonFields = getCommonFields(m, f);
+							commonFields = getCommonFields(mTab, fTab);
 							
-							// check each other field for equality, if so, update ID to mysql
+							//calculate ID difference:
+							boolean msSmaller;
+							int diff = 0;
+							if (fID > mID){
+								diff = fID-mID;
+								msSmaller = true;	// mysql id is smaller.
+								System.out.println("mysql smaller id");
+							}
+							else{
+								diff = mID-fID;
+								msSmaller = false;	// filemaker id is smaller.
+								System.out.println("fm smaller id");
+							}
+							
+							System.out.println("ID Difference is "+diff);
+							
+							// shift cursor, so that both IDs are equal
+							// TODO: THIS WILL SKIP SOME ENTRIES; RECHECK FOR UP/DOWNLOAD/DELETE?!
+							if (msSmaller){
+								if (!mTab.relative(diff))
+									System.err.println("Cursor could not be decreased!");
+							}else
+								if (!fTab.relative(diff))
+									System.err.println("Cursor could not be decreased!");
+							
+							/** DEBUG
+							 * 
+							 * 
+							 */
+							int f = fTab.getInt(1);
+							int m = mTab.getInt(1);
+							System.out.println("Shifting cursor! does "+f+" equal "+m+"?");
+							/**
+							 * 
+							 */
+							
+							// check each other field for equality, if so, update ID to mysql ID
 							int col = commonFields.size();
-							System.out.println("checking each of the fields ("+col+") in fm entry " + fT + " of table "+commonTables.get(i));
+							System.out.println("checking each of the fields ("+col+") in entry " + fID + " of table "+commonTables.get(i));
 							boolean res = true;
 							for (int l = 1; l < col; l++){ // start after ID field, this is not equal anyway
-								String s1 = m.getString(commonFields.get(l).toLowerCase());
-								String s2 = f.getString(commonFields.get(l));
+								
+								// Strings to compare in field with equal name
+								String s1 = mTab.getString(commonFields.get(l).toLowerCase());
+								String s2 = fTab.getString(commonFields.get(l));
+								
 								s1 = s1 == null ? "" : s1;
 								s2 = s2 == null ? "" : s2;
-
-								System.out.println("testing "+s1+" and "+s2+" for equality:");
 								
 								if (!(s1.equals(s2))) {
 									res = false;
-									System.out.println(commonFields.get(l) +" not equal!");
+									System.out.println(commonFields.get(l)+" in "+commonTables.get(i)+" not equal: \""+s1+"\" and \""+s2+"\"");
+									break;
 								}
 							}
 							System.out.println("each field equal? "+res);
 							//f.updateInt(1, count+1);
-//							sqlAccess.doFMUpdate(""); // id updaten?!
+							
+//							//reshift cursor
+//							if (msSmaller){
+//								if (!fTab.relative(diff))
+//									System.err.println("Cursor could not be increased!");
+//							}else
+//								if (!mTab.relative(diff))
+//									System.err.println("Cursor could not be increased!");
 						}
-						
-						if (!fT.equals(mT)){
-							System.err.println(commonTables.get(i)+ "  " + mT + " in mysql does not equal " + fT + " in filemaker");
-						}
-	//					else
-	//						System.out.println(commonTables.get(i)+ "  " + fT + " does equal " + mT);
 						count++;
 					}
-					while (f.next()) System.err.println(commonTables.get(i) + "  "+ f.getString(1) + " has no partner in filemaker!");
-					while (m.next()) System.err.println(commonTables.get(i) + "  "+ m.getString(1) + " has no partner in mysql!");
+					while (fTab.next()) System.err.println(commonTables.get(i) + "  "+ fTab.getString(1) + " has no partner in filemaker!");
+					while (mTab.next()) System.err.println(commonTables.get(i) + "  "+ mTab.getString(1) + " has no partner in mysql!");
 				}
 				System.out.println(commonTables.get(i) + " done with "+count+" entries. next table!");
 			}
@@ -126,6 +168,7 @@ public class SQLDataModel {
 		return null;
 		// TODO
 	}
+	
 	
 	/**
 	 * get common fields in table x represented in fm and ms
