@@ -73,6 +73,10 @@ public class SQLAccessController {
 		return this.mDataAccess.getDBMetaData();
 	}
 	
+	public String getMySQLPrimaryKeys(String table) throws SQLException {
+		return this.mDataAccess.getDBPrimaryKeys(table);
+	}
+	
 	public ResultSet getFMMetaData() throws SQLException {
 		return this.fDataAccess.getDBMetaData();
 	}

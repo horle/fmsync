@@ -216,8 +216,28 @@ public abstract class AbstractDatabase {
 	}
 	
 	// -------------------------------------------------------------------------------
+	/**
+	 * Method returns primary key of table
+	 * 
+	 * @return MetaDaten fuer datenbank
+	 */
+	public String getDBPrimaryKeys(String table) {
+		String result = "";
+		try {
+			ResultSet md = cn.getMetaData().getPrimaryKeys(null, null, table);
+			if (md.next()) {
+				result = md.getString("COLUMN_NAME");
+			}
+			return result;
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return result;
+		}
+	}
+	
+	// -------------------------------------------------------------------------------
 		/**
-		 * Methode liefert die Metadaten fuer das uebergebene ResultSet
+		 * Methode liefert die Metadaten
 		 * 
 		 * @return MetaDaten fuer datenbank
 		 */
