@@ -10,11 +10,8 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
-import java.util.concurrent.TimeoutException;
 
 import org.apache.log4j.Logger;
-
-import com.mysql.jdbc.exceptions.jdbc4.CommunicationsException;
 
 /**
  * 
@@ -147,7 +144,7 @@ public abstract class AbstractDatabase {
 	 *            SQL-SELECT-Statement
 	 * @return ResultSet als Ergebnis der abgesendeten SQL-Anfrage
 	 */
-	public ResultSet doSqlQuery(String sql) {
+	public ResultSet doSQLQuery(String sql) {
 
 		try {
 			if (this.st == null)
@@ -204,11 +201,29 @@ public abstract class AbstractDatabase {
 	 *            ResultSet, fuer das die Metadaten geholt werden sollen
 	 * @return ResultMetaDaten fuer uebergebenes ResultSet
 	 */
-	public ResultSetMetaData getTableMetaData(ResultSet rs) {
+	public ResultSetMetaData getRSMetaData(ResultSet rs) {
 
 		try {
 			ResultSetMetaData rsmd = rs.getMetaData();
 			return rsmd;
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}
+	
+	/**
+	 * Methode liefert die Metadaten fuer das uebergebene ResultSet
+	 * 
+	 * @param rs
+	 *            ResultSet, fuer das die Metadaten geholt werden sollen
+	 * @return ResultMetaDaten fuer uebergebenes ResultSet
+	 */
+	public ResultSet getColumnMetaData(String table) {
+
+		try {
+			DatabaseMetaData md = cn.getMetaData();
+			return md.getColumns(null, "iDAIAbstractCeramalex", table, "%");
 		} catch (SQLException e) {
 			e.printStackTrace();
 			return null;
@@ -221,7 +236,7 @@ public abstract class AbstractDatabase {
 	 * 
 	 * @return MetaDaten fuer datenbank
 	 */
-	public String getDBPrimaryKeys(String table) {
+	public String getTablePrimaryKey(String table) {
 		String result = "";
 		try {
 			ResultSet md = cn.getMetaData().getPrimaryKeys(null, null, table);
@@ -236,22 +251,22 @@ public abstract class AbstractDatabase {
 	}
 	
 	// -------------------------------------------------------------------------------
-		/**
-		 * Methode liefert die Metadaten
-		 * 
-		 * @return MetaDaten fuer datenbank
-		 */
-		public ResultSet getDBMetaData() {
+	/**
+	 * Methode liefert die Metadaten
+	 * 
+	 * @return MetaDaten fuer datenbank
+	 */
+	public ResultSet getDBMetaData() {
 
-			try {
-				String[] types = {"TABLE"};
-				ResultSet md = cn.getMetaData().getTables(null, null, "%", types);
-				return md;
-			} catch (SQLException e) {
-				e.printStackTrace();
-				return null;
-			}
+		try {
+			String[] types = {"TABLE"};
+			ResultSet md = cn.getMetaData().getTables(null, null, "%", types);
+			return md;
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return null;
 		}
+	}
 
 	// -------------------------------------------------------------------------------
 	/**
@@ -264,7 +279,7 @@ public abstract class AbstractDatabase {
 	 */
 	public int getColumnCount(ResultSet rs) {
 		try {
-			ResultSetMetaData rsmd = this.getTableMetaData(rs);
+			ResultSetMetaData rsmd = this.getRSMetaData(rs);
 			return rsmd.getColumnCount();
 		} catch (SQLException e) {
 			e.printStackTrace();

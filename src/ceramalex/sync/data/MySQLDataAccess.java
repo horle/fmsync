@@ -6,8 +6,6 @@ import ceramalex.sync.controller.ConfigController;
 
 public class MySQLDataAccess extends AbstractDatabase {
 	
-	private static ConfigController conf = ConfigController.getInstance();
-	
 	//-------------------------------------------------------------------------------
 	public MySQLDataAccess(String dbUrl,String user, String pwd, String serverDataSource) throws SQLException {
 		super(dbUrl, user, pwd, serverDataSource);

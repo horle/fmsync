@@ -1,14 +1,13 @@
 package ceramalex.sync.controller;
 
-import java.sql.SQLException;
-import java.util.Map;
+import java.util.HashSet;
 
 public class ConfigController {
 
 	private static ConfigController control;
 
-	/** Tabellen, die von MySQL nach FM importiert werden sollen */
-	private String[] tables = null;
+//	/** Tabellen, die von MySQL nach FM importiert werden sollen */
+//	private String[] tables = null;
 
 	/** URL der MySQL-Datenbank */
 	private String mySQLURL = null;
@@ -40,23 +39,23 @@ public class ConfigController {
 	/** Array mit Feldern, die aus den Key-Value-Maps geloescht werden */
 	private String[] removeFields = null;
 
-	/**
-	 * Map mit Rewrite-Rules fuer Tabellen => aendert die Tabelle vom Key-Wert
-	 * auf den Value-Wert
-	 */
-	private Map<String, String> tableRewrites = null;
+//	/**
+//	 * Map mit Rewrite-Rules fuer Tabellen => aendert die Tabelle vom Key-Wert
+//	 * auf den Value-Wert
+//	 */
+//	private Map<String, String> tableRewrites;
+//
+//	/**
+//	 * Map mit Rewrite-Rules fuer Felder => aendert das Mapping von Quelle auf
+//	 * Ziel
+//	 */
+//	private Map<String, String> fieldRewrites;
 
 	/**
 	 * Map mit Rewrite-Rules fuer Felder => aendert das Mapping von Quelle auf
 	 * Ziel
 	 */
-	private Map<String, String> fieldRewrites = null;
-
-	/**
-	 * Map mit Rewrite-Rules fuer Felder => aendert das Mapping von Quelle auf
-	 * Ziel
-	 */
-	private String numericFields[] = null;
+	private HashSet<String> numericFields;
 
 	public static ConfigController getInstance() {
 		if (control == null)
@@ -112,14 +111,6 @@ public class ConfigController {
 		return removeFields;
 	}
 
-	public Map<String, String> getTableRewrites() {
-		return tableRewrites;
-	}
-
-	public Map<String, String> getFieldRewrites() {
-		return fieldRewrites;
-	}
-
 	public void setMySQLURL(String mySQLURL) {
 		this.mySQLURL = mySQLURL;
 	}
@@ -148,13 +139,13 @@ public class ConfigController {
 		this.removeFields = removeFields;
 	}
 
-	public void setTableRewrites(Map<String, String> tableRewrites) {
-		this.tableRewrites = tableRewrites;
-	}
-
-	public void setFieldRewrites(Map<String, String> fieldRewrites) {
-		this.fieldRewrites = fieldRewrites;
-	}
+//	public void setTableRewrites(Map<String, String> tableRewrites) {
+//		this.tableRewrites = tableRewrites;
+//	}
+//
+//	public void setFieldRewrites(Map<String, String> fieldRewrites) {
+//		this.fieldRewrites = fieldRewrites;
+//	}
 
 	public String getMySQLDB() {
 		return mySQLDB;
@@ -185,6 +176,14 @@ public class ConfigController {
 				|| mySQLPassword.isEmpty() || mySQLDB.isEmpty()
 				|| fmURL.isEmpty() || fmUser.isEmpty() || fmPassword.isEmpty()
 				|| fmDB.isEmpty() );
+	}
+
+	public HashSet<String> getNumericFields() {
+		return numericFields;
+	}
+
+	public void setNumericFields(HashSet<String> list) {
+		this.numericFields = list;
 	}
 
 }

@@ -1,7 +1,10 @@
 package ceramalex.sync.controller;
 
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.apache.log4j.Logger;
 
@@ -69,16 +72,20 @@ public class SQLAccessController {
 		return true;
 	}
 	
-	public ResultSet getMySQLMetaData() throws SQLException {
+	public ResultSet getMySQLDBMetaData() throws SQLException {
 		return this.mDataAccess.getDBMetaData();
 	}
 	
-	public String getMySQLPrimaryKeys(String table) throws SQLException {
-		return this.mDataAccess.getDBPrimaryKeys(table);
+	public String getMySQLTablePrimaryKey(String table) throws SQLException {
+		return this.mDataAccess.getTablePrimaryKey(table);
 	}
 	
-	public ResultSet getFMMetaData() throws SQLException {
+	public ResultSet getFMDBMetaData() throws SQLException {
 		return this.fDataAccess.getDBMetaData();
+	}
+	
+	public ResultSetMetaData getFMRSMetaData(ResultSet r) throws SQLException {
+		return this.fDataAccess.getRSMetaData(r);
 	}
 
 	// -------------------------------------------------------------------------------
@@ -114,7 +121,7 @@ public class SQLAccessController {
 	 * @return ResultSet, das als Ergebnis der Anfrage zurueckgereicht wird
 	 */
 	public ResultSet doMySQLQuery(String sql) {
-		return mDataAccess.doSqlQuery(sql);
+		return mDataAccess.doSQLQuery(sql);
 	}
 
 	// -------------------------------------------------------------------------------
@@ -150,7 +157,7 @@ public class SQLAccessController {
 	 * @return ResultSet, das als Ergebnis der Anfrage zurueckgereicht wird
 	 */
 	public ResultSet doFMQuery(String sql) {
-		return fDataAccess.doSqlQuery(sql);
+		return fDataAccess.doSQLQuery(sql);
 	}
 	// -------------------------------------------------------------------------------
 
@@ -163,5 +170,15 @@ public class SQLAccessController {
 				config.getFmUser(), config.getFmPassword(), config.getFmDB());
 		
 		return mDataAccess.createConnection() && fDataAccess.createConnection();		
+	}
+
+	public HashSet<String> getFMColumnMetaData(String table) throws SQLException {
+		HashSet<String> list = new HashSet<String>();
+		ResultSet s = this.fDataAccess.getColumnMetaData(table);
+		while (s.next()){
+			if (s.getInt(5) == java.sql.Types.DOUBLE && !s.getString(4).startsWith("["))
+				list.add(s.getString(4));
+		}
+		return list;
 	}
 }

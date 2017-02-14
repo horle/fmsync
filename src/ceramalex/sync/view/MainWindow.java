@@ -469,16 +469,16 @@ public class MainWindow {
 									publish(connecting);
 
 									try {
-										this.setSqlControl(SQLAccessController
+										this.setSQLControl(SQLAccessController
 												.getInstance());
-										this.getSqlControl().connect();
-										if (this.getSqlControl().isMySQLConnected()
-												&& this.getSqlControl().isFMConnected()) {
+										this.getSQLControl().connect();
+										if (this.getSQLControl().isMySQLConnected()
+												&& this.getSQLControl().isFMConnected()) {
 											connected = true;
 											publish(open);
 											return true;
 										} else{
-											this.getSqlControl().close();
+											this.getSQLControl().close();
 											return false;
 										}
 									} catch (SQLException e) {
@@ -509,7 +509,7 @@ public class MainWindow {
 								protected void done() {
 									try {
 										// close connection!
-										if(worker.getSqlControl() != null && !worker.getSqlControl().close())
+										if(worker.getSQLControl() != null && !worker.getSQLControl().close())
 											throw new SQLException();
 										worker.cancel(true);
 										if (worker.isCancelled()){

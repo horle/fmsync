@@ -133,11 +133,11 @@ public abstract class ConnectionWorker extends SwingWorker<Boolean, SyncStatus> 
 		}
 	}
 
-	public SQLAccessController getSqlControl() {
+	public SQLAccessController getSQLControl() {
 		return sqlControl;
 	}
 
-	public void setSqlControl(SQLAccessController sqlControl) {
+	public void setSQLControl(SQLAccessController sqlControl) {
 		this.sqlControl = sqlControl;
 	}
 }
