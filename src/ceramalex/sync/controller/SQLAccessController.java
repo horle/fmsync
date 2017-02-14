@@ -3,6 +3,7 @@ package ceramalex.sync.controller;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -10,6 +11,7 @@ import org.apache.log4j.Logger;
 
 import ceramalex.sync.data.FMDataAccess;
 import ceramalex.sync.data.MySQLDataAccess;
+import ceramalex.sync.model.Pair;
 
 /**
  * Singleton-Wrapper fuer MySQL-Datenzugriff
@@ -172,7 +174,29 @@ public class SQLAccessController {
 		return mDataAccess.createConnection() && fDataAccess.createConnection();		
 	}
 
-	public HashSet<String> getFMColumnMetaData(String table) throws SQLException {
+	public HashSet<String> fetchNumericFields(ArrayList<Pair> commonTables) throws SQLException {
+		ConfigController conf = ConfigController.getInstance();
+		HashSet<String> list = new HashSet<String>();
+		ResultSet tmp = this.mDataAccess.doSQLQuery("SELECT COLUMN_NAME FROM information_schema.COLUMNS where TABLE_SCHEMA='ceramalex' AND DATA_TYPE IN ('int','bigint','smallint','mediumint' 'tinyint','float','numeric') GROUP BY COLUMN_NAME");
+		ArrayList<String> t = new ArrayList<String>();
+		
+		for (int i = 0; i < commonTables.size(); i++){
+			t.addAll(this.getFMColumnMetaData(commonTables.get(i).getF()));
+		}
+		
+		while (tmp.next()) {
+			for (int i = 0; i < t.size(); i++) {
+				if (tmp.getString(1).equalsIgnoreCase(t.get(i))){
+					list.add(t.get(i));
+				}
+			}
+		}
+		tmp.close();
+		conf.setNumericFields(list);
+		return list;
+	}
+	
+	private HashSet<String> getFMColumnMetaData(String table) throws SQLException {
 		HashSet<String> list = new HashSet<String>();
 		ResultSet s = this.fDataAccess.getColumnMetaData(table);
 		while (s.next()){

@@ -76,6 +76,7 @@ public class SQLDataModel {
 
 			// calculate common tables!
 			commonTables = getCommonTables();
+			sqlAccess.fetchNumericFields(commonTables);
 
 			// get common tables from DBs
 			for (int i = 0; i < commonTables.size(); i++) {
@@ -98,6 +99,7 @@ public class SQLDataModel {
 								+ currTab.getM() + "\"");
 
 				int count = 0;
+				
 
 				if (fTab != null && mTab != null) {
 					
@@ -142,7 +144,8 @@ public class SQLDataModel {
 													if (m == f)
 														continue;
 												} catch (NumberFormatException e) {
-													
+													System.out
+															.println("NFException!");
 												}
 											}
 											res = false;
@@ -334,27 +337,6 @@ public class SQLDataModel {
 		return result;
 	}
 	
-	private HashSet<String> fetchNumericFields() throws SQLException {
-		ConfigController conf = ConfigController.getInstance();
-		HashSet<String> list = new HashSet<String>();
-		ResultSet tmp = sqlAccess.doMySQLQuery("SELECT COLUMN_NAME FROM information_schema.COLUMNS where TABLE_SCHEMA='ceramalex' AND DATA_TYPE IN ('int','bigint','smallint','mediumint' 'tinyint','float','numeric') GROUP BY COLUMN_NAME");
-		ArrayList<String> t = new ArrayList<String>();
-		
-		for (int i = 0; i < commonTables.size(); i++){
-			t.addAll(sqlAccess.getFMColumnMetaData(commonTables.get(i).getF()));
-		}
-		
-		while (tmp.next()) {
-			for (int i = 0; i < t.size(); i++) {
-				if (tmp.getString(1).equalsIgnoreCase(t.get(i))){
-					list.add(t.get(i));
-				}
-			}
-		}
-		conf.setNumericFields(list);
-		return list;
-	}
-	
 	private boolean isNumericalField(String field) {
 		return ConfigController.getInstance().getNumericFields().contains(field);
 	}
@@ -363,8 +345,7 @@ public class SQLDataModel {
 		try {
 			SQLDataModel m = new SQLDataModel();
 			commonTables = m.getCommonTables();
-			System.out.println(m.fetchNumericFields());
-//			m.getDiffByUUID("");
+			m.getDiffByUUID("");
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
