@@ -4,8 +4,8 @@ import com.filemaker.jdbc.FMSQLException;
 
 public class FilemakerIsCrapException extends FMSQLException {
 
-	public FilemakerIsCrapException(String arg0, int arg1) {
-		super(arg0 + ", because Filemaker is crap.", arg1);
+	public FilemakerIsCrapException(String arg0) {
+		super(arg0 + ", because Filemaker is crap.", 0);
 		// TODO Auto-generated constructor stub
 	}
 

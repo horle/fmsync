@@ -13,6 +13,8 @@ import java.sql.Statement;
 
 import org.apache.log4j.Logger;
 
+import ceramalex.sync.exception.FilemakerIsCrapException;
+
 /**
  * 
  * @author Patrick Gunia Abstract Basisklasse fuer alle Subklassen, die ueber
@@ -184,10 +186,9 @@ public abstract class AbstractDatabase {
 
 		try {
 			// logger.info(sql);
-			System.out.println(sql);
-			PreparedStatement prepStatement = cn.prepareStatement(sql);
-			prepStatement.execute();
-			prepStatement.close();
+			Statement statement = cn.createStatement();
+			statement.executeUpdate(sql);
+			statement.close();
 		} catch (SQLException e) {
 			logger.error("ITIS:" + sql);
 			e.printStackTrace();
@@ -216,13 +217,13 @@ public abstract class AbstractDatabase {
 	}
 	
 	/**
-	 * Methode liefert die Metadaten fuer das uebergebene ResultSet
+	 * Method returns metadata of given FM table
 	 * 
-	 * @param rs
-	 *            ResultSet, fuer das die Metadaten geholt werden sollen
-	 * @return ResultMetaDaten fuer uebergebenes ResultSet
+	 * @param table
+	 *            table to get the metadata from
+	 * @return ResultSet with metadata
 	 */
-	public ResultSet getColumnMetaData(String table) {
+	public ResultSet getFMColumnMetaData(String table) {
 
 		try {
 			DatabaseMetaData md = cn.getMetaData();
@@ -233,13 +234,26 @@ public abstract class AbstractDatabase {
 		}
 	}
 	
-	// -------------------------------------------------------------------------------
 	/**
-	 * Method returns primary key of table
+	 * Method returns metadata of given FM table
 	 * 
-	 * @return MetaDaten fuer datenbank
+	 * @param table
+	 *            table to get the metadata from
+	 * @return ResultSet with metadata
+	 * @throws SQLException 
 	 */
-	public String getTablePrimaryKey(String table) {
+	public ResultSet getMySQLColumnMetaData(String table) throws SQLException {
+
+		DatabaseMetaData md = cn.getMetaData();
+		return md.getColumns(null, null, table, "%");
+	}
+	
+	/**
+	 * Method returns primary key of mysql table
+	 * 
+	 * @return name of primary key. if not found, returns empty string
+	 */
+	public String getMySQLTablePrimaryKey(String table) {
 		String result = "";
 		try {
 			ResultSet md = cn.getMetaData().getPrimaryKeys(null, null, table);
@@ -253,7 +267,38 @@ public abstract class AbstractDatabase {
 		}
 	}
 	
-	// -------------------------------------------------------------------------------
+	/**
+	 * Method returns primary key of filemaker table
+	 * 
+	 * @return name of primary key. if not found, returns empty string
+	 */
+	public String getFMTablePrimaryKey(String table) {
+		String result = "";
+		
+		try {
+			ResultSet r = cn.getMetaData().getColumns(null, "iDAIAbstractCeramalex", table, "PS%");
+			if (r.next())
+				result = r.getString("COLUMN_NAME");
+			if (r.next()) // another PS_* column?
+				throw new FilemakerIsCrapException("multiple PKs in Filemaker table "+table);
+			return result;
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return result;
+		}
+//		
+//		try {
+//			ResultSet md = cn.getMetaData().getPrimaryKeys(null, "iDAIAbstractCeramalex", table);
+//			if (md.next()) {
+//				result = md.getString("COLUMN_NAME");
+//			}
+//			return result;
+//		} catch (SQLException e) {
+//			e.printStackTrace();
+//			return result;
+//		}
+	}
+	
 	/**
 	 * Methode liefert die Metadaten
 	 * 

@@ -91,7 +91,7 @@ public class SQLAccessController {
 	 * @throws SQLException
 	 */
 	public String getMySQLTablePrimaryKey(String table) throws SQLException {
-		return this.mDataAccess.getTablePrimaryKey(table);
+		return this.mDataAccess.getMySQLTablePrimaryKey(table);
 	}
 
 	/**
@@ -114,14 +114,17 @@ public class SQLAccessController {
 	}
 
 	/**
+	 * /**
 	 * execute update query on FM
-	 * 
-	 * @param sql
-	 *            SQL-Update-String
+	 * @param table String after UPDATE (just table name)
+	 * @param set String after SET
+	 * @param where String after WHERE
 	 * @return true, if success. false else
 	 */
-	public boolean doMySQLUpdate(String sql) {
-		return mDataAccess.doSQLModify(sql);
+	public boolean doMySQLUpdate(String table, String set, String where) {
+		if (table.isEmpty() || set.isEmpty() || where.isEmpty())
+			return false;
+		return mDataAccess.doSQLModify("UPDATE "+table+" SET "+set+" WHERE "+where+";");
 	}
 
 	/**
@@ -153,6 +156,19 @@ public class SQLAccessController {
 	 *            SQL-Update-String
 	 * @return true, if success. false else
 	 */
+	public boolean doFMUpdate(String table, String set, String where) {
+		if (table.isEmpty() || set.isEmpty() || where.isEmpty())
+			return false;
+		return fDataAccess.doSQLModify("UPDATE "+table+" SET "+set+" WHERE "+where+";");
+	}
+	
+	/**
+	 * execute update query on FM
+	 * 
+	 * @param sql
+	 *            SQL-Update-String
+	 * @return true, if success. false else
+	 */
 	public boolean doFMUpdate(String sql) {
 		return fDataAccess.doSQLModify(sql);
 	}
@@ -176,6 +192,7 @@ public class SQLAccessController {
 	 * @return resultset
 	 */
 	public ResultSet doFMQuery(String sql) {
+		System.out.println(sql);
 		return fDataAccess.doSQLQuery(sql);
 	}
 
@@ -255,12 +272,24 @@ public class SQLAccessController {
 	private HashSet<String> getFMNumericFields(String table)
 			throws SQLException {
 		HashSet<String> list = new HashSet<String>();
-		ResultSet s = this.fDataAccess.getColumnMetaData(table);
+		ResultSet s = this.fDataAccess.getFMColumnMetaData(table);
 		while (s.next()) {
 			if (s.getInt(5) == java.sql.Types.DOUBLE
 					&& !s.getString(4).startsWith("["))
 				list.add(s.getString(4));
 		}
 		return list;
+	}
+
+	public ResultSet getFMColumnMetaData(String f) {
+		return this.fDataAccess.getFMColumnMetaData(f);
+	}
+
+	public ResultSet getMySQLColumnMetaData(String m) {
+		return this.mDataAccess.getFMColumnMetaData(m);
+	}
+
+	public String getFMTablePrimaryKey(String f) {
+		return this.fDataAccess.getFMTablePrimaryKey(f);
 	}
 }
