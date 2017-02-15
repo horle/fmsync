@@ -12,6 +12,12 @@ import ceramalex.sync.exception.FilemakerIsCrapException;
 
 import com.filemaker.jdbc.FMSQLException;
 
+/**
+ * Internal logic for comparing databases
+ * 
+ * @author horle (Felix Kussmaul)
+ *
+ */
 public class SQLDataModel {
 	private SQLAccessController sqlAccess;
 	private static ArrayList<Pair> commonTables = new ArrayList<Pair>();
@@ -20,53 +26,54 @@ public class SQLDataModel {
 		sqlAccess = SQLAccessController.getInstance();
 		sqlAccess.connect();
 	}
-	
+
 	private ArrayList<Pair> getCommonTables() throws SQLException {
 		ArrayList<Pair> result = new ArrayList<Pair>();
-		
+
 		ArrayList<String> fmNames = new ArrayList<String>();
 		ArrayList<String> msNames = new ArrayList<String>();
 
 		ResultSet metaFM = sqlAccess.getFMDBMetaData();
 		ResultSet metaMS = sqlAccess.getMySQLDBMetaData();
-		
+
 		if (sqlAccess.isMySQLConnected()) {
-			// System.out.println("mysql is connected");
 			while (metaFM.next()) {
 				fmNames.add(metaFM.getString("TABLE_NAME"));
 			}
 			while (metaMS.next()) {
 				msNames.add(metaMS.getString("TABLE_NAME"));
 			}
-		
+
 			for (int i = 0; i < msNames.size(); i++) {
 				for (int j = 0; j < fmNames.size(); j++) {
-					if (msNames.get(i).toLowerCase().equals(fmNames.get(j).toLowerCase())) {
+					if (msNames.get(i).toLowerCase()
+							.equals(fmNames.get(j).toLowerCase())) {
 						Pair t = new Pair(fmNames.get(j), msNames.get(i));
 						result.add(t);
 					}
-					if (fmNames.get(j).equals("IsolatedSherdMainAbstract") && msNames.get(i).equals("isolatedsherd")){
+					// IsolatedSherdMainAbstract maps to isolatedsherd
+					if (fmNames.get(j).equals("IsolatedSherdMainAbstract")
+							&& msNames.get(i).equals("isolatedsherd")) {
 						Pair t = new Pair(fmNames.get(j), msNames.get(i));
 						result.add(t);
 					}
 				}
 			}
 		}
+		sqlAccess.fetchNumericFields(result);
 		return result;
 	}
-	
+
 	public ResultSet getDiffByUUID(String table) throws SQLException,
 			FilemakerIsCrapException {
 		ArrayList<String> fmNames = new ArrayList<String>();
 		ArrayList<String> msNames = new ArrayList<String>();
 
 		sqlAccess = SQLAccessController.getInstance();
-		sqlAccess.connect();
 		ResultSet metaFM = sqlAccess.getFMDBMetaData();
 		ResultSet metaMS = sqlAccess.getMySQLDBMetaData();
 
-		if (sqlAccess.isMySQLConnected()) {
-			// System.out.println("mysql is connected");
+		if (sqlAccess.isMySQLConnected() && sqlAccess.isFMConnected()) {
 			while (metaFM.next()) {
 				fmNames.add(metaFM.getString("TABLE_NAME"));
 			}
@@ -76,15 +83,14 @@ public class SQLDataModel {
 
 			// calculate common tables!
 			commonTables = getCommonTables();
-			sqlAccess.fetchNumericFields(commonTables);
 
 			// get common tables from DBs
 			for (int i = 0; i < commonTables.size(); i++) {
 				Pair currTab = commonTables.get(i);
 				System.out.println(currTab);
 
-				ResultSet fTab = sqlAccess
-						.doFMQuery("SELECT * FROM " + currTab.getF());
+				ResultSet fTab = sqlAccess.doFMQuery("SELECT * FROM "
+						+ currTab.getF());
 				// A-AUID + rest of table
 				ResultSet mTab = sqlAccess
 						.doMySQLQuery("SELECT ceramalexEntityManagement.ArachneEntityID, "
@@ -94,94 +100,100 @@ public class SQLDataModel {
 								+ " ON ceramalexEntityManagement.CeramalexForeignKey = "
 								+ currTab.getM()
 								+ "."
-								+ sqlAccess.getMySQLTablePrimaryKey(currTab.getM())
+								+ sqlAccess.getMySQLTablePrimaryKey(currTab
+										.getM())
 								+ " WHERE ceramalexEntityManagement.TableName=\""
 								+ currTab.getM() + "\"");
 
-				int count = 0;
-				
-
 				if (fTab != null && mTab != null) {
-					
+
 					ArrayList<String> commonFields = new ArrayList<String>();
-					
+					// DEBUG:
+					// if (commonFields.isEmpty()) {
+					// commonFields = getCommonFields(mTab, fTab);
+					// continue;
+					// }
+
 					try {
 						while (fTab.next() && mTab.next()) { // works, because a new entry is at the end of the list
-							
+
 							// entities:
-							int currAAUID = mTab.getInt("ArachneEntityID");	// current arachne uid in arachne
+							int currAAUID = mTab.getInt("ArachneEntityID"); // current arachne uid in arachne
 							int currCAUID = fTab.getInt("ArachneEntityID"); // current arachne uid in fm
+							
 							// C-AUID differs from online ...
 							if (currCAUID != currAAUID) {
-								// ... because remote entry needs to be downloaded or was deleted locally (local is null)
+								// ... because remote entry needs to be
+								// downloaded or was deleted locally (local is
+								// null)
 								if (currCAUID == 0) {
+									// Check all other fields. Is just C-AUID missing?
 									if (commonFields.isEmpty())
-										commonFields = getCommonFields(mTab, fTab);
-									
-									int col = commonFields.size();
-//									System.out.println("checking each of the fields ("+col+") in entry "
-//											+ currAAUID + " of table "+commonTables.get(i));
-									
-									boolean res = true;
-									for (int l = 0; l < col; l++){ // start after ID field, this is not equal anyway
-									
-										if (commonFields.get(l).equalsIgnoreCase("ArachneEntityID") || commonFields.get(l).equalsIgnoreCase("lastModified"))
-											continue;
-										
-										// Strings to compare in field with equal name
-										String sM = mTab.getString(commonFields.get(l));
-										String sF = fTab.getString(commonFields.get(l));
-										
-										sM = sM == null ? "" : sM;
-										sF = sF == null ? "" : sF;
+										commonFields = getCommonFields(mTab,fTab);
 
-										
-										if (!(sM.equalsIgnoreCase(sF))) {
-											if (isNumericalField(commonFields.get(l))){
-												try {
-													double m = Double.parseDouble(sM);
-													double f = Double.parseDouble(sF);
-													if (m == f)
-														continue;
-												} catch (NumberFormatException e) {
-													System.out
-															.println("NFException!");
-												}
-											}
-											res = false;
-											System.out.println(commonFields.get(l)+" in "+commonTables.get(i)+" not equal: \""+sM+"\" and \""+sF+"\"");
-											break;
-										}
+									// false? -> at least one field different.
+									if (!compareFields(commonFields, mTab,
+											fTab, commonTables.get(i))) {
+
+										System.out
+												.println("remote entry "
+														+ currAAUID
+														+ " needs to be downloaded or was deleted locally");
 									}
-									// System.out.println("each field equal? "+res);
-									//f.updateInt(1, count+1);
-									if (!res) System.out.println("remote entry "+currAAUID+" needs to be downloaded or was deleted locally");
+									// true? -> all fields equal, then just update local UID field
+									else {
+										System.out.println("replace local UID "+currCAUID + " with Arachne UID "+currAAUID);
+									}
+
 								}
-								// ... because local entry needs to be uploaded or was deleted remote (remote is null)
+								// ... because local entry needs to be uploaded
+								// or was deleted remote (remote is null)
 								else if (currAAUID == 0) {
-									System.out.println("local entry "+currCAUID+" needs to be uploaded or was deleted remote");
+									// Check all other fields. Is just A-AUID missing?
+									if (commonFields.isEmpty())
+										commonFields = getCommonFields(mTab,fTab);
+
+									// false? -> at least one field different.
+									if (!compareFields(commonFields, mTab,
+											fTab, commonTables.get(i))) {
+
+										System.out
+												.println("local entry "
+														+ currCAUID
+														+ " needs to be uploaded or was deleted on server");
+									}
+									// true? -> all fields equal, then just update remote UID field
+									else {
+										System.out.println("replace Arachne ID "+currAAUID + " with local UID "+currCAUID);
+									}
+									
+									System.out
+											.println("local entry "
+													+ currCAUID
+													+ " needs to be uploaded or was deleted remote");
 								}
 							}
 							// C-AUID == A-AUID! examine lastModified
 							else {
 								// arachne newer than local?
-								if (mTab.getDate("lastModified").after(fTab.getDate("lastModified"))){
+								if (mTab.getDate("lastModified").after(
+										fTab.getDate("lastModified"))) {
 									// download from arachne TODO
 									System.out.println("download from arachne");
-								}
-								else if (mTab.getDate("lastModified").before(fTab.getDate("lastModified"))) {
+								} else if (mTab.getDate("lastModified").before(
+										fTab.getDate("lastModified"))) {
 									// upload to arachne TODO
 									System.out.println("upload to arachne");
-								}
-								else {
-									// no changes or nothing to down-/upload, skip.
+								} else {
+									// no changes or nothing to down-/upload,
+									// skip.
 									continue;
 								}
 							}
 						}
 					} catch (FMSQLException e) {
 						System.err.println("FEHLER: " + e);
-						
+
 						// TODO: add column and continue with "old" processing
 						if (e.getMessage().contains(
 								"Column name not found: ArachneEntityID")) {
@@ -310,8 +322,49 @@ public class SQLDataModel {
 		return null;
 	}
 
+	private boolean compareFields(ArrayList<String> commonFields,
+			ResultSet mTab, ResultSet fTab, Pair currentTable)
+			throws SQLException {
+
+		int col = commonFields.size();
+		boolean res = true;
+		
+		for (int l = 0; l < col; l++) { 
+			
+			// skip UID field, this is not equal anyway
+			if (commonFields.get(l).equalsIgnoreCase("ArachneEntityID")
+					|| commonFields.get(l).equalsIgnoreCase("lastModified"))
+				continue;
+
+			// Strings to compare in field with equal name
+			String sM = mTab.getString(commonFields.get(l));
+			String sF = fTab.getString(commonFields.get(l));
+
+			sM = sM == null ? "" : sM;
+			sF = sF == null ? "" : sF;
+
+			if (!(sM.equalsIgnoreCase(sF))) {
+				if (isNumericalField(commonFields.get(l))) {
+					try {
+						double m = Double.parseDouble(sM);
+						double f = Double.parseDouble(sF);
+						if (m == f)
+							continue;
+					} catch (NumberFormatException e) {
+						System.err.println("NFException!");
+					}
+				}
+				res = false;
+				System.out.println(commonFields.get(l) + " in " + currentTable
+						+ " not equal: \"" + sF + "\" (FM) and \"" + sM + "\" (MS)");
+				break;
+			}
+		}
+		return res;
+	}
+
 	/**
-	 * get common fields in table x represented in fm and ms columns, etc
+	 * get common fields from fm and ms tables
 	 * 
 	 * @param m
 	 *            MySQL resultset of table
@@ -325,20 +378,33 @@ public class SQLDataModel {
 		ResultSetMetaData metaFMTab = f.getMetaData();
 		ResultSetMetaData metaMSTab = m.getMetaData();
 
+		HashSet<String> fs = new HashSet<String>();
+
+		// columns start at 1
 		for (int i = 1; i <= metaFMTab.getColumnCount(); i++) {
 			for (int j = 1; j <= metaMSTab.getColumnCount(); j++) {
 				if (metaFMTab.getColumnName(i).toLowerCase()
-						.equals(metaMSTab.getColumnName(j).toLowerCase())) {
+						.equalsIgnoreCase(metaMSTab.getColumnName(j))) {
 					result.add(metaFMTab.getColumnName(i));
 				}
 			}
 		}
+		// DEBUG: get all fields just in FM
+		for (int i = 1; i <= metaFMTab.getColumnCount(); i++) {
+			if (!result.contains(metaFMTab.getColumnName(i))
+					&& !metaFMTab.getColumnName(i).startsWith("["))
+				fs.add(metaFMTab.getColumnName(i));
+		}
+		if (!fs.isEmpty())
+			System.out.println(fs);
+		// DEBUG end
 
 		return result;
 	}
-	
+
 	private boolean isNumericalField(String field) {
-		return ConfigController.getInstance().getNumericFields().contains(field);
+		return ConfigController.getInstance().getNumericFields()
+				.contains(field);
 	}
 
 	public static void main(String[] args) {
@@ -347,7 +413,7 @@ public class SQLDataModel {
 			commonTables = m.getCommonTables();
 			m.getDiffByUUID("");
 		} catch (SQLException e) {
-			// TODO Auto-generated catch block
+			
 			e.printStackTrace();
 		}
 	}

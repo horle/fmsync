@@ -444,8 +444,6 @@ public class MainWindow {
 						@Override
 						protected Void doInBackground() throws Exception {
 
-							
-							
 							/**
 							 * SwingWorkers to connect to DBs and update GUI
 							 * elements
@@ -472,12 +470,14 @@ public class MainWindow {
 										this.setSQLControl(SQLAccessController
 												.getInstance());
 										this.getSQLControl().connect();
-										if (this.getSQLControl().isMySQLConnected()
-												&& this.getSQLControl().isFMConnected()) {
+										if (this.getSQLControl()
+												.isMySQLConnected()
+												&& this.getSQLControl()
+														.isFMConnected()) {
 											connected = true;
 											publish(open);
 											return true;
-										} else{
+										} else {
 											this.getSQLControl().close();
 											return false;
 										}
@@ -509,17 +509,19 @@ public class MainWindow {
 								protected void done() {
 									try {
 										// close connection!
-										if(worker.getSQLControl() != null && !worker.getSQLControl().close())
+										if (worker.getSQLControl() != null
+												&& !worker.getSQLControl()
+														.close())
 											throw new SQLException();
 										worker.cancel(true);
-										if (worker.isCancelled()){
+										if (worker.isCancelled()) {
 											if (worker.get()) {
 												publish(closed);
-											}else
+											} else
 												publish(closedError);
-										}else
+										} else
 											publish(closedError);
-										
+
 									} catch (InterruptedException
 											| ExecutionException e) {
 										publish(closedError
@@ -538,14 +540,14 @@ public class MainWindow {
 								worker.get(CONN_TIMEOUT, TimeUnit.SECONDS);
 							} catch (InterruptedException | ExecutionException e1) {
 								worker.cancel(true);
-								JOptionPane
-								.showMessageDialog(
+								JOptionPane.showMessageDialog(
 										frame,
-										"Connection aborted by error: "+e1.getMessage(),
+										"Connection aborted by error: "
+												+ e1.getMessage(),
 										"Abort by error",
 										JOptionPane.INFORMATION_MESSAGE);
-								
-							} catch (TimeoutException e2){
+
+							} catch (TimeoutException e2) {
 								worker.cancel(true);
 								publish(closedError
 										.setLogAppend("Connection timed out."));
@@ -553,14 +555,16 @@ public class MainWindow {
 									@Override
 									public void run() {
 										JOptionPane
-											.showMessageDialog(
-													frame,
-													"Timeout while trying to contact the server.",
-													"Timeout",
-													JOptionPane.INFORMATION_MESSAGE);
+												.showMessageDialog(
+														frame,
+														"Timeout while trying to contact the server.",
+														"Timeout",
+														JOptionPane.INFORMATION_MESSAGE);
 									};
 								});
-								System.out.println("cancelled: "+worker.isCancelled()+"; done: "+worker.isDone());
+								System.out.println("cancelled: "
+										+ worker.isCancelled() + "; done: "
+										+ worker.isDone());
 							}
 							return null;
 						}
@@ -590,13 +594,8 @@ public class MainWindow {
 						@Override
 						protected Boolean doInBackground() {
 
-							SQLAccessController connector = null;
-							try {
-								connector = SQLAccessController.getInstance();
-							} catch (SQLException e) {
-
-								e.printStackTrace();
-							}
+							SQLAccessController connector = SQLAccessController
+									.getInstance();
 
 							if (connector.close()) {
 								connected = false;
@@ -766,14 +765,14 @@ public class MainWindow {
 		String prefix = "";
 		if (e.getMessage().startsWith("MySQL:"))
 			prefix = "MySQL: ";
-		
+
 		if (e.getMessage().contains("Communications link failure"))
 			msg = "Server does not answer.";
 		if (e.getMessage().contains("Access denied"))
 			msg = "Access denied: Wrong user name or password.";
 		if (e.getMessage().contains("No suitable driver"))
 			msg = e.getMessage();
-		
+
 		return prefix + msg;
 	}
 }

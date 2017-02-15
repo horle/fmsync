@@ -57,13 +57,12 @@ public abstract class AbstractDatabase {
 	 * @throws SQLException
 	 */
 	public AbstractDatabase(String dbUrl, String user, String pwd,
-			String serverDataSource) throws SQLException {
+			String serverDataSource) {
 
 		this.dbURL = dbUrl;
 		this.user = user;
 		this.pwd = pwd;
 		this.serverDataSource = serverDataSource;
-	//	createConnection(dbUrl, user, pwd, serverDataSource);
 	}
 
 	public boolean createConnection() throws SQLException {
@@ -84,6 +83,8 @@ public abstract class AbstractDatabase {
 	public boolean createConnection(String dbUrl, String user, String pwd,
 			String serverDataSource) throws SQLException {
 
+		boolean result = false;
+		
 		logger.info("DBURL: '" + dbUrl + "' User: '" + user + "' Pass: '" + pwd
 				+ "' DataSource: '" + serverDataSource + "'");
 
@@ -101,6 +102,7 @@ public abstract class AbstractDatabase {
 			DriverManager.setLoginTimeout(5);
 			this.cn = DriverManager.getConnection(getConnectionURL(dbUrl, user,
 					pwd, serverDataSource));
+			result = isConnected();
 		}
 		catch (SQLException e) {
 			logger.error("Driver:" + e);
@@ -116,7 +118,7 @@ public abstract class AbstractDatabase {
 			warning = cn.getWarnings();
 			if (warning == null) {
 				logger.trace("Keine Warnungen");
-				return true;
+				return result;
 			}
 			while (warning != null) {
 				logger.warn(warning);
@@ -125,6 +127,7 @@ public abstract class AbstractDatabase {
 		} catch (SQLException e) {
 			System.out.println("stacktrace");
 			e.printStackTrace();
+			return false;
 		}
 
 		try {
@@ -133,7 +136,7 @@ public abstract class AbstractDatabase {
 		} catch (SQLException e) {
 			e.printStackTrace();
 		}
-		return true;
+		return result;
 	}
 
 	// -------------------------------------------------------------------------------
@@ -321,10 +324,18 @@ public abstract class AbstractDatabase {
 	 * 
 	 * @return true, falls verbunden.
 	 */
-	public boolean isConnected() throws SQLException {
-		if (cn == null)
+	public boolean isConnected() {
+		if (cn == null){
 			return false;
-		return cn.isValid(5);
+		}
+		try {
+			Statement s = cn.createStatement();
+			s.executeQuery("SELECT 1 FROM fabric");
+			return true;
+		} catch (SQLException e) {
+			System.out.println(e.getMessage());
+			return false;
+		}
 	}
 
 	// -------------------------------------------------------------------------------
