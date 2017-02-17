@@ -157,6 +157,7 @@ public class SQLAccessController {
 	 * @return true, if success. false else
 	 */
 	public boolean doFMUpdate(String table, String set, String where) {
+		System.out.println("UPDATE "+table+" SET "+set+" WHERE "+where+";");
 		if (table.isEmpty() || set.isEmpty() || where.isEmpty())
 			return false;
 		return fDataAccess.doSQLModify("UPDATE "+table+" SET "+set+" WHERE "+where+";");
@@ -208,18 +209,23 @@ public class SQLAccessController {
 		boolean mRes = true;
 		boolean fRes = true;
 
-		if (mDataAccess == null || !mDataAccess.isConnected()) {
+		if (mDataAccess == null) {
 			mDataAccess = new MySQLDataAccess(config.getMySQLURL(),
 					config.getMySQLUser(), config.getMySQLPassword(),
 					config.getMySQLDB());
-			mRes = mDataAccess.createConnection();
 		}
-		if (fDataAccess == null || !fDataAccess.isConnected()) {
+		if (fDataAccess == null) {
 			fDataAccess = new FMDataAccess(config.getFmURL(),
 					config.getFmUser(), config.getFmPassword(),
 					config.getFmDB());
+		}
+		if (!mDataAccess.isConnected()) {
+			mRes = mDataAccess.createConnection();
+		}
+		if (!fDataAccess.isConnected()) {
 			fRes = fDataAccess.createConnection();
 		}
+		
 		return mRes && fRes;
 	}
 

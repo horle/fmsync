@@ -2,6 +2,7 @@ package ceramalex.sync.exception;
 
 import com.filemaker.jdbc.FMSQLException;
 
+
 public class FilemakerIsCrapException extends FMSQLException {
 
 	public FilemakerIsCrapException(String arg0) {

@@ -356,6 +356,8 @@ public abstract class AbstractDatabase {
 		try {
 			if (cn != null)
 				this.cn.close();
+			else
+				return true;
 		} catch (SQLException e) {
 			e.printStackTrace();
 			return false;

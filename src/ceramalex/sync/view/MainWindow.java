@@ -248,7 +248,7 @@ public class MainWindow {
 		lblMySQLPort.setBounds(334, 25, 65, 15);
 		panelPrefs.add(lblMySQLPort);
 
-		lblFMAddress = new JLabel("FileMaker Server Address");
+		lblFMAddress = new JLabel("FileMaker 14 Server Address");
 		lblFMAddress.setFont(new Font("Dialog", Font.PLAIN, 12));
 		lblFMAddress.setBounds(12, 164, 315, 15);
 		panelPrefs.add(lblFMAddress);
@@ -327,7 +327,7 @@ public class MainWindow {
 		txtMySQLPass.setBounds(220, 106, 165, 24);
 		panelPrefs.add(txtMySQLPass);
 
-		lblFMPass = new JLabel("MySQL Password");
+		lblFMPass = new JLabel("FileMaker 14 Password");
 		lblFMPass.setFont(new Font("Dialog", Font.PLAIN, 12));
 		lblFMPass.setBounds(220, 221, 165, 15);
 		panelPrefs.add(lblFMPass);
@@ -336,7 +336,7 @@ public class MainWindow {
 		txtFMPass.setBounds(220, 245, 165, 24);
 		panelPrefs.add(txtFMPass);
 
-		lblFMUser = new JLabel("MySQL Username");
+		lblFMUser = new JLabel("FileMaker 14 Username");
 		lblFMUser.setFont(new Font("Dialog", Font.PLAIN, 12));
 		lblFMUser.setBounds(12, 221, 200, 15);
 		panelPrefs.add(lblFMUser);
@@ -469,11 +469,7 @@ public class MainWindow {
 									try {
 										this.setSQLControl(SQLAccessController
 												.getInstance());
-										this.getSQLControl().connect();
-										if (this.getSQLControl()
-												.isMySQLConnected()
-												&& this.getSQLControl()
-														.isFMConnected()) {
+										if (this.getSQLControl().connect()) {
 											connected = true;
 											publish(open);
 											return true;
@@ -510,8 +506,7 @@ public class MainWindow {
 									try {
 										// close connection!
 										if (worker.getSQLControl() != null
-												&& !worker.getSQLControl()
-														.close())
+												&& !worker.getSQLControl().close())
 											throw new SQLException();
 										worker.cancel(true);
 										if (worker.isCancelled()) {

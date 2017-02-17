@@ -3,6 +3,10 @@ package ceramalex.sync.model;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 
@@ -20,9 +24,13 @@ import com.filemaker.jdbc.FMSQLException;
  */
 public class SQLDataModel {
 	private SQLAccessController sqlAccess;
+	private DateTimeFormatter formatTS;
+	private ZoneId zoneBerlin;
 	private static ArrayList<Pair> commonTables = new ArrayList<Pair>();
 
 	public SQLDataModel() throws SQLException {
+		formatTS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+		zoneBerlin = ZoneId.of("Europe/Berlin");
 		sqlAccess = SQLAccessController.getInstance();
 		sqlAccess.connect();
 	}
@@ -116,9 +124,12 @@ public class SQLDataModel {
 							// entities:
 							int currAAUID = mTab.getInt("ArachneEntityID"); // current arachne uid in arachne
 							int currCAUID = fTab.getInt("ArachneEntityID"); // current arachne uid in fm
+							String currLocalTS = getBerlinTimeStamp(); // current timestamp in CET format (arachne is in germany ...)
+							LocalDateTime currArachneTS = mTab.getTimestamp("lastModified").toLocalDateTime();//.format(formatter);
 							
 							// C-AUID differs from online ...
 							if (currCAUID != currAAUID) {
+								if (1==1) continue;
 								// ... because remote entry needs to be
 								// downloaded or was deleted locally (local is
 								// null)
@@ -142,10 +153,12 @@ public class SQLDataModel {
 										System.out.print("add Arachne UID "+currAAUID+" to local entry with ID "+pkVal+" ...");
 										if (pkVal != mTab.getInt(pkName))
 											System.err.println("Oh wait, IDs are not equal!");
-										if (sqlAccess.doFMUpdate(currTab.getF(), "ArachneEntityID="+currAAUID, pkName+"="+pkVal))
+//										if (sqlAccess.doFMUpdate(currTab.getF(),
+//												"\"ArachneEntityID\"="+currAAUID+", \"lastModified\"=TIMESTAMP '"+currArachneTS.format(formatTS)+"'",
+//												pkName+"="+pkVal))
 											System.out.print(" done\n");
-										else
-											System.out.print(" FAILED!\n");
+//										else
+//											System.out.print(" FAILED!\n");
 									}
 
 								}
@@ -178,6 +191,14 @@ public class SQLDataModel {
 							}
 							// C-AUID == A-AUID! examine lastModified
 							else {
+								// KILLLLLLLLLLLL
+								System.out.print("Updating timestamp ...");
+								sqlAccess.doFMUpdate(currTab.getF(),
+										"lastModified=TIMESTAMP '"+currArachneTS.format(formatTS)+"'",
+										"ArachneEntityID="+currAAUID);
+								System.out.print(" done\n");
+								// END KILLLLLLLLLLL
+								
 								// arachne newer than local?
 								if (mTab.getDate("lastModified").after(
 										fTab.getDate("lastModified"))) {
@@ -435,6 +456,9 @@ public class SQLDataModel {
 		return result;
 	}
 
+	private String getBerlinTimeStamp() {
+		return LocalDateTime.now(zoneBerlin).format(formatTS); 
+	}
 
 	private boolean isNumericalField(String field) {
 		return ConfigController.getInstance().getNumericFields()
