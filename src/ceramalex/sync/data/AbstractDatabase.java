@@ -184,6 +184,8 @@ public abstract class AbstractDatabase {
 
 	public boolean doSQLModify(String sql) {
 
+		System.out.println(sql);
+		
 		try {
 			// logger.info(sql);
 			Statement statement = cn.createStatement();

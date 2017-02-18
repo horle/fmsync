@@ -29,7 +29,7 @@ public class SQLDataModel {
 	private static ArrayList<Pair> commonTables = new ArrayList<Pair>();
 
 	public SQLDataModel() throws SQLException {
-		formatTS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+		formatTS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");//yyyy-MM-dd HH:mm:ss");
 		zoneBerlin = ZoneId.of("Europe/Berlin");
 		sqlAccess = SQLAccessController.getInstance();
 		sqlAccess.connect();
@@ -124,12 +124,20 @@ public class SQLDataModel {
 							// entities:
 							int currAAUID = mTab.getInt("ArachneEntityID"); // current arachne uid in arachne
 							int currCAUID = fTab.getInt("ArachneEntityID"); // current arachne uid in fm
-							String currLocalTS = getBerlinTimeStamp(); // current timestamp in CET format (arachne is in germany ...)
-							LocalDateTime currArachneTS = mTab.getTimestamp("lastModified").toLocalDateTime();//.format(formatter);
+//							String currLocalTS = getBerlinTimeStamp(); // current timestamp in CET format (arachne is in germany ...)
+							Timestamp mysql = mTab.getTimestamp("lastModified");
+							
+							// missing entry in regular table, but entry in entity management! bug in db!
+							// TODO: delete entry in arachne entity management
+							if (mysql == null) {
+								System.err.println("Missing entry in Arachne entity management!");
+								continue;
+							}
+							LocalDateTime currArachneTS = mysql.toLocalDateTime();//.format(formatter);
 							
 							// C-AUID differs from online ...
 							if (currCAUID != currAAUID) {
-								if (1==1) continue;
+//								if (1==1) continue;
 								// ... because remote entry needs to be
 								// downloaded or was deleted locally (local is
 								// null)
@@ -153,9 +161,10 @@ public class SQLDataModel {
 										System.out.print("add Arachne UID "+currAAUID+" to local entry with ID "+pkVal+" ...");
 										if (pkVal != mTab.getInt(pkName))
 											System.err.println("Oh wait, IDs are not equal!");
-//										if (sqlAccess.doFMUpdate(currTab.getF(),
-//												"\"ArachneEntityID\"="+currAAUID+", \"lastModified\"=TIMESTAMP '"+currArachneTS.format(formatTS)+"'",
-//												pkName+"="+pkVal))
+										if (sqlAccess.doFMUpdate("UPDATE \"" + currTab.getF() 
+												+ "\" SET ArachneEntityID="+currAAUID
+												+", lastModified={ts '"+currArachneTS.format(formatTS)+"'}"
+												+ " WHERE "+pkName+"="+pkVal))
 											System.out.print(" done\n");
 //										else
 //											System.out.print(" FAILED!\n");
@@ -193,24 +202,31 @@ public class SQLDataModel {
 							else {
 								// KILLLLLLLLLLLL
 								System.out.print("Updating timestamp ...");
-								sqlAccess.doFMUpdate(currTab.getF(),
-										"lastModified=TIMESTAMP '"+currArachneTS.format(formatTS)+"'",
-										"ArachneEntityID="+currAAUID);
-								System.out.print(" done\n");
+								if (
+										sqlAccess.doFMUpdate("UPDATE \""+currTab.getF()+
+												"\" SET lastModified={ts '"+currArachneTS.format(formatTS)+"'} WHERE ArachneEntityID="+currAAUID)
+										)
+									System.out.print(" done\n");
+								else 
+									System.out.print(" FAILED\n");
+								if (1==1) continue;
 								// END KILLLLLLLLLLL
 								
+	//							Timestamp mysql = mTab.getTimestamp("lastModified");
+								Timestamp fm = fTab.getTimestamp("lastModified");
+								
 								// arachne newer than local?
-								if (mTab.getDate("lastModified").after(
-										fTab.getDate("lastModified"))) {
+								if (mysql.after(fm)) {
 									// download from arachne TODO
+									System.out.println(mysql.toString()+" after "+fm.toString());
 									System.out.println("download from arachne");
-								} else if (mTab.getDate("lastModified").before(
-										fTab.getDate("lastModified"))) {
+								} else if (mysql.before(fm)) {
 									// upload to arachne TODO
 									System.out.println("upload to arachne");
 								} else {
 									// no changes or nothing to down-/upload,
 									// skip.
+									System.out.println("Skipping update, same!");
 									continue;
 								}
 							}
@@ -349,6 +365,8 @@ public class SQLDataModel {
 	private boolean compareFields(ArrayList<String> commonFields,
 			ResultSet mTab, ResultSet fTab, Pair currentTable)
 			throws SQLException {
+		
+		// TODO !!!! index verschiebung
 
 		int col = commonFields.size();
 		boolean res = true;

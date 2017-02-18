@@ -148,20 +148,6 @@ public class SQLAccessController {
 	public ResultSet doMySQLQuery(String sql) {
 		return mDataAccess.doSQLQuery(sql);
 	}
-
-	/**
-	 * execute update query on FM
-	 * 
-	 * @param sql
-	 *            SQL-Update-String
-	 * @return true, if success. false else
-	 */
-	public boolean doFMUpdate(String table, String set, String where) {
-		System.out.println("UPDATE "+table+" SET "+set+" WHERE "+where+";");
-		if (table.isEmpty() || set.isEmpty() || where.isEmpty())
-			return false;
-		return fDataAccess.doSQLModify("UPDATE "+table+" SET "+set+" WHERE "+where+";");
-	}
 	
 	/**
 	 * execute update query on FM
