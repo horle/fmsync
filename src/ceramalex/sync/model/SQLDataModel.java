@@ -117,27 +117,68 @@ public class SQLDataModel {
 								+ currTab.getM() + "\"");
 
 				if (fTab != null && mTab != null) {
-
-					try {
-						while (fTab.next() && mTab.next()) { // works, because a new entry is at the end of the list
-
+					
+					// entities:
+					int currAAUID = 0; // current arachne uid in arachne
+					int currCAUID = 0; // current arachne uid in fm
+					Timestamp currATS = null; // current arachne timestamp
+					Timestamp currCTS = null; // current fm timestamp
+//					String currLocalTS = getBerlinTimeStamp(); // current timestamp in CET format (arachne is in germany ...)
+					
+					// test, if table empty
+					if (mTab.next() && fTab.next()) {
+						
+						// test, if table contains UUID and TS fields
+						try {
 							// entities:
-							int currAAUID = mTab.getInt("ArachneEntityID"); // current arachne uid in arachne
-							int currCAUID = fTab.getInt("ArachneEntityID"); // current arachne uid in fm
-//							String currLocalTS = getBerlinTimeStamp(); // current timestamp in CET format (arachne is in germany ...)
-							Timestamp mysql = mTab.getTimestamp("lastModified");
+							currAAUID = mTab.getInt("ArachneEntityID");
+							currCAUID = fTab.getInt("ArachneEntityID");
+							currATS = mTab.getTimestamp("lastModified");
+							currCTS = fTab.getTimestamp("lastModified");
+							
+						} catch (FMSQLException e) {
+							System.err.println("FEHLER: " + e);
+	
+							// add column and proceed
+							if (e.getMessage().contains(
+									"Column name not found: ArachneEntityID")) {
+								if (!sqlAccess.doFMInsert("ALTER TABLE "+currTab.getF()+" ADD ArachneEntityID NUMERIC"))
+									throw new FilemakerIsCrapException(
+											"Column ArachneEntityID has to be added manually into table \""
+													+ currTab.getF() + "\"");
+							} else 
+							if (e.getMessage().contains(
+									"Column name not found: lastModified")) {
+								if (!sqlAccess.doFMInsert("ALTER TABLE "+currTab.getF()+" ADD lastModified TIMESTAMP"))
+									throw new FilemakerIsCrapException(
+											"Column lastModified has to be added manually into table \""
+													+ currTab.getF() + "\"");
+								throw new FilemakerIsCrapException("You have to enter the following script to each lastModified field: ...");
+							}else
+								throw e;
+						}
+					}
+					
+					// reset cursor for loop
+					mTab.beforeFirst();
+					fTab.beforeFirst();
+					
+					try {
+						// TODO: eine leer, eine mit einträgen? :/
+						while (fTab.next() && mTab.next()) { // works, because a new entry is at the end of the list
 							
 							// missing entry in regular table, but entry in entity management! bug in db!
 							// TODO: delete entry in arachne entity management
-							if (mysql == null) {
+							if (currATS == null) {
 								System.err.println("Missing entry in Arachne entity management!");
 								continue;
 							}
-							LocalDateTime currArachneTS = mysql.toLocalDateTime();//.format(formatter);
+							LocalDateTime currArachneTS = currATS.toLocalDateTime();//.format(formatter);
 							
 							// C-AUID differs from online ...
 							if (currCAUID != currAAUID) {
 //								if (1==1) continue;
+								
 								// ... because remote entry needs to be
 								// downloaded or was deleted locally (local is
 								// null)
@@ -213,14 +254,14 @@ public class SQLDataModel {
 								// END KILLLLLLLLLLL
 								
 	//							Timestamp mysql = mTab.getTimestamp("lastModified");
-								Timestamp fm = fTab.getTimestamp("lastModified");
+								currCTS = fTab.getTimestamp("lastModified");
 								
 								// arachne newer than local?
-								if (mysql.after(fm)) {
+								if (currATS.after(currCTS)) {
 									// download from arachne TODO
-									System.out.println(mysql.toString()+" after "+fm.toString());
+									System.out.println(currATS.toString()+" after "+currCTS.toString());
 									System.out.println("download from arachne");
-								} else if (mysql.before(fm)) {
+								} else if (currATS.before(currCTS)) {
 									// upload to arachne TODO
 									System.out.println("upload to arachne");
 								} else {
@@ -233,20 +274,7 @@ public class SQLDataModel {
 						}
 					} catch (FMSQLException e) {
 						System.err.println("FEHLER: " + e);
-
-						// TODO: add column and continue with "old" processing
-						if (e.getMessage().contains(
-								"Column name not found: ArachneEntityID")) {
-							throw new FilemakerIsCrapException(
-									"Column ArachneEntityID has to be added manually into table \""
-											+ currTab.getF() + "\"");
-						}
-						if (e.getMessage().contains(
-								"Column name not found: lastModified")) {
-							throw new FilemakerIsCrapException(
-									"Column lastModified has to be added manually into table \""
-											+ currTab.getF() + "\"");
-						}
+						e.printStackTrace();
 					}
 				}
 
@@ -487,6 +515,7 @@ public class SQLDataModel {
 		try {
 			SQLDataModel m = new SQLDataModel();
 			commonTables = m.getCommonTables();
+			m.sqlAccess.doFMUpdate("ALTER TABLE MainAbstract ADD ArachneEntityID VARCHAR");
 			m.getDiffByUUID("");
 		} catch (SQLException e) {
 			
