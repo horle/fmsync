@@ -179,7 +179,6 @@ public class SQLAccessController {
 	 * @return resultset
 	 */
 	public ResultSet doFMQuery(String sql) {
-		System.out.println(sql);
 		return fDataAccess.doSQLQuery(sql);
 	}
 

@@ -164,8 +164,13 @@ public class SQLDataModel {
 					fTab.beforeFirst();
 					
 					try {
-						// TODO: eine leer, eine mit einträgen? :/
+						// TODO: eine leer, eine mit einträgen? :/ !!!!!!!!!!!!!!!!!!!!!!!! TESTED BUG
 						while (fTab.next() && mTab.next()) { // works, because a new entry is at the end of the list
+							
+							currAAUID = mTab.getInt("ArachneEntityID");
+							currCAUID = fTab.getInt("ArachneEntityID");
+							currATS = mTab.getTimestamp("lastModified");
+							currCTS = fTab.getTimestamp("lastModified");
 							
 							// missing entry in regular table, but entry in entity management! bug in db!
 							// TODO: delete entry in arachne entity management
@@ -241,17 +246,17 @@ public class SQLDataModel {
 							}
 							// C-AUID == A-AUID! examine lastModified
 							else {
-								// KILLLLLLLLLLLL
-								System.out.print("Updating timestamp ...");
-								if (
-										sqlAccess.doFMUpdate("UPDATE \""+currTab.getF()+
-												"\" SET lastModified={ts '"+currArachneTS.format(formatTS)+"'} WHERE ArachneEntityID="+currAAUID)
-										)
-									System.out.print(" done\n");
-								else 
-									System.out.print(" FAILED\n");
-								if (1==1) continue;
-								// END KILLLLLLLLLLL
+//								// KILLLLLLLLLLLL
+//								System.out.print("Updating timestamp ...");
+//								if (
+//										sqlAccess.doFMUpdate("UPDATE \""+currTab.getF()+
+//												"\" SET lastModified={ts '"+currArachneTS.format(formatTS)+"'} WHERE ArachneEntityID="+currAAUID)
+//										)
+//									System.out.print(" done\n");
+//								else 
+//									System.out.print(" FAILED\n");
+//								if (1==1) continue;
+//								// END KILLLLLLLLLLL
 								
 	//							Timestamp mysql = mTab.getTimestamp("lastModified");
 								currCTS = fTab.getTimestamp("lastModified");
@@ -263,11 +268,12 @@ public class SQLDataModel {
 									System.out.println("download from arachne");
 								} else if (currATS.before(currCTS)) {
 									// upload to arachne TODO
+									System.out.println(currATS.toString()+" before "+currCTS.toString());
 									System.out.println("upload to arachne");
 								} else {
 									// no changes or nothing to down-/upload,
 									// skip.
-									System.out.println("Skipping update, same!");
+//									System.out.println("Skipping update, same!");
 									continue;
 								}
 							}
@@ -515,7 +521,6 @@ public class SQLDataModel {
 		try {
 			SQLDataModel m = new SQLDataModel();
 			commonTables = m.getCommonTables();
-			m.sqlAccess.doFMUpdate("ALTER TABLE MainAbstract ADD ArachneEntityID VARCHAR");
 			m.getDiffByUUID("");
 		} catch (SQLException e) {
 			
