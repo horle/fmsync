@@ -184,6 +184,40 @@ public abstract class AbstractDatabase {
 		statement.close();
 		return true;
 	}
+	
+	/**
+	 * Opens a new connection to the given database. Most suitable for altering table schemas in FileMaker, as this is not possible for "external tables". Closes connection afterwards.
+	 * @param sql SQL modify query
+	 * @param dbUrl URL for connection
+	 * @param user user name for connection
+	 * @param pwd password for connection
+	 * @param serverDataSource server database name
+	 * @return true, if success.
+	 * @throws SQLException Throws exception if sql error occurred.
+	 */
+	public boolean doSQLModifyViaNewConnection(String sql, String dbUrl, String user, String pwd, String serverDataSource) throws SQLException {
+		
+		Connection con;
+		try {
+			DriverManager.setLoginTimeout(5);
+			con = DriverManager.getConnection(getConnectionURL(dbUrl, user,
+					pwd, serverDataSource));
+		}
+		catch (SQLException e) {
+			logger.error("Driver:" + e);
+			System.out.println("Driver:" + e);
+			String eMsg = e.getMessage();
+			if (getDriverName().contains("mysql"))
+				eMsg = "MySQL: " + eMsg;
+			throw new SQLException(eMsg); // throw to gui ... 
+		}
+		
+		Statement statement = con.createStatement();
+		statement.executeUpdate(sql);
+		statement.close();
+		con.close();
+		return true;
+	}
 
 	// -------------------------------------------------------------------------------
 	/**
@@ -249,7 +283,7 @@ public abstract class AbstractDatabase {
 	/**
 	 * Method returns primary key of filemaker table
 	 * 
-	 * @return name of primary key. if not found, returns empty string
+	 * @return name of primary key for certain table. if not found, returns empty string
 	 */
 	public String getFMTablePrimaryKey(String table) {
 		String result = "";
@@ -258,8 +292,9 @@ public abstract class AbstractDatabase {
 			ResultSet r = cn.getMetaData().getColumns(null, "iDAIAbstractCeramalex", table, "PS%");
 			if (r.next())
 				result = r.getString("COLUMN_NAME");
-			if (r.next()) // another PS_* column?
-				throw new FilemakerIsCrapException("multiple PKs in Filemaker table "+table);
+			while (r.next()) { // another PS_* column?
+				result += "," + r.getString("COLUMN_NAME");
+			}
 			return result;
 		} catch (SQLException e) {
 			e.printStackTrace();

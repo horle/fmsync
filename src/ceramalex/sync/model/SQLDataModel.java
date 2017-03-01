@@ -73,9 +73,9 @@ public class SQLDataModel {
 		return result;
 	}
 	
-	private boolean addLastModifiedField(String table) throws SQLException {
+	private boolean addLastModifiedField(String table) throws SQLException, FilemakerIsCrapException {
 		try {
-			if (sqlAccess.doFMInsert("ALTER TABLE "+table+" ADD lastModified TIMESTAMP")) {
+			if (sqlAccess.doFMAlter("ALTER TABLE "+table+" ADD lastModified TIMESTAMP")) {
 				throw new FilemakerIsCrapException(
 						"Column lastModified has been added manually into table \""
 								+ table + "\", but has still to be updated in FileMaker with the following script:");//TODO
@@ -90,9 +90,9 @@ public class SQLDataModel {
 		}
 	}
 	
-	private boolean addAUIDField(String table) throws SQLException {
+	private boolean addAUIDField(String table) throws SQLException, FilemakerIsCrapException {
 		try {
-			if (sqlAccess.doFMInsert("ALTER TABLE "+table+" ADD ArachneEntityID NUMERIC")) {
+			if (sqlAccess.doFMAlter("ALTER TABLE "+table+" ADD ArachneEntityID NUMERIC")) {
 				return true;
 			}
 			else

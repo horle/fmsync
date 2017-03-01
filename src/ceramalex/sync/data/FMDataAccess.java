@@ -2,6 +2,8 @@ package ceramalex.sync.data;
 
 import java.sql.SQLException;
 
+import ceramalex.sync.controller.ConfigController;
+
 public class FMDataAccess extends AbstractDatabase {
 
 	//-------------------------------------------------------------------------------
@@ -13,6 +15,20 @@ public class FMDataAccess extends AbstractDatabase {
 	@Override
 	protected String getDriverName() {
 		return "com.filemaker.jdbc.Driver";
+	}
+	
+	public boolean doSQLAlter(String sql) throws SQLException {
+		if (sql.toLowerCase().startsWith("alter table datierung")) {
+			ConfigController conf = ConfigController.getInstance();
+			return this.doSQLModifyViaNewConnection(sql, conf.getFmURL(), conf.getFmUser(), conf.getFmPassword(), "iDAIDatierung");
+			
+		} else if (sql.toLowerCase().startsWith("alter table literatur") || sql.toLowerCase().contains("alter table literaturzitat")) {
+			ConfigController conf = ConfigController.getInstance();
+			return this.doSQLModifyViaNewConnection(sql, conf.getFmURL(), conf.getFmUser(), conf.getFmPassword(), "iDAILiteratur");
+			
+		} else {
+			return doSQLModify(sql);
+		}
 	}
 	
 	//-------------------------------------------------------------------------------

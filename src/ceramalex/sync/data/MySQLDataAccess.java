@@ -2,8 +2,6 @@ package ceramalex.sync.data;
 
 import java.sql.SQLException;
 
-import ceramalex.sync.controller.ConfigController;
-
 public class MySQLDataAccess extends AbstractDatabase {
 	
 	//-------------------------------------------------------------------------------

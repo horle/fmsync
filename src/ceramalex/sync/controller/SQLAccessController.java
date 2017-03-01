@@ -10,6 +10,7 @@ import org.apache.log4j.Logger;
 
 import ceramalex.sync.data.FMDataAccess;
 import ceramalex.sync.data.MySQLDataAccess;
+import ceramalex.sync.exception.FilemakerIsCrapException;
 import ceramalex.sync.model.Pair;
 
 /**
@@ -286,5 +287,9 @@ public class SQLAccessController {
 
 	public String getFMTablePrimaryKey(String f) {
 		return this.fDataAccess.getFMTablePrimaryKey(f);
+	}
+
+	public boolean doFMAlter(String sql) throws SQLException {
+		return fDataAccess.doSQLAlter(sql);
 	}
 }
