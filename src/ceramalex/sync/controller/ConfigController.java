@@ -64,7 +64,7 @@ public class ConfigController {
 	}
 
 	private ConfigController() {
-		setPrefs("jdbc:mysql://arachne.dainst.org", "root", "Celt1!wedged",
+		setPrefs("jdbc:mysql://192.168.1.4:3306", "root", "",
 				"ceramalex", "jdbc:filemaker://localhost", "admin", "btbw", "iDAIAbstractCeramalex", "3306");
 	}
 

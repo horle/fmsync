@@ -154,17 +154,8 @@ public abstract class AbstractDatabase {
 		try {
 			if (this.st == null)
 				this.st = cn.createStatement();
-			ResultSet rs = this.st.executeQuery(sql);
+			return this.st.executeQuery(sql);
 
-			// teste, ob das ResultSet leer ist
-			if (!rs.next())
-				return null;
-
-			// sonst setze den Cursor wieder zurueck auf Anfang
-			else {
-				rs.beforeFirst();
-				return rs;
-			}
 		} catch (SQLException e) {
 			e.printStackTrace();
 			return null;
@@ -180,22 +171,17 @@ public abstract class AbstractDatabase {
 	 *            SQL-Statement
 	 * @return True, falls die Anweisung erfolgreich ausgefuehrt werden konnte,
 	 *         False sonst
+	 * @throws SQLException 
 	 */
 
-	public boolean doSQLModify(String sql) {
+	public boolean doSQLModify(String sql) throws SQLException {
 
 		System.out.println(sql);
-		
-		try {
-			// logger.info(sql);
-			Statement statement = cn.createStatement();
-			statement.executeUpdate(sql);
-			statement.close();
-		} catch (SQLException e) {
-			logger.error("ITIS:" + sql);
-			e.printStackTrace();
-			return false;
-		}
+
+		// logger.info(sql);
+		Statement statement = cn.createStatement();
+		statement.executeUpdate(sql);
+		statement.close();
 		return true;
 	}
 
@@ -224,16 +210,11 @@ public abstract class AbstractDatabase {
 	 * @param table
 	 *            table to get the metadata from
 	 * @return ResultSet with metadata
+	 * @throws SQLException 
 	 */
-	public ResultSet getFMColumnMetaData(String table) {
-
-		try {
+	public ResultSet getFMColumnMetaData(String table) throws SQLException {
 			DatabaseMetaData md = cn.getMetaData();
 			return md.getColumns(null, "iDAIAbstractCeramalex", table, "%");
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return null;
-		}
 	}
 	
 	/**
@@ -254,19 +235,15 @@ public abstract class AbstractDatabase {
 	 * Method returns primary key of mysql table
 	 * 
 	 * @return name of primary key. if not found, returns empty string
+	 * @throws SQLException 
 	 */
-	public String getMySQLTablePrimaryKey(String table) {
+	public String getMySQLTablePrimaryKey(String table) throws SQLException {
 		String result = "";
-		try {
-			ResultSet md = cn.getMetaData().getPrimaryKeys(null, null, table);
-			if (md.next()) {
-				result = md.getString("COLUMN_NAME");
-			}
-			return result;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return result;
+		ResultSet md = cn.getMetaData().getPrimaryKeys(null, null, table);
+		if (md.next()) {
+			result = md.getString("COLUMN_NAME");
 		}
+		return result;
 	}
 	
 	/**
@@ -288,34 +265,19 @@ public abstract class AbstractDatabase {
 			e.printStackTrace();
 			return result;
 		}
-//		
-//		try {
-//			ResultSet md = cn.getMetaData().getPrimaryKeys(null, "iDAIAbstractCeramalex", table);
-//			if (md.next()) {
-//				result = md.getString("COLUMN_NAME");
-//			}
-//			return result;
-//		} catch (SQLException e) {
-//			e.printStackTrace();
-//			return result;
-//		}
 	}
 	
 	/**
 	 * Methode liefert die Metadaten
 	 * 
 	 * @return MetaDaten fuer datenbank
+	 * @throws SQLException 
 	 */
-	public ResultSet getDBMetaData() {
+	public ResultSet getDBMetaData() throws SQLException {
 
-		try {
-			String[] types = {"TABLE"};
-			ResultSet md = cn.getMetaData().getTables(null, null, "%", types);
-			return md;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return null;
-		}
+		String[] types = {"TABLE"};
+		ResultSet md = cn.getMetaData().getTables(null, null, "%", types);
+		return md;
 	}
 
 	// -------------------------------------------------------------------------------
@@ -333,7 +295,7 @@ public abstract class AbstractDatabase {
 			return rsmd.getColumnCount();
 		} catch (SQLException e) {
 			e.printStackTrace();
-			return 0;
+			return -1;
 		}
 	}
 

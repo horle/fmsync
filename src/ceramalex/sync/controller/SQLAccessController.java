@@ -120,8 +120,9 @@ public class SQLAccessController {
 	 * @param set String after SET
 	 * @param where String after WHERE
 	 * @return true, if success. false else
+	 * @throws SQLException 
 	 */
-	public boolean doMySQLUpdate(String table, String set, String where) {
+	public boolean doMySQLUpdate(String table, String set, String where) throws SQLException {
 		if (table.isEmpty() || set.isEmpty() || where.isEmpty())
 			return false;
 		return mDataAccess.doSQLModify("UPDATE "+table+" SET "+set+" WHERE "+where+";");
@@ -133,8 +134,9 @@ public class SQLAccessController {
 	 * @param sql
 	 *            SQL-Insert-String
 	 * @return true, if success. false else
+	 * @throws SQLException 
 	 */
-	public boolean doMySQLInsert(String sql) {
+	public boolean doMySQLInsert(String sql) throws SQLException {
 		return mDataAccess.doSQLModify(sql);
 	}
 
@@ -155,8 +157,9 @@ public class SQLAccessController {
 	 * @param sql
 	 *            SQL-Update-String
 	 * @return true, if success. false else
+	 * @throws SQLException 
 	 */
-	public boolean doFMUpdate(String sql) {
+	public boolean doFMUpdate(String sql) throws SQLException {
 		return fDataAccess.doSQLModify(sql);
 	}
 
@@ -166,8 +169,9 @@ public class SQLAccessController {
 	 * @param sql
 	 *            SQL-Insert-String
 	 * @return true, if success. false else
+	 * @throws SQLException 
 	 */
-	public boolean doFMInsert(String sql) {
+	public boolean doFMInsert(String sql) throws SQLException {
 		return fDataAccess.doSQLModify(sql);
 	}
 
@@ -272,12 +276,12 @@ public class SQLAccessController {
 		return list;
 	}
 
-	public ResultSet getFMColumnMetaData(String f) {
+	public ResultSet getFMColumnMetaData(String f) throws SQLException {
 		return this.fDataAccess.getFMColumnMetaData(f);
 	}
 
-	public ResultSet getMySQLColumnMetaData(String m) {
-		return this.mDataAccess.getFMColumnMetaData(m);
+	public ResultSet getMySQLColumnMetaData(String m) throws SQLException {
+		return this.mDataAccess.getMySQLColumnMetaData(m);
 	}
 
 	public String getFMTablePrimaryKey(String f) {
