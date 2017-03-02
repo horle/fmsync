@@ -36,25 +36,7 @@ public class ConfigController {
 	/** Passwort der FM-Datenbank */
 	private String fmDB = null;
 
-	/** Array mit Feldern, die aus den Key-Value-Maps geloescht werden */
-	private String[] removeFields = null;
-
-//	/**
-//	 * Map mit Rewrite-Rules fuer Tabellen => aendert die Tabelle vom Key-Wert
-//	 * auf den Value-Wert
-//	 */
-//	private Map<String, String> tableRewrites;
-//
-//	/**
-//	 * Map mit Rewrite-Rules fuer Felder => aendert das Mapping von Quelle auf
-//	 * Ziel
-//	 */
-//	private Map<String, String> fieldRewrites;
-
-	/**
-	 * Map mit Rewrite-Rules fuer Felder => aendert das Mapping von Quelle auf
-	 * Ziel
-	 */
+	private HashSet<String> timestampFields;
 	private HashSet<String> numericFields;
 
 	public static ConfigController getInstance() {
@@ -107,10 +89,6 @@ public class ConfigController {
 		return fmPassword;
 	}
 
-	public String[] getRemoveFields() {
-		return removeFields;
-	}
-
 	public void setMySQLURL(String mySQLURL) {
 		this.mySQLURL = mySQLURL;
 	}
@@ -133,10 +111,6 @@ public class ConfigController {
 
 	public void setFmPassword(String fmPassword) {
 		this.fmPassword = fmPassword;
-	}
-
-	public void setRemoveFields(String[] removeFields) {
-		this.removeFields = removeFields;
 	}
 
 //	public void setTableRewrites(Map<String, String> tableRewrites) {
@@ -184,6 +158,14 @@ public class ConfigController {
 
 	public void setNumericFields(HashSet<String> list) {
 		this.numericFields = list;
+	}
+
+	public HashSet<String> getTimestampFields() {
+		return timestampFields;
+	}
+
+	public void setTimestampFields(HashSet<String> timestampFields) {
+		this.timestampFields = timestampFields;
 	}
 
 }

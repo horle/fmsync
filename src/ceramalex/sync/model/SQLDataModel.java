@@ -70,12 +70,23 @@ public class SQLDataModel {
 			}
 		}
 		sqlAccess.fetchNumericFields(result);
+		sqlAccess.fetchTimestampFields(result);
 		return result;
 	}
 	
 	private boolean addLastModifiedField(String table) throws SQLException, FilemakerIsCrapException {
 		try {
-			if (sqlAccess.doFMAlter("ALTER TABLE "+table+" ADD lastModified TIMESTAMP")) {
+			ResultSet fmColumns = sqlAccess.getFMColumnMetaData(table);
+
+			while (fmColumns.next()) {{
+					if (fmColumns.getString("COLUMN_NAME")
+							.equalsIgnoreCase("lastModified")) {
+						return true;
+					}
+				}
+			}
+				
+			if (sqlAccess.doFMAlter("ALTER TABLE "+table+" ADD lastModified TIMESTAMP") != -1) {
 				throw new FilemakerIsCrapException(
 						"Column lastModified has been added manually into table \""
 								+ table + "\", but has still to be updated in FileMaker with the following script:");//TODO
@@ -84,6 +95,7 @@ public class SQLDataModel {
 				throw new FilemakerIsCrapException(
 						"Column lastModified has to be added manually into table \""
 								+ table + "\"");
+			
 		} catch (FMSQLException e) {
 			if (e.getMessage().contains("Duplicate name")) return true;
 			else throw e;
@@ -92,13 +104,24 @@ public class SQLDataModel {
 	
 	private boolean addAUIDField(String table) throws SQLException, FilemakerIsCrapException {
 		try {
-			if (sqlAccess.doFMAlter("ALTER TABLE "+table+" ADD ArachneEntityID NUMERIC")) {
+			ResultSet fmColumns = sqlAccess.getFMColumnMetaData(table);
+
+			while (fmColumns.next()) {{
+					if (fmColumns.getString("COLUMN_NAME")
+							.equalsIgnoreCase("ArachneEntityID")) {
+						return true;
+					}
+				}
+			}
+			
+			if (sqlAccess.doFMAlter("ALTER TABLE "+table+" ADD ArachneEntityID NUMERIC") != -1) {
 				return true;
 			}
 			else
 				throw new FilemakerIsCrapException(
 						"Column ArachneEntityID has to be added manually into table \""
 								+ table + "\"");
+			
 		} catch (FMSQLException e) {
 			if (e.getMessage().contains("Duplicate name")) return true;
 			else throw e;
@@ -126,12 +149,12 @@ public class SQLDataModel {
 				
 				// test, if fields are available in FM				
 				if (!commonFields.contains("ArachneEntityID")){
-					addAUIDField(currTab.getF());
+					addAUIDField(currTab.getLeft());
 					commonFields.add("ArachneEntityID");
 				}
 					
 				if (!commonFields.contains("lastModified")){
-					addLastModifiedField(currTab.getF());
+					addLastModifiedField(currTab.getLeft());
 					commonFields.add("lastModified");
 				}
 
@@ -145,20 +168,20 @@ public class SQLDataModel {
 				
 				// get only common fields from filemaker
 				ResultSet fTab = sqlAccess.doFMQuery("SELECT "+fSQL+" FROM "
-						+ currTab.getF());
+						+ currTab.getLeft());
 				// A-AUID + rest of table
 				ResultSet mTab = sqlAccess
-						.doMySQLQuery("SELECT ceramalexEntityManagement.ArachneEntityID, "
-								+ currTab.getM()
-								+ ".* FROM ceramalexEntityManagement LEFT JOIN " // left includes deleted or empty UIDs
-								+ currTab.getM()
-								+ " ON ceramalexEntityManagement.CeramalexForeignKey = "
-								+ currTab.getM()
+						.doMySQLQuery("SELECT arachneentityidentification.ArachneEntityID, "
+								+ currTab.getRight()
+								+ ".* FROM arachneentityidentification LEFT JOIN " // left includes deleted or empty UIDs
+								+ currTab.getRight()
+								+ " ON arachneentityidentification.ForeignKey = "
+								+ currTab.getRight()
 								+ "."
 								+ sqlAccess.getMySQLTablePrimaryKey(currTab
-										.getM())
-								+ " WHERE ceramalexEntityManagement.TableName=\""
-								+ currTab.getM() + "\"");
+										.getRight())
+								+ " WHERE arachneentityidentification.TableName=\""
+								+ currTab.getRight() + "\"");
 					
 				// entities:
 				int currAAUID = 0; // current arachne uid in arachne
@@ -178,7 +201,7 @@ public class SQLDataModel {
 						// missing entry in regular table, but entry in entity management! bug in db!
 						// TODO: delete entry in arachne entity management
 						if (currATS == null) {
-							new EntityException("Missing entry in LOCAL Arachne entity management! Table "+currTab.getF()+", remote entry: "+currAAUID).printStackTrace();
+							new EntityException("Missing entry in LOCAL Arachne entity management! Table "+currTab.getLeft()+", remote entry: "+currAAUID).printStackTrace();
 							continue;
 						}
 						LocalDateTime currArachneTS = currATS.toLocalDateTime();
@@ -203,12 +226,12 @@ public class SQLDataModel {
 								
 								// all fields equal (not null), then just update local UID field and TS
 								case 0:
-									String fmKeyName = sqlAccess.getFMTablePrimaryKey(currTab.getF());
-									String msKeyName = sqlAccess.getMySQLTablePrimaryKey(currTab.getM());
+									String fmKeyName = sqlAccess.getFMTablePrimaryKey(currTab.getLeft());
+									String msKeyName = sqlAccess.getMySQLTablePrimaryKey(currTab.getRight());
 									int fmKeyVal = fTab.getInt(fmKeyName);
 									int msKeyVal = mTab.getInt(msKeyName);
 									
-									if (fmKeyVal == msKeyVal && !updateLocalUID(currTab.getF(), currAAUID, currArachneTS, fmKeyName, fmKeyVal))
+									if (fmKeyVal == msKeyVal && !updateLocalUID(currTab.getLeft(), currAAUID, currArachneTS, fmKeyName, fmKeyVal))
 										throw new SQLException("local ID/TS could not be updated!");
 									
 									break;
@@ -322,13 +345,24 @@ public class SQLDataModel {
 					}
 					
 					// if fm has more entries than mysql ...
-					if (mTab.isAfterLast()) {
+					if (mTab.isAfterLast() || !mTab.next()) {
+						fTab.previous();
+						String pk = sqlAccess.getFMTablePrimaryKey(currTab.getLeft());
 						while (fTab.next()) {
-							//TODO
-							System.out.println("insert "+currCAUID+" into arachne ...");
+							ArrayList<Pair> ins = new ArrayList<Pair>();
+							ArrayList<String> names = getCommonFields(currTab);
+							
+							for (int k = 0; k < names.size(); k++) {
+								Pair p = new Pair(names.get(k), fTab.getString(names.get(k)));
+								ins.add(p);
+							}
+							System.out.print("insert "+fTab.getString(pk)+" into arachne ... ");
+							int AUID = insertIntoArachne(currTab, ins);
+							System.out.println(AUID);
 						}
 					} else {
 					// if mysql has more entries than fm ...
+						mTab.previous(); // neccessary because of !mTab.next() in if 
 						while (mTab.next()) {
 							//TODO
 							System.out.println("insert "+currAAUID+" into fm ...");
@@ -344,6 +378,54 @@ public class SQLDataModel {
 		return null;
 	}
 
+	private int insertIntoArachne(Pair currTab, ArrayList<Pair> fields) throws SQLException{
+		
+		String sql = "INSERT INTO "+currTab.getRight()+ " (";
+		String vals = " VALUES (";
+		boolean isLastOut = false; // prevent comma before skipped field
+		for (int i = 0; i <= fields.size(); i++) {
+			if (i == fields.size()) {
+				sql += ")";
+				vals += ");";
+				break;
+			}
+			
+			String currFieldName = fields.get(i).getLeft();
+			if (
+					isFMPrimaryKey(currTab.getLeft(), currFieldName)
+					|| currFieldName.equals("ArachneEntityID")
+//					|| currFieldName.equals("lastModified")
+					) {
+				isLastOut = true;
+				continue;
+			}
+			// set comma before next field entry ...
+			if (i > 0 && i < fields.size() && !isLastOut) {
+				sql += ",";
+				vals += ",";
+			} else if (isLastOut) isLastOut = false;
+			
+			String currFieldVal = fields.get(i).getRight();
+			
+			if (currFieldName.equals("Thickness") && currFieldVal != null){
+				System.out.println();
+			}
+			
+			if (!isNumericalField(currFieldName) && !isTimestampField(currFieldName) && currFieldVal != null) {
+				currFieldVal = "'" + currFieldVal.replace("'", "\\'").replace("\"", "\\\"").replace("%", "\\%") + "'";
+			}
+			else if (isTimestampField(currFieldName) && currFieldVal != null) {
+				currFieldVal = "TIMESTAMP '" + currFieldVal + "'";
+			}
+			
+			sql += "`"+currFieldName+"`";
+			vals += currFieldVal;
+		}		
+		int result = sqlAccess.doMySQLInsert(sql + vals);
+		//TODO: update CAUID after insert!!!
+		return result;
+	}
+	
 	private boolean updateLocalUID(String currTab, int currAAUID, LocalDateTime currArachneTS, String pkName, int pkVal) throws SQLException {
 		
 		// locate row by local ID
@@ -352,7 +434,7 @@ public class SQLDataModel {
 		if (sqlAccess.doFMUpdate("UPDATE \"" + currTab 
 				+ "\" SET ArachneEntityID="+currAAUID
 				+", lastModified={ts '"+currArachneTS.format(formatTS)+"'}"
-				+ " WHERE "+pkName+"="+pkVal)){
+				+ " WHERE "+pkName+"="+pkVal) != -1){
 			System.out.print(" done\n");
 			return true;
 		}
@@ -410,7 +492,7 @@ public class SQLDataModel {
 			if (!(myVal.equalsIgnoreCase(fmVal))) {
 				
 				// index shifting? TODO
-				if (isFMPrimaryKey(currentTable.getF(), currField)) {
+				if (isFMPrimaryKey(currentTable.getLeft(), currField)) {
 					
 					// if ID is 0, then entry is completely NULL.
 					if (myVal.isEmpty())
@@ -465,6 +547,12 @@ public class SQLDataModel {
 		return res;
 	}
 
+	/**
+	 * Checks if field name is PK for given FM table.
+	 * @param table filemaker table name
+	 * @param field filemaker field name to check
+	 * @return true, if PK. false else.
+	 */
 	private boolean isFMPrimaryKey(String table, String field) {
 		return sqlAccess.getFMTablePrimaryKey(table).equals(field);
 	}
@@ -517,8 +605,8 @@ public class SQLDataModel {
 			throws SQLException {
 		
 		ArrayList<String> result = new ArrayList<String>();
-		ResultSet fmColumns = sqlAccess.getFMColumnMetaData(currTab.getF());
-		ResultSet msColumns = sqlAccess.getMySQLColumnMetaData(currTab.getM());
+		ResultSet fmColumns = sqlAccess.getFMColumnMetaData(currTab.getLeft());
+		ResultSet msColumns = sqlAccess.getMySQLColumnMetaData(currTab.getRight());
 
 		while (fmColumns.next()) {
 			msColumns.beforeFirst();
@@ -540,12 +628,17 @@ public class SQLDataModel {
 		return ConfigController.getInstance().getNumericFields()
 				.contains(field);
 	}
+	
+	private boolean isTimestampField(String field) {
+		return ConfigController.getInstance().getTimestampFields()
+				.contains(field);
+	}
 
 	public static void main(String[] args) {
 		try {
 			SQLDataModel m = new SQLDataModel();
 			commonTables = m.getCommonTables();
-			m.getDiffByUUID("");
+			m.getDiffByUUID("Befund");
 		} catch (Exception e) {
 			
 			e.printStackTrace();

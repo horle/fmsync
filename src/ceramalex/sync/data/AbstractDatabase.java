@@ -13,8 +13,6 @@ import java.sql.Statement;
 
 import org.apache.log4j.Logger;
 
-import ceramalex.sync.exception.FilemakerIsCrapException;
-
 /**
  * 
  * @author Patrick Gunia Abstract Basisklasse fuer alle Subklassen, die ueber
@@ -169,20 +167,25 @@ public abstract class AbstractDatabase {
 	 * 
 	 * @param sql
 	 *            SQL-Statement
-	 * @return True, falls die Anweisung erfolgreich ausgefuehrt werden konnte,
-	 *         False sonst
+	 * @return ID of modified entry, -1 if no success.
 	 * @throws SQLException 
 	 */
 
-	public boolean doSQLModify(String sql) throws SQLException {
+	public int doSQLModify(String sql) throws SQLException {
 
 		System.out.println(sql);
+		int result = -1;
 
 		// logger.info(sql);
-		Statement statement = cn.createStatement();
-		statement.executeUpdate(sql);
+		PreparedStatement statement = cn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+		statement.executeUpdate();
+		ResultSet r = statement.getGeneratedKeys();
+		
+		if (r.next()) 
+			result = r.getInt(1);
+		
 		statement.close();
-		return true;
+		return result;
 	}
 	
 	/**
@@ -192,11 +195,11 @@ public abstract class AbstractDatabase {
 	 * @param user user name for connection
 	 * @param pwd password for connection
 	 * @param serverDataSource server database name
-	 * @return true, if success.
+	 * @return ID of modified entry, -1 if no success.
 	 * @throws SQLException Throws exception if sql error occurred.
 	 */
-	public boolean doSQLModifyViaNewConnection(String sql, String dbUrl, String user, String pwd, String serverDataSource) throws SQLException {
-		
+	public int doSQLModifyViaNewConnection(String sql, String dbUrl, String user, String pwd, String serverDataSource) throws SQLException {
+		int result = -1;
 		Connection con;
 		try {
 			DriverManager.setLoginTimeout(5);
@@ -212,11 +215,15 @@ public abstract class AbstractDatabase {
 			throw new SQLException(eMsg); // throw to gui ... 
 		}
 		
-		Statement statement = con.createStatement();
-		statement.executeUpdate(sql);
+		PreparedStatement statement = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+		statement.executeUpdate();
 		statement.close();
-		con.close();
-		return true;
+		con.close();ResultSet r = statement.getGeneratedKeys();
+		
+		if (r.next()) 
+			result = r.getInt(1);
+		
+		return result;
 	}
 
 	// -------------------------------------------------------------------------------

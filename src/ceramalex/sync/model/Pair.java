@@ -1,7 +1,7 @@
 package ceramalex.sync.model;
 
 /**
- * Class to provide a tuple of two Strings (filemaker, mysql) to keep
+ * Class to provide a tuple of two Strings to keep key-value-pairs or the
  * distinction of table or field names. Extends abstract class Tuple<F,M>. 
  * 
  * @author horle (Felix Kussmaul)
@@ -23,19 +23,27 @@ abstract class Tuple<F, M> {
 		this.mySQL = m;
 	}
 
-	public F getF() {
+	/**
+	 * filemaker string
+	 * @return
+	 */
+	public F getLeft() {
 		return fileMaker;
 	}
 
-	public M getM() {
+	/**
+	 * mysql string
+	 * @return
+	 */
+	public M getRight() {
 		return mySQL;
 	}
 
-	public void setF(F f) {
+	public void setLeft(F f) {
 		this.fileMaker = f;
 	}
 
-	public void setM(M m) {
+	public void setRight(M m) {
 		this.mySQL = m;
 	}
 

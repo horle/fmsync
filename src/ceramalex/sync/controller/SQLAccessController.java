@@ -10,7 +10,6 @@ import org.apache.log4j.Logger;
 
 import ceramalex.sync.data.FMDataAccess;
 import ceramalex.sync.data.MySQLDataAccess;
-import ceramalex.sync.exception.FilemakerIsCrapException;
 import ceramalex.sync.model.Pair;
 
 /**
@@ -123,9 +122,9 @@ public class SQLAccessController {
 	 * @return true, if success. false else
 	 * @throws SQLException 
 	 */
-	public boolean doMySQLUpdate(String table, String set, String where) throws SQLException {
+	public int doMySQLUpdate(String table, String set, String where) throws SQLException {
 		if (table.isEmpty() || set.isEmpty() || where.isEmpty())
-			return false;
+			return -1;
 		return mDataAccess.doSQLModify("UPDATE "+table+" SET "+set+" WHERE "+where+";");
 	}
 
@@ -137,7 +136,7 @@ public class SQLAccessController {
 	 * @return true, if success. false else
 	 * @throws SQLException 
 	 */
-	public boolean doMySQLInsert(String sql) throws SQLException {
+	public int doMySQLInsert(String sql) throws SQLException {
 		return mDataAccess.doSQLModify(sql);
 	}
 
@@ -160,7 +159,7 @@ public class SQLAccessController {
 	 * @return true, if success. false else
 	 * @throws SQLException 
 	 */
-	public boolean doFMUpdate(String sql) throws SQLException {
+	public int doFMUpdate(String sql) throws SQLException {
 		return fDataAccess.doSQLModify(sql);
 	}
 
@@ -172,7 +171,7 @@ public class SQLAccessController {
 	 * @return true, if success. false else
 	 * @throws SQLException 
 	 */
-	public boolean doFMInsert(String sql) throws SQLException {
+	public int doFMInsert(String sql) throws SQLException {
 		return fDataAccess.doSQLModify(sql);
 	}
 
@@ -241,7 +240,7 @@ public class SQLAccessController {
 		ArrayList<String> t = new ArrayList<String>();
 
 		for (int i = 0; i < commonTables.size(); i++) {
-			t.addAll(this.getFMNumericFields(commonTables.get(i).getF()));
+			t.addAll(this.getFMNumericFields(commonTables.get(i).getLeft()));
 		}
 
 		// get common numeric fields
@@ -257,6 +256,44 @@ public class SQLAccessController {
 		return list;
 	}
 
+	/**
+	 * fetch all fields (in all tables) with type "timestamp"
+	 * from FM and MySQL
+	 * 
+	 * @param commonTables
+	 *            all common tables
+	 * @return set (without duplicates) of timestamp fields
+	 * @throws SQLException
+	 */
+	public HashSet<String> fetchTimestampFields(ArrayList<Pair> commonTables)
+			throws SQLException {
+		ConfigController conf = ConfigController.getInstance();
+		HashSet<String> list = new HashSet<String>();
+		ResultSet tmp = this.mDataAccess
+				.doSQLQuery("SELECT COLUMN_NAME "
+						+ "FROM information_schema.COLUMNS "
+						+ "WHERE TABLE_SCHEMA='ceramalex' "
+						+ "AND DATA_TYPE IN ('timestamp','date','datetime') "
+						+ "GROUP BY COLUMN_NAME");
+		ArrayList<String> t = new ArrayList<String>();
+
+		for (int i = 0; i < commonTables.size(); i++) {
+			t.addAll(this.getFMTimestampFields(commonTables.get(i).getLeft()));
+		}
+
+		// get common timestamp fields
+		while (tmp.next()) {
+			for (int i = 0; i < t.size(); i++) {
+				if (tmp.getString(1).equalsIgnoreCase(t.get(i))) {
+					list.add(t.get(i));
+				}
+			}
+		}
+		tmp.close();
+		conf.setTimestampFields(list);
+		return list;
+	}
+	
 	/**
 	 * helper method to fetch filemaker numeric fields from particular table
 	 * 
@@ -276,6 +313,26 @@ public class SQLAccessController {
 		}
 		return list;
 	}
+	
+	/**
+	 * helper method to fetch filemaker timestamp fields from particular table
+	 * 
+	 * @param table
+	 *            name of table in filemaker
+	 * @return set of filemaker timestamp fields in table
+	 * @throws SQLException
+	 */
+	private HashSet<String> getFMTimestampFields(String table)
+			throws SQLException {
+		HashSet<String> list = new HashSet<String>();
+		ResultSet s = this.fDataAccess.getFMColumnMetaData(table);
+		while (s.next()) {
+			if (s.getInt(5) == java.sql.Types.TIMESTAMP
+					&& !s.getString(4).startsWith("["))
+				list.add(s.getString(4));
+		}
+		return list;
+	}
 
 	public ResultSet getFMColumnMetaData(String f) throws SQLException {
 		return this.fDataAccess.getFMColumnMetaData(f);
@@ -289,7 +346,7 @@ public class SQLAccessController {
 		return this.fDataAccess.getFMTablePrimaryKey(f);
 	}
 
-	public boolean doFMAlter(String sql) throws SQLException {
+	public int doFMAlter(String sql) throws SQLException {
 		return fDataAccess.doSQLAlter(sql);
 	}
 }
