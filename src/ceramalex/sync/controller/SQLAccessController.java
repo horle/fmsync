@@ -231,27 +231,28 @@ public class SQLAccessController {
 			throws SQLException {
 		ConfigController conf = ConfigController.getInstance();
 		HashSet<String> list = new HashSet<String>();
-		ResultSet tmp = this.mDataAccess
-				.doSQLQuery("SELECT COLUMN_NAME "
+		ResultSet mysql = this.mDataAccess
+				.doSQLQuery("SELECT COLUMN_NAME, TABLE_NAME "
 						+ "FROM information_schema.COLUMNS "
 						+ "WHERE TABLE_SCHEMA='ceramalex' "
 						+ "AND DATA_TYPE IN ('int','bigint','smallint','mediumint','tinyint','float','numeric') "
 						+ "GROUP BY COLUMN_NAME");
-		ArrayList<String> t = new ArrayList<String>();
+		ArrayList<String> fm = new ArrayList<String>();
 
 		for (int i = 0; i < commonTables.size(); i++) {
-			t.addAll(this.getFMNumericFields(commonTables.get(i).getLeft()));
+			fm.addAll(this.getFMNumericFields(commonTables.get(i).getLeft()));
 		}
 
 		// get common numeric fields
-		while (tmp.next()) {
-			for (int i = 0; i < t.size(); i++) {
-				if (tmp.getString(1).equalsIgnoreCase(t.get(i))) {
-					list.add(t.get(i));
+		while (mysql.next()) {
+			for (int i = 0; i < fm.size(); i++) {
+				String bla = (mysql.getString(2)+"."+mysql.getString(1));
+				if (bla.equalsIgnoreCase(fm.get(i))) {
+					list.add(fm.get(i));
 				}
 			}
 		}
-		tmp.close();
+		mysql.close();
 		conf.setNumericFields(list);
 		return list;
 	}
@@ -269,27 +270,29 @@ public class SQLAccessController {
 			throws SQLException {
 		ConfigController conf = ConfigController.getInstance();
 		HashSet<String> list = new HashSet<String>();
-		ResultSet tmp = this.mDataAccess
-				.doSQLQuery("SELECT COLUMN_NAME "
+		ResultSet mysql = this.mDataAccess
+				.doSQLQuery("SELECT COLUMN_NAME, TABLE_NAME "
 						+ "FROM information_schema.COLUMNS "
 						+ "WHERE TABLE_SCHEMA='ceramalex' "
 						+ "AND DATA_TYPE IN ('timestamp','date','datetime') "
 						+ "GROUP BY COLUMN_NAME");
-		ArrayList<String> t = new ArrayList<String>();
+		ArrayList<String> fm = new ArrayList<String>();
 
 		for (int i = 0; i < commonTables.size(); i++) {
-			t.addAll(this.getFMTimestampFields(commonTables.get(i).getLeft()));
+			fm.addAll(this.getFMTimestampFields(commonTables.get(i).getLeft()));
 		}
 
 		// get common timestamp fields
-		while (tmp.next()) {
-			for (int i = 0; i < t.size(); i++) {
-				if (tmp.getString(1).equalsIgnoreCase(t.get(i))) {
-					list.add(t.get(i));
+		while (mysql.next()) {
+			for (int i = 0; i < fm.size(); i++) {
+				String bla = (mysql.getString(2)+"."+mysql.getString(1));
+				if (bla.equalsIgnoreCase(fm.get(i))) {
+					list.add(fm.get(i));
 				}
 			}
 		}
-		tmp.close();
+		mysql.close();
+		list.add("*.lastModified");
 		conf.setTimestampFields(list);
 		return list;
 	}
@@ -309,7 +312,7 @@ public class SQLAccessController {
 		while (s.next()) {
 			if (s.getInt(5) == java.sql.Types.DOUBLE
 					&& !s.getString(4).startsWith("["))
-				list.add(s.getString(4));
+				list.add(table+"."+s.getString(4));
 		}
 		return list;
 	}
@@ -329,7 +332,7 @@ public class SQLAccessController {
 		while (s.next()) {
 			if (s.getInt(5) == java.sql.Types.TIMESTAMP
 					&& !s.getString(4).startsWith("["))
-				list.add(s.getString(4));
+				list.add(table+"."+s.getString(4));
 		}
 		return list;
 	}

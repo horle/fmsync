@@ -348,18 +348,29 @@ public class SQLDataModel {
 					if (mTab.isAfterLast() || !mTab.next()) {
 						fTab.previous();
 						String pk = sqlAccess.getFMTablePrimaryKey(currTab.getLeft());
+						int first=0, last=0;
+						ArrayList<ArrayList<Pair>> inserts = new ArrayList<ArrayList<Pair>>();
 						while (fTab.next()) {
 							ArrayList<Pair> ins = new ArrayList<Pair>();
 							ArrayList<String> names = getCommonFields(currTab);
+							if (first == 0) first = fTab.getInt(pk);
+							last = fTab.getInt(pk);
 							
 							for (int k = 0; k < names.size(); k++) {
 								Pair p = new Pair(names.get(k), fTab.getString(names.get(k)));
 								ins.add(p);
 							}
-							System.out.print("insert "+fTab.getString(pk)+" into arachne ... ");
-							int AUID = insertIntoArachne(currTab, ins);
-							System.out.println(AUID);
+							inserts.add(ins);
 						}
+						System.out.println("insert entries "+first+"-"+last+" into arachne ... ");
+						// insert packs of size 25
+						int count = inserts.size()/25;
+						int mod = inserts.size() % 25;
+						for (int k = 0; k < count; k++) {
+							int id = insertIntoArachne(currTab, new ArrayList<ArrayList<Pair>>(inserts.subList(k*25, (k+1)*25)));
+						}
+						int id = insertIntoArachne(currTab, new ArrayList<ArrayList<Pair>>(inserts.subList(count*25, count*25+mod)));
+						
 					} else {
 					// if mysql has more entries than fm ...
 						mTab.previous(); // neccessary because of !mTab.next() in if 
@@ -378,49 +389,77 @@ public class SQLDataModel {
 		return null;
 	}
 
-	private int insertIntoArachne(Pair currTab, ArrayList<Pair> fields) throws SQLException{
+	/**
+	 * Insert given rows
+	 * @param currTab
+	 * @param rows
+	 * @return
+	 * @throws SQLException
+	 */
+	private int insertIntoArachne(Pair currTab, ArrayList<ArrayList<Pair>> rows) throws SQLException{
+		
+		if (rows.size() == 0) return -1;
 		
 		String sql = "INSERT INTO "+currTab.getRight()+ " (";
 		String vals = " VALUES (";
+		
 		boolean isLastOut = false; // prevent comma before skipped field
-		for (int i = 0; i <= fields.size(); i++) {
-			if (i == fields.size()) {
+		for (int i = 0; i <= rows.size(); i++) {
+			
+			ArrayList<Pair> currRow = i != rows.size() ? rows.get(i) : null;
+			
+			// ( col1, col2, col3, ..)
+			if (i == 0) {
+				for (int j = 0; j < currRow.size(); j++) {
+					String currFieldName = currRow.get(j).getLeft();
+					if (isFMPrimaryKey(currTab.getLeft(), currFieldName) || currFieldName.equals("ArachneEntityID")){
+						isLastOut = true;
+						continue;
+					}
+					if (j > 0 && j < currRow.size() && !isLastOut) {
+						sql += ",";
+					} else if (isLastOut) isLastOut = false;
+					sql += "`"+currFieldName+"`";
+				}
 				sql += ")";
+			}
+			
+			// final paranthese
+			if (i == rows.size()) {
 				vals += ");";
 				break;
 			}
 			
-			String currFieldName = fields.get(i).getLeft();
-			if (
-					isFMPrimaryKey(currTab.getLeft(), currFieldName)
-					|| currFieldName.equals("ArachneEntityID")
-//					|| currFieldName.equals("lastModified")
-					) {
-				isLastOut = true;
-				continue;
+			for (int j = 0; j < currRow.size(); j++) {
+				String currFieldName = currRow.get(j).getLeft();
+				if (isFMPrimaryKey(currTab.getLeft(), currFieldName) || currFieldName.equals("ArachneEntityID")) {
+					isLastOut = true;
+					continue;
+				}
+				// set comma before next field entry ...
+				if (j > 0 && j < currRow.size() && !isLastOut) {
+					vals += ",";
+				} else if (isLastOut) isLastOut = false;
+				
+				String currFieldVal = currRow.get(j).getRight();
+				
+				if (currFieldName.contains("Thickness") && currFieldVal != null){
+					System.out.println();
+				}
+				
+				if (!isNumericalField(currFieldName) && !isTimestampField(currFieldName) && currFieldVal != null) {
+					currFieldVal = "'" + currFieldVal.replace("'", "\\'").replace("\"", "\\\"").replace("%", "\\%") + "'";
+				}
+				else if (isTimestampField(currFieldName) && currFieldVal != null) {
+					currFieldVal = "TIMESTAMP '" + currFieldVal + "'";
+				}
+				
+				vals += currFieldVal;
 			}
-			// set comma before next field entry ...
-			if (i > 0 && i < fields.size() && !isLastOut) {
-				sql += ",";
-				vals += ",";
-			} else if (isLastOut) isLastOut = false;
+			if (i < rows.size()-1)
+				vals += "),(";
 			
-			String currFieldVal = fields.get(i).getRight();
-			
-			if (currFieldName.equals("Thickness") && currFieldVal != null){
-				System.out.println();
-			}
-			
-			if (!isNumericalField(currFieldName) && !isTimestampField(currFieldName) && currFieldVal != null) {
-				currFieldVal = "'" + currFieldVal.replace("'", "\\'").replace("\"", "\\\"").replace("%", "\\%") + "'";
-			}
-			else if (isTimestampField(currFieldName) && currFieldVal != null) {
-				currFieldVal = "TIMESTAMP '" + currFieldVal + "'";
-			}
-			
-			sql += "`"+currFieldName+"`";
-			vals += currFieldVal;
-		}		
+		}
 		int result = sqlAccess.doMySQLInsert(sql + vals);
 		//TODO: update CAUID after insert!!!
 		return result;
@@ -636,6 +675,8 @@ public class SQLDataModel {
 
 	public static void main(String[] args) {
 		try {
+			ConfigController.getInstance().setPrefs("jdbc:mysql://134.95.115.21:3306", "root", "",
+					"ceramalex", "jdbc:filemaker://localhost", "admin", "btbw", "iDAIAbstractCeramalex", "3306");
 			SQLDataModel m = new SQLDataModel();
 			commonTables = m.getCommonTables();
 			m.getDiffByUUID("Befund");
