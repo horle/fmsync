@@ -9,6 +9,9 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 
+import org.apache.log4j.Logger;
+import org.apache.log4j.xml.DOMConfigurator;
+
 import ceramalex.sync.controller.ConfigController;
 import ceramalex.sync.controller.SQLAccessController;
 import ceramalex.sync.exception.EntityException;
@@ -28,6 +31,8 @@ public class SQLDataModel {
 	private DateTimeFormatter formatTS;
 	private ZoneId zoneBerlin;
 	private static ArrayList<Pair> commonTables = new ArrayList<Pair>();
+	
+	private static Logger logger = Logger.getLogger(SQLDataModel.class);
 
 	public SQLDataModel() throws SQLException {
 		formatTS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");//yyyy-MM-dd HH:mm:ss");
@@ -86,7 +91,7 @@ public class SQLDataModel {
 				}
 			}
 				
-			if (sqlAccess.doFMAlter("ALTER TABLE "+table+" ADD lastModified TIMESTAMP") != -1) {
+			if (sqlAccess.doFMAlter("ALTER TABLE "+table+" ADD lastModified TIMESTAMP") != null) {
 				throw new FilemakerIsCrapException(
 						"Column lastModified has been added manually into table \""
 								+ table + "\", but has still to be updated in FileMaker with the following script:");//TODO
@@ -114,7 +119,7 @@ public class SQLDataModel {
 				}
 			}
 			
-			if (sqlAccess.doFMAlter("ALTER TABLE "+table+" ADD ArachneEntityID NUMERIC") != -1) {
+			if (sqlAccess.doFMAlter("ALTER TABLE "+table+" ADD ArachneEntityID NUMERIC") != null) {
 				return true;
 			}
 			else
@@ -128,261 +133,264 @@ public class SQLDataModel {
 		}
 	}
 
-	public ResultSet getDiffByUUID(String table) throws SQLException,
+	public ArrayList<ArrayList<Pair>> getDiffByUUID(Pair currTab) throws SQLException,
 			FilemakerIsCrapException, SyncException, EntityException {
 
 		// both connected?
 		if (sqlAccess.isMySQLConnected() && sqlAccess.isFMConnected()) {
 
 			// calculate common tables!
-			commonTables = getCommonTables();
+			if (commonTables == null)
+				commonTables = getCommonTables();
 
-			// get common tables from DBs
-			for (int i = 0; i < commonTables.size(); i++) {
-				Pair currTab = commonTables.get(i);
-				System.out.println(currTab);
+			ArrayList<String> commonFields = new ArrayList<String>();
+			
+			if (commonFields.isEmpty())
+				commonFields = getCommonFields(currTab);
+			
+			// test, if fields are available in FM				
+			if (!commonFields.contains("ArachneEntityID")){
+				addAUIDField(currTab.getLeft());
+				commonFields.add("ArachneEntityID");
+			}
 				
-				ArrayList<String> commonFields = new ArrayList<String>();
-				
-				if (commonFields.isEmpty())
-					commonFields = getCommonFields(currTab);
-				
-				// test, if fields are available in FM				
-				if (!commonFields.contains("ArachneEntityID")){
-					addAUIDField(currTab.getLeft());
-					commonFields.add("ArachneEntityID");
-				}
-					
-				if (!commonFields.contains("lastModified")){
-					addLastModifiedField(currTab.getLeft());
-					commonFields.add("lastModified");
-				}
+			if (!commonFields.contains("lastModified")){
+				addLastModifiedField(currTab.getLeft());
+				commonFields.add("lastModified");
+			}
 
-				String fSQL = "";
-				for (int j = 0; j < commonFields.size(); j++){
-					if (j == commonFields.size()-1)
-						fSQL += commonFields.get(j);
-					else
-						fSQL += commonFields.get(j)+",";
-				}
+			String fSQL = "";
+			for (int j = 0; j < commonFields.size(); j++){
+				if (j == commonFields.size()-1)
+					fSQL += commonFields.get(j);
+				else
+					fSQL += commonFields.get(j)+",";
+			}
+			// Skipping Martin Archer's entries => excel
+			String archerSkip = "",archerFMSkip = "";
+			if (currTab.getLeft().equalsIgnoreCase("mainabstract")) {
+				archerSkip = " AND " + currTab.getRight() + ".ImportSource!='Comprehensive Table'";
+				archerFMSkip = " WHERE " + currTab.getLeft() + ".ImportSource!='Comprehensive Table'";
+			}
+			
+			// get only common fields from filemaker
+			ResultSet fTab = sqlAccess.doFMQuery("SELECT "+fSQL+" FROM "
+					+ currTab.getLeft() + archerFMSkip);
+
+			// A-AUID + rest of table
+			ResultSet mTab = sqlAccess
+					.doMySQLQuery("SELECT arachneentityidentification.ArachneEntityID, "
+							+ currTab.getRight()
+							+ ".* FROM arachneentityidentification LEFT JOIN " // left join includes deleted or empty UIDs
+							+ currTab.getRight()
+							+ " ON arachneentityidentification.ForeignKey = "
+							+ currTab.getRight()
+							+ "."
+							+ sqlAccess.getMySQLTablePrimaryKey(currTab
+									.getRight())
+							+ " WHERE arachneentityidentification.TableName=\""
+							+ currTab.getRight() + "\"" +  archerSkip);
 				
-				// get only common fields from filemaker
-				ResultSet fTab = sqlAccess.doFMQuery("SELECT "+fSQL+" FROM "
-						+ currTab.getLeft());
-				// A-AUID + rest of table
-				ResultSet mTab = sqlAccess
-						.doMySQLQuery("SELECT arachneentityidentification.ArachneEntityID, "
-								+ currTab.getRight()
-								+ ".* FROM arachneentityidentification LEFT JOIN " // left includes deleted or empty UIDs
-								+ currTab.getRight()
-								+ " ON arachneentityidentification.ForeignKey = "
-								+ currTab.getRight()
-								+ "."
-								+ sqlAccess.getMySQLTablePrimaryKey(currTab
-										.getRight())
-								+ " WHERE arachneentityidentification.TableName=\""
-								+ currTab.getRight() + "\"");
-					
-				// entities:
-				int currAAUID = 0; // current arachne uid in arachne
-				int currCAUID = 0; // current arachne uid in fm
-				Timestamp currATS = null; // current arachne timestamp
-				Timestamp currCTS = null; // current fm timestamp
+			// entities:
+			int currAAUID = 0; // current arachne uid in arachne
+			int currCAUID = 0; // current arachne uid in fm
+			Timestamp currATS = null; // current arachne timestamp
+			Timestamp currCTS = null; // current fm timestamp
 //					String currLocalTS = getBerlinTimeStamp(); // current timestamp in CET format (arachne is in germany ...)
-				
-				try {
-					while (fTab.next() & mTab.next()) {
+			
+			try {
+				while (fTab.next() & mTab.next()) {
+					
+					currAAUID = mTab.getInt("ArachneEntityID");
+					currCAUID = fTab.getInt("ArachneEntityID");
+					currATS = mTab.getTimestamp("lastModified");
+					currCTS = fTab.getTimestamp("lastModified");
+					
+					// missing entry in regular table, but entry in entity management! bug in db!
+					// TODO: delete entry in arachne entity management
+					if (currATS == null) {
+						new EntityException("Missing entry in LOCAL Arachne entity management! Table "+currTab.getLeft()+", remote entry: "+currAAUID).printStackTrace();
+						continue;
+					}
+					LocalDateTime currArachneTS = currATS.toLocalDateTime();
+					
+					// C-AUID differs from online ...
+					if (currCAUID != currAAUID) {
 						
-						currAAUID = mTab.getInt("ArachneEntityID");
-						currCAUID = fTab.getInt("ArachneEntityID");
-						currATS = mTab.getTimestamp("lastModified");
-						currCTS = fTab.getTimestamp("lastModified");
+						ArrayList<String> fmVals = new ArrayList<String>();
+						ArrayList<String> msVals = new ArrayList<String>();
 						
-						// missing entry in regular table, but entry in entity management! bug in db!
-						// TODO: delete entry in arachne entity management
-						if (currATS == null) {
-							new EntityException("Missing entry in LOCAL Arachne entity management! Table "+currTab.getLeft()+", remote entry: "+currAAUID).printStackTrace();
-							continue;
+						for (int j = 0; j < commonFields.size(); j++){
+							fmVals.add(fTab.getString(commonFields.get(j)));
+							msVals.add(mTab.getString(commonFields.get(j)));
 						}
-						LocalDateTime currArachneTS = currATS.toLocalDateTime();
 						
-						// C-AUID differs from online ...
-						if (currCAUID != currAAUID) {
+						// ... because C-AUID is missing
+						if (currCAUID == 0) {
 							
-							ArrayList<String> fmVals = new ArrayList<String>();
-							ArrayList<String> msVals = new ArrayList<String>();
+							// Check all other fields. Is just C-AUID missing?
+							switch (compareFields(commonFields, msVals,
+									fmVals, currTab)) {
 							
-							for (int j = 0; j < commonFields.size(); j++){
-								fmVals.add(fTab.getString(commonFields.get(j)));
-								msVals.add(mTab.getString(commonFields.get(j)));
-							}
+							// all fields equal (not null), then just update local UID field and TS
+							case 0:
+								String fmKeyName = sqlAccess.getFMTablePrimaryKey(currTab.getLeft());
+								String msKeyName = sqlAccess.getMySQLTablePrimaryKey(currTab.getRight());
+								int fmKeyVal = fTab.getInt(fmKeyName);
+								int msKeyVal = mTab.getInt(msKeyName);
+								
+								if (fmKeyVal == msKeyVal && !updateLocalUID(currTab.getLeft(), currAAUID, currArachneTS, fmKeyName, fmKeyVal))
+									throw new SQLException("local ID/TS could not be updated!");
+								
+								break;
 							
-							// ... because C-AUID is missing
-							if (currCAUID == 0) {
+							case -1:
+								throw new SQLException("Something went wrong when comparing fields!");
 								
-								// Check all other fields. Is just C-AUID missing?
-								switch (compareFields(commonFields, msVals,
-										fmVals, currTab)) {
+							// both sets are empty, delete both!
+							case 4:
+								//TODO delete both
+								System.out.println("delete both!");
+								break;
 								
-								// all fields equal (not null), then just update local UID field and TS
-								case 0:
-									String fmKeyName = sqlAccess.getFMTablePrimaryKey(currTab.getLeft());
-									String msKeyName = sqlAccess.getMySQLTablePrimaryKey(currTab.getRight());
-									int fmKeyVal = fTab.getInt(fmKeyName);
-									int msKeyVal = mTab.getInt(msKeyName);
-									
-									if (fmKeyVal == msKeyVal && !updateLocalUID(currTab.getLeft(), currAAUID, currArachneTS, fmKeyName, fmKeyVal))
-										throw new SQLException("local ID/TS could not be updated!");
-									
-									break;
-								
-								case -1:
-									throw new SQLException("Something went wrong when comparing fields!");
-									
-								// both sets are empty, delete both!
-								case 4:
-									//TODO delete both
-									System.out.println("delete both!");
-									break;
-									
-								// local fields are all empty and need to be downloaded
-								case 2:
-									System.out.println("remote entry "
-														+ currAAUID
-														+ " needs to be downloaded");
-									// TODO: download and insert procedure with UID!
-									break;
-								
-								// remote fields are empty, but AAUID != 0!
-								// -> check lastModified, deleted or not?
-								case 3:
-									// entry has been deleted remote
-									if (currATS.after(currCTS)){
-										//TODO delete locally!
-										System.out.println(currAAUID + " locally deleted!");
-									// deleted remote, but new local one with same UID
-									} else if (currATS.before(currCTS)) {
-										//TODO update entry on remote, do not overwrite UID
-										System.out.println(currAAUID + " exists but needs to updated on remote!");
-									// Conflict!
-									// same TS and same UID, but different content!
-									} else {
-										throw new SyncException("UID and Timestamp same, but content differs!");
-									}
-									break;
-								
-								// fields not both empty and not equal
-								case 1:
-									// timestamp NOT available, otherwise CAUID would also be av.
-									// better: search for local entry in arachne, set CAUID to found match! otherwise, upload! TODO 
-									System.out.println("CONFLICT! search for local entry in arachne, set CAUID to found match! otherwise, upload! "+currAAUID);
-									break;
-								case 5:
-									fTab.next();
-									continue;
-								case 6:
-									mTab.next();
-									continue;
+							// local fields are all empty and need to be downloaded
+							case 2:
+								System.out.println("remote entry "
+													+ currAAUID
+													+ " needs to be downloaded");
+								// TODO: download and insert procedure with UID!
+								break;
+							
+							// remote fields are empty, but AAUID != 0!
+							// -> check lastModified, deleted or not?
+							case 3:
+								// entry has been deleted remote
+								if (currATS.after(currCTS)){
+									//TODO delete locally!
+									System.out.println(currAAUID + " locally deleted!");
+								// deleted remote, but new local one with same UID
+								} else if (currATS.before(currCTS)) {
+									//TODO update entry on remote, do not overwrite UID
+									System.out.println(currAAUID + " exists but needs to updated on remote!");
+								// Conflict!
+								// same TS and same UID, but different content!
+								} else {
+									throw new SyncException("UID and Timestamp same, but content differs!");
 								}
-							}
+								break;
 							
-							// ... because A-AUID is missing
-							else if (currAAUID == 0) {
-								
-								// Check all other fields. Is just A-AUID missing?
-								switch (compareFields(commonFields, msVals,
-										fmVals, currTab)) {
-								
-								// all fields equal (not null), then entity management has not been updated in arachne!!
-								case 0:
-									throw new EntityException("Content equal and not null, but missing remote ArachneEntitiyID! Just updating? :/");
-								
-								// both empty, entry seems to be deleted
-								case 4:
-									//TODO delete local C-AUID
-									continue;
-									
-								// all remote fields are empty AND A-AUID doesn't exist
-								case 3:
-									//TODO upload into arachne
-									System.out
-											.println("local entry "
-													+ currCAUID
-													+ " needs to be uploadedto the server");
-									break;
-								}
-							}
-							
-							// ... because they differ and are both not 0.
-							
-							// this is a hard one, because each upload to arachne
-							// should create a new AUUID.
-							// deleting the entry there should NOT cause the AUUID to be
-							// deleted as well (instead: isDeleted = 1).
-							// but the local client cannot get a CUUID without doing an
-							// update.
-							// therefore, local client cannot have a CCUID that is not
-							// in arachne. CCUID would be 0 instead.
-							else {
-								throw new SyncException("weird stuff");
-							}
-						}
-						// C-AUID == A-AUID! examine lastModified
-						else {								
-							// arachne newer than local?
-							if (currATS.after(currCTS)) {
-								// download from arachne TODO
-								System.out.println(currATS.toString()+" after "+currCTS.toString()+"; download from arachne");
-							} else if (currATS.before(currCTS)) {
-								// upload to arachne TODO
-								System.out.println(currATS.toString()+" before "+currCTS.toString()+"; upload to arachne");
-							} else {
-								// no changes or nothing to down-/upload, skip.
-//									System.out.println("Skipping update, same!");
+							// fields not both empty and not equal
+							case 1:
+								// timestamp NOT available, otherwise CAUID would also be av.
+								// better: search for local entry in arachne, set CAUID to found match! otherwise, upload! TODO 
+								System.out.println("CONFLICT! search for local entry in arachne, set CAUID to found match! otherwise, upload! "+currAAUID);
+								break;
+							case 5:
+								fTab.next();
+								continue;
+							case 6:
+								mTab.next();
 								continue;
 							}
 						}
-					}
-					
-					// if fm has more entries than mysql ...
-					if (mTab.isAfterLast() || !mTab.next()) {
-						fTab.previous();
-						String pk = sqlAccess.getFMTablePrimaryKey(currTab.getLeft());
-						int first=0, last=0;
-						ArrayList<ArrayList<Pair>> inserts = new ArrayList<ArrayList<Pair>>();
-						while (fTab.next()) {
-							ArrayList<Pair> ins = new ArrayList<Pair>();
-							ArrayList<String> names = getCommonFields(currTab);
-							if (first == 0) first = fTab.getInt(pk);
-							last = fTab.getInt(pk);
-							
-							for (int k = 0; k < names.size(); k++) {
-								Pair p = new Pair(names.get(k), fTab.getString(names.get(k)));
-								ins.add(p);
-							}
-							inserts.add(ins);
-						}
-						System.out.println("insert entries "+first+"-"+last+" into arachne ... ");
-						// insert packs of size 25
-						int count = inserts.size()/25;
-						int mod = inserts.size() % 25;
-						for (int k = 0; k < count; k++) {
-							int id = insertIntoArachne(currTab, new ArrayList<ArrayList<Pair>>(inserts.subList(k*25, (k+1)*25)));
-						}
-						int id = insertIntoArachne(currTab, new ArrayList<ArrayList<Pair>>(inserts.subList(count*25, count*25+mod)));
 						
-					} else {
-					// if mysql has more entries than fm ...
-						mTab.previous(); // neccessary because of !mTab.next() in if 
-						while (mTab.next()) {
-							//TODO
-							System.out.println("insert "+currAAUID+" into fm ...");
+						// ... because A-AUID is missing
+						else if (currAAUID == 0) {
+							
+							// Check all other fields. Is just A-AUID missing?
+							switch (compareFields(commonFields, msVals,
+									fmVals, currTab)) {
+							
+							// all fields equal (not null), then entity management has not been updated in arachne!!
+							case 0:
+								throw new EntityException("Content equal and not null, but missing remote ArachneEntitiyID! Just updating? :/");
+							
+							// both empty, entry seems to be deleted
+							case 4:
+								//TODO delete local C-AUID
+								continue;
+								
+							// all remote fields are empty AND A-AUID doesn't exist
+							case 3:
+								//TODO upload into arachne
+								System.out
+										.println("local entry "
+												+ currCAUID
+												+ " needs to be uploadedto the server");
+								break;
+							}
+						}
+						
+						// ... because they differ and are both not 0.
+						
+						// this is a hard one, because each upload to arachne
+						// should create a new AUUID.
+						// deleting the entry there should NOT cause the AUUID to be
+						// deleted as well (instead: isDeleted = 1).
+						// but the local client cannot get a CUUID without doing an
+						// update.
+						// therefore, local client cannot have a CCUID that is not
+						// in arachne. CCUID would be 0 instead.
+						// EDIT: possible is a change of the remote AUID.
+						else {
+							throw new SyncException("weird stuff");
 						}
 					}
-				} catch (FMSQLException e) {
-					System.err.println("FEHLER: " + e);
-					e.printStackTrace();
+					// C-AUID == A-AUID! examine lastModified
+					else {								
+						// arachne newer than local?
+						if (currATS.after(currCTS)) {
+							// download from arachne TODO
+							System.out.println(currATS.toString()+" after "+currCTS.toString()+"; download from arachne");
+						} else if (currATS.before(currCTS)) {
+							// upload to arachne TODO
+							System.out.println(currATS.toString()+" before "+currCTS.toString()+"; upload to arachne");
+						} else {
+							// no changes or nothing to down-/upload, skip.
+//									System.out.println("Skipping update, same!");
+							continue;
+						}
+					}
 				}
+				
+				// if fm has more entries than mysql ...
+				if (mTab.isAfterLast() || !mTab.next()) {
+					fTab.previous();
+					String pk = sqlAccess.getFMTablePrimaryKey(currTab.getLeft());
+					int first=0, last=0;
+					ArrayList<ArrayList<Pair>> inserts = new ArrayList<ArrayList<Pair>>();
+					while (fTab.next()) {
+						ArrayList<Pair> ins = new ArrayList<Pair>();
+						ArrayList<String> names = getCommonFields(currTab);
+						if (first == 0) first = fTab.getInt(pk);
+						last = fTab.getInt(pk);
+						
+						for (int k = 0; k < names.size(); k++) {
+							Pair p = new Pair(names.get(k), fTab.getString(names.get(k)));
+							ins.add(p);
+						}
+						inserts.add(ins);
+					}
+//					System.out.println("insert entries "+first+"-"+last+" into arachne ... ");
+					// insert packs of size 25
+					int count = inserts.size()/25;
+					int mod = inserts.size() % 25;
+					for (int k = 0; k < count; k++) {
+						int[] id = insertIntoArachne(currTab, new ArrayList<ArrayList<Pair>>(inserts.subList(k*25, (k+1)*25)));
+					}
+					int[] id = insertIntoArachne(currTab, new ArrayList<ArrayList<Pair>>(inserts.subList(count*25, count*25+mod)));
+					
+				} else {
+				// if mysql has more entries than fm ...
+					mTab.previous(); // neccessary because of !mTab.next() in if 
+					while (mTab.next()) {
+						//TODO
+						System.out.println("insert "+currAAUID+" into fm ...");
+					}
+				}
+			} catch (FMSQLException e) {
+				System.err.println("FEHLER: " + e);
+				e.printStackTrace();
 			}
 		}
 		System.out.println("done");
@@ -393,12 +401,12 @@ public class SQLDataModel {
 	 * Insert given rows
 	 * @param currTab
 	 * @param rows
-	 * @return
+	 * @return array of inserted IDs. null, if given row list is empty
 	 * @throws SQLException
 	 */
-	private int insertIntoArachne(Pair currTab, ArrayList<ArrayList<Pair>> rows) throws SQLException{
+	private int[] insertIntoArachne(Pair currTab, ArrayList<ArrayList<Pair>> rows) throws SQLException{
 		
-		if (rows.size() == 0) return -1;
+		if (rows.size() == 0) return null;
 		
 		String sql = "INSERT INTO "+currTab.getRight()+ " (";
 		String vals = " VALUES (";
@@ -443,10 +451,6 @@ public class SQLDataModel {
 				
 				String currFieldVal = currRow.get(j).getRight();
 				
-				if (currFieldName.contains("Thickness") && currFieldVal != null){
-					System.out.println();
-				}
-				
 				if (!isNumericalField(currFieldName) && !isTimestampField(currFieldName) && currFieldVal != null) {
 					currFieldVal = "'" + currFieldVal.replace("'", "\\'").replace("\"", "\\\"").replace("%", "\\%") + "'";
 				}
@@ -460,7 +464,7 @@ public class SQLDataModel {
 				vals += "),(";
 			
 		}
-		int result = sqlAccess.doMySQLInsert(sql + vals);
+		int[] result = sqlAccess.doMySQLInsert(sql + vals);
 		//TODO: update CAUID after insert!!!
 		return result;
 	}
@@ -473,7 +477,7 @@ public class SQLDataModel {
 		if (sqlAccess.doFMUpdate("UPDATE \"" + currTab 
 				+ "\" SET ArachneEntityID="+currAAUID
 				+", lastModified={ts '"+currArachneTS.format(formatTS)+"'}"
-				+ " WHERE "+pkName+"="+pkVal) != -1){
+				+ " WHERE "+pkName+"="+pkVal) != null){
 			System.out.print(" done\n");
 			return true;
 		}
@@ -675,14 +679,25 @@ public class SQLDataModel {
 
 	public static void main(String[] args) {
 		try {
+			DOMConfigurator.configureAndWatch("log4j.xml");
 			ConfigController.getInstance().setPrefs("jdbc:mysql://134.95.115.21:3306", "root", "",
 					"ceramalex", "jdbc:filemaker://localhost", "admin", "btbw", "iDAIAbstractCeramalex", "3306");
 			SQLDataModel m = new SQLDataModel();
 			commonTables = m.getCommonTables();
-			m.getDiffByUUID("Befund");
-		} catch (Exception e) {
 			
-			e.printStackTrace();
+			for (int i = 0; i < commonTables.size(); i++){
+				try {
+					System.out.print("Processing table "+commonTables.get(i)+ " ... ");
+					m.getDiffByUUID(commonTables.get(i));
+					logger.info("Processed table "+commonTables.get(i) + " without errors.");
+				} catch (Exception e) {
+					logger.error(commonTables.get(i) + ": "+ e.getMessage());
+				}
+			}
+			
+		} catch (Exception e) {
+			System.err.println("ERROR: "+e.getMessage());
+			logger.error(e.getMessage());
 		}
 	}
 }

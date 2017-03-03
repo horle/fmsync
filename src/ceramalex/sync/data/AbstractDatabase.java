@@ -25,7 +25,7 @@ public abstract class AbstractDatabase {
 	private String dbURL, user, pwd, serverDataSource;
 
 	/** Logging-Instanz */
-	protected static Logger logger = Logger.getLogger("data.abstractdatabase");
+	protected static Logger logger = Logger.getLogger(AbstractDatabase.class);
 
 	/** Liefert den Namen des zu ladenden Treibers */
 	abstract protected String getDriverName();
@@ -167,22 +167,28 @@ public abstract class AbstractDatabase {
 	 * 
 	 * @param sql
 	 *            SQL-Statement
-	 * @return ID of modified entry, -1 if no success.
+	 * @return IDs of modified entries, null if no success.
 	 * @throws SQLException 
 	 */
 
-	public int doSQLModify(String sql) throws SQLException {
+	public int[] doSQLModify(String sql) throws SQLException {
 
-		System.out.println(sql);
-		int result = -1;
-
-		// logger.info(sql);
+		logger.debug(sql);
 		PreparedStatement statement = cn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
 		statement.executeUpdate();
 		ResultSet r = statement.getGeneratedKeys();
 		
-		if (r.next()) 
-			result = r.getInt(1);
+		int count = 0;
+		while (r.next()) count++;
+		
+		int[] result = new int[count];
+		
+		r.beforeFirst();
+		int i = 0;
+		while (r.next()) {
+			result[i] = r.getInt(1);
+			i++;
+		}
 		
 		statement.close();
 		return result;
@@ -198,8 +204,7 @@ public abstract class AbstractDatabase {
 	 * @return ID of modified entry, -1 if no success.
 	 * @throws SQLException Throws exception if sql error occurred.
 	 */
-	public int doSQLModifyViaNewConnection(String sql, String dbUrl, String user, String pwd, String serverDataSource) throws SQLException {
-		int result = -1;
+	public int[] doSQLModifyViaNewConnection(String sql, String dbUrl, String user, String pwd, String serverDataSource) throws SQLException {
 		Connection con;
 		try {
 			DriverManager.setLoginTimeout(5);
@@ -217,11 +222,23 @@ public abstract class AbstractDatabase {
 		
 		PreparedStatement statement = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
 		statement.executeUpdate();
-		statement.close();
-		con.close();ResultSet r = statement.getGeneratedKeys();
+				
+		ResultSet r = statement.getGeneratedKeys();
 		
-		if (r.next()) 
-			result = r.getInt(1);
+		int count = 0;
+		while (r.next()) count ++;
+		
+		int[] result = new int[count];
+		
+		r.beforeFirst();
+		int i = 0;
+		while (r.next()) {
+			i++;
+			result[i] = r.getInt(1);
+		}
+		
+		statement.close();
+		con.close();
 		
 		return result;
 	}

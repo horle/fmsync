@@ -24,8 +24,7 @@ public class SQLAccessController {
 	private FMDataAccess fDataAccess;
 	private ConfigController config;
 
-	private static Logger logger = Logger
-			.getLogger("ceramalex.sync.controller.sqlaccesscontroller");
+	private static Logger logger = Logger.getLogger(SQLAccessController.class);
 
 	/**
 	 * singleton getter
@@ -114,21 +113,6 @@ public class SQLAccessController {
 	}
 
 	/**
-	 * /**
-	 * execute update query on FM
-	 * @param table String after UPDATE (just table name)
-	 * @param set String after SET
-	 * @param where String after WHERE
-	 * @return true, if success. false else
-	 * @throws SQLException 
-	 */
-	public int doMySQLUpdate(String table, String set, String where) throws SQLException {
-		if (table.isEmpty() || set.isEmpty() || where.isEmpty())
-			return -1;
-		return mDataAccess.doSQLModify("UPDATE "+table+" SET "+set+" WHERE "+where+";");
-	}
-
-	/**
 	 * execute insert query on FM
 	 * 
 	 * @param sql
@@ -136,7 +120,7 @@ public class SQLAccessController {
 	 * @return true, if success. false else
 	 * @throws SQLException 
 	 */
-	public int doMySQLInsert(String sql) throws SQLException {
+	public int[] doMySQLInsert(String sql) throws SQLException {
 		return mDataAccess.doSQLModify(sql);
 	}
 
@@ -159,7 +143,7 @@ public class SQLAccessController {
 	 * @return true, if success. false else
 	 * @throws SQLException 
 	 */
-	public int doFMUpdate(String sql) throws SQLException {
+	public int[] doFMUpdate(String sql) throws SQLException {
 		return fDataAccess.doSQLModify(sql);
 	}
 
@@ -171,7 +155,7 @@ public class SQLAccessController {
 	 * @return true, if success. false else
 	 * @throws SQLException 
 	 */
-	public int doFMInsert(String sql) throws SQLException {
+	public int[] doFMInsert(String sql) throws SQLException {
 		return fDataAccess.doSQLModify(sql);
 	}
 
@@ -249,6 +233,7 @@ public class SQLAccessController {
 				String bla = (mysql.getString(2)+"."+mysql.getString(1));
 				if (bla.equalsIgnoreCase(fm.get(i))) {
 					list.add(fm.get(i));
+					logger.debug("New common numeric field: "+fm.get(i));
 				}
 			}
 		}
@@ -288,11 +273,13 @@ public class SQLAccessController {
 				String bla = (mysql.getString(2)+"."+mysql.getString(1));
 				if (bla.equalsIgnoreCase(fm.get(i))) {
 					list.add(fm.get(i));
+					logger.debug("New common timestamp field: "+fm.get(i));
 				}
 			}
 		}
 		mysql.close();
 		list.add("*.lastModified");
+		logger.debug("New common timestamp field: *.lastModified");
 		conf.setTimestampFields(list);
 		return list;
 	}
@@ -349,7 +336,7 @@ public class SQLAccessController {
 		return this.fDataAccess.getFMTablePrimaryKey(f);
 	}
 
-	public int doFMAlter(String sql) throws SQLException {
+	public int[] doFMAlter(String sql) throws SQLException {
 		return fDataAccess.doSQLAlter(sql);
 	}
 }
