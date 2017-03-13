@@ -10,6 +10,7 @@ import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.util.ArrayList;
 
 import org.apache.log4j.Logger;
 
@@ -171,23 +172,18 @@ public abstract class AbstractDatabase {
 	 * @throws SQLException 
 	 */
 
-	public int[] doSQLModify(String sql) throws SQLException {
+	public ArrayList<Integer> doSQLModify(String sql) throws SQLException {
 
 		logger.debug(sql);
 		PreparedStatement statement = cn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
 		statement.executeUpdate();
 		ResultSet r = statement.getGeneratedKeys();
 		
-		int count = 0;
-		while (r.next()) count++;
-		
-		int[] result = new int[count];
+		ArrayList<Integer> result = new ArrayList<Integer>();
 		
 		r.beforeFirst();
-		int i = 0;
 		while (r.next()) {
-			result[i] = r.getInt(1);
-			i++;
+			result.add(r.getInt(1));
 		}
 		
 		statement.close();
@@ -204,7 +200,7 @@ public abstract class AbstractDatabase {
 	 * @return ID of modified entry, -1 if no success.
 	 * @throws SQLException Throws exception if sql error occurred.
 	 */
-	public int[] doSQLModifyViaNewConnection(String sql, String dbUrl, String user, String pwd, String serverDataSource) throws SQLException {
+	public ArrayList<Integer> doSQLModifyViaNewConnection(String sql, String dbUrl, String user, String pwd, String serverDataSource) throws SQLException {
 		Connection con;
 		try {
 			DriverManager.setLoginTimeout(5);
@@ -224,17 +220,12 @@ public abstract class AbstractDatabase {
 		statement.executeUpdate();
 				
 		ResultSet r = statement.getGeneratedKeys();
-		
-		int count = 0;
-		while (r.next()) count ++;
-		
-		int[] result = new int[count];
+
+		ArrayList<Integer> result = new ArrayList<Integer>();
 		
 		r.beforeFirst();
-		int i = 0;
 		while (r.next()) {
-			i++;
-			result[i] = r.getInt(1);
+			result.add(r.getInt(1));
 		}
 		
 		statement.close();

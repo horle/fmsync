@@ -120,7 +120,7 @@ public class SQLAccessController {
 	 * @return true, if success. false else
 	 * @throws SQLException 
 	 */
-	public int[] doMySQLInsert(String sql) throws SQLException {
+	public ArrayList<Integer> doMySQLInsert(String sql) throws SQLException {
 		return mDataAccess.doSQLModify(sql);
 	}
 
@@ -143,7 +143,7 @@ public class SQLAccessController {
 	 * @return true, if success. false else
 	 * @throws SQLException 
 	 */
-	public int[] doFMUpdate(String sql) throws SQLException {
+	public ArrayList<Integer> doFMUpdate(String sql) throws SQLException {
 		return fDataAccess.doSQLModify(sql);
 	}
 
@@ -155,7 +155,7 @@ public class SQLAccessController {
 	 * @return true, if success. false else
 	 * @throws SQLException 
 	 */
-	public int[] doFMInsert(String sql) throws SQLException {
+	public ArrayList<Integer> doFMInsert(String sql) throws SQLException {
 		return fDataAccess.doSQLModify(sql);
 	}
 
@@ -206,12 +206,12 @@ public class SQLAccessController {
 	 * fetch all fields (in all tables) with type "numeric" (i.e. double for FM)
 	 * from FM and MySQL
 	 * 
-	 * @param commonTables
+	 * @param result
 	 *            all common tables
 	 * @return set (without duplicates) of numeric fields
 	 * @throws SQLException
 	 */
-	public HashSet<String> fetchNumericFields(ArrayList<Pair> commonTables)
+	public HashSet<String> fetchNumericFields(ArrayList<Pair> result)
 			throws SQLException {
 		ConfigController conf = ConfigController.getInstance();
 		HashSet<String> list = new HashSet<String>();
@@ -223,8 +223,8 @@ public class SQLAccessController {
 						+ "GROUP BY COLUMN_NAME");
 		ArrayList<String> fm = new ArrayList<String>();
 
-		for (int i = 0; i < commonTables.size(); i++) {
-			fm.addAll(this.getFMNumericFields(commonTables.get(i).getLeft()));
+		for (int i = 0; i < result.size(); i++) {
+			fm.addAll(this.getFMNumericFields(result.get(i).getLeft()));
 		}
 
 		// get common numeric fields
@@ -336,7 +336,7 @@ public class SQLAccessController {
 		return this.fDataAccess.getFMTablePrimaryKey(f);
 	}
 
-	public int[] doFMAlter(String sql) throws SQLException {
+	public ArrayList<Integer> doFMAlter(String sql) throws SQLException {
 		return fDataAccess.doSQLAlter(sql);
 	}
 }

@@ -1,54 +1,56 @@
 package ceramalex.sync.model;
 
 /**
- * Class to provide a tuple of two Strings to keep key-value-pairs or the
+ * Class to provide a tuple of strings to keep key-value-pairs or the
  * distinction of table or field names. Extends abstract class Tuple<F,M>. 
  * 
  * @author horle (Felix Kussmaul)
+ * @param <T> type of left, right
+ * @param <S>
  *
  */
-public class Pair extends Tuple<String, String> {
+public class Pair extends Tuple<String,String> {
 
 	public Pair(String f, String m) {
 		super(f, m);
 	}
 }
 
-abstract class Tuple<F, M> {
-	private F fileMaker;
-	private M mySQL;
+class Tuple<T,S> {
+	private T left;
+	private S right;
 
-	public Tuple(F f, M m) {
-		this.fileMaker = f;
-		this.mySQL = m;
+	public Tuple(T f, S m) {
+		this.left = f;
+		this.right = m;
 	}
 
 	/**
 	 * filemaker string
 	 * @return
 	 */
-	public F getLeft() {
-		return fileMaker;
+	public T getLeft() {
+		return left;
 	}
 
 	/**
 	 * mysql string
 	 * @return
 	 */
-	public M getRight() {
-		return mySQL;
+	public S getRight() {
+		return right;
 	}
 
-	public void setLeft(F f) {
-		this.fileMaker = f;
+	public void setLeft(T f) {
+		this.left = f;
 	}
 
-	public void setRight(M m) {
-		this.mySQL = m;
+	public void setRight(S m) {
+		this.right = m;
 	}
 
 	@Override
 	public String toString() {
-		return this.fileMaker.toString() + " -> " + this.mySQL.toString();
+		return this.left.toString() + " -> " + this.right.toString();
 	}
 }
