@@ -718,7 +718,7 @@ public class SQLDataModel {
 		try {
 			DOMConfigurator.configureAndWatch("log4j.xml");
 			ConfigController.getInstance().setPrefs("jdbc:mysql://134.95.115.21:3306", "root", "",
-					"ceramalex", "jdbc:filemaker://localhost", "admin", "btbw", "iDAIAbstractCeramalex", "3306");
+					"arachne", "jdbc:filemaker://localhost", "admin", "btbw", "iDAIAbstractCeramalex", "3306");
 			SQLDataModel m = new SQLDataModel();
 			commonTables = m.getCommonTables();
 			
@@ -738,6 +738,18 @@ public class SQLDataModel {
 		}
 	}
 	enum FieldComparison {
-		//TODO
+		ALL_EQUAL_AND_NOT_EMPTY(0),
+		EXISTS_NOT_EQUAL_AND_NOT_EMPTY(1),
+		ALL_LOCAL_EMPTY(2),
+		ALL_REMOTE_EMPTY(3),
+		BOTH_EMPTY(4),
+		REMOTE_INDEX_MISSING(5),
+		LOCAL_INDEX_MISSING(6);
+		
+		private int value;
+		private FieldComparison(int v) {
+			this.value = v;
+		}
+		public int getValue() { return value; }
 	}
 }
