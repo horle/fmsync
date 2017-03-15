@@ -12,21 +12,33 @@ public class ComparisonResult {
 	private ArrayList<ArrayList<Pair>> toUpload;
 	private ArrayList<Tuple<Integer,Integer>> toDelete;
 	private ArrayList<Tuple<ArrayList<Pair>, Boolean>> toUpdate;
+	private ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> conflict;
 	
 	public ComparisonResult() {
 		toDownload = new ArrayList<Integer>();
 		toUpload = new ArrayList<ArrayList<Pair>>();
 		toDelete = new ArrayList<Tuple<Integer,Integer>>();
 		toUpdate = new ArrayList<Tuple<ArrayList<Pair>,Boolean>>();
+		conflict = new ArrayList<Tuple<ArrayList<Pair>,ArrayList<Pair>>>();
 	}
 	
+	/**
+	 * 
+	 * @param rowFM
+	 * @param rowMS
+	 * @return
+	 */
+	public boolean addToConflictList(ArrayList<Pair> rowFM, ArrayList<Pair> rowMS) {
+		return conflict.add(new Tuple<ArrayList<Pair>, ArrayList<Pair>>(rowFM, rowMS));
+	}
+
 	/**
 	 * Adds a list of key-value-pairs to the update list, along with a boolean to decide whether to up- or download
 	 * @param list
 	 * @param upload true, if row shall be uploaded to remote. false, if download
 	 * @return true, if successfully added
 	 */
-	public boolean addToUpdate(ArrayList<Pair> list, boolean upload) {
+	public boolean addToUpdateList(ArrayList<Pair> list, boolean upload) {
 		return toUpdate.add(new Tuple<ArrayList<Pair>, Boolean>(list, upload));
 	}
 	
@@ -36,7 +48,7 @@ public class ComparisonResult {
 	 * @param currAAUID int value of remote AUID, may be 0 for no delete
 	 * @return true, if successfully added
 	 */
-	public boolean addToDelete(int currCAUID, int currAAUID) {		
+	public boolean addToDeleteList(int currCAUID, int currAAUID) {		
 		return toDelete.add(new Tuple<Integer,Integer>(currCAUID, currAAUID));
 	}
 	
@@ -45,7 +57,7 @@ public class ComparisonResult {
 	 * @param aauid AAUID in arachne that has to be downloaded
 	 * @return true, if successfully added
 	 */
-	public boolean addAAUIDToDownload(int aauid) {
+	public boolean addAAUIDToDownloadList(int aauid) {
 		return toDownload.add(aauid);
 	}
 	
@@ -54,20 +66,23 @@ public class ComparisonResult {
 	 * @param row ArrayList of Pair values that represent key-value-Pairs of attributes in one row
 	 * @return true, if successfully added
 	 */
-	public boolean addRowToUpload(ArrayList<Pair> row) {
+	public boolean addRowToUploadList(ArrayList<Pair> row) {
 		return toUpload.add(row);
 	}
 	
-	public ArrayList<Integer> getToDownload() {
+	public ArrayList<Integer> getDownloadList() {
 		return toDownload;
 	}
-	public ArrayList<ArrayList<Pair>> getToUpload() {
+	public ArrayList<ArrayList<Pair>> getUploadList() {
 		return toUpload;
 	}
-	public ArrayList<Tuple<Integer,Integer>> getToDelete() {
+	public ArrayList<Tuple<Integer,Integer>> getDeleteList() {
 		return toDelete;
 	}
-	public ArrayList<Tuple<ArrayList<Pair>, Boolean>> getToUpdate() {
+	public ArrayList<Tuple<ArrayList<Pair>, Boolean>> getUpdateList() {
 		return toUpdate;
+	}
+	public ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> getConflictList() {
+		return conflict;
 	}
 }
