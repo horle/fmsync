@@ -11,14 +11,16 @@ public class ComparisonResult {
 	private ArrayList<Integer> toDownload;
 	private ArrayList<ArrayList<Pair>> toUpload;
 	private ArrayList<Tuple<Integer,Integer>> toDelete;
-	private ArrayList<Tuple<ArrayList<Pair>, Boolean>> toUpdate;
+	private ArrayList<Tuple<Pair, Tuple<ArrayList<Pair>, ArrayList<Pair>>>> toUpdateLocally;
+	private ArrayList<Tuple<Pair, Tuple<ArrayList<Pair>, ArrayList<Pair>>>> toUpdateRemotely;
 	private ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> conflict;
 	
 	public ComparisonResult() {
 		toDownload = new ArrayList<Integer>();
 		toUpload = new ArrayList<ArrayList<Pair>>();
 		toDelete = new ArrayList<Tuple<Integer,Integer>>();
-		toUpdate = new ArrayList<Tuple<ArrayList<Pair>,Boolean>>();
+		toUpdateLocally = new ArrayList<Tuple<Pair, Tuple<ArrayList<Pair>, ArrayList<Pair>>>>();
+		toUpdateRemotely = new ArrayList<Tuple<Pair, Tuple<ArrayList<Pair>, ArrayList<Pair>>>>();
 		conflict = new ArrayList<Tuple<ArrayList<Pair>,ArrayList<Pair>>>();
 	}
 	
@@ -34,12 +36,27 @@ public class ComparisonResult {
 
 	/**
 	 * Adds a list of key-value-pairs to the update list, along with a boolean to decide whether to up- or download
-	 * @param list
-	 * @param upload true, if row shall be uploaded to remote. false, if download
+	 * @param currTab current table
+	 * @param setList list of key-value pairs with new content
+	 * @param whereList list of key-value pairs to determine row to update
+	 * @param local true, if local row shall be updated. false, if remote row shall be updated.
 	 * @return true, if successfully added
 	 */
-	public boolean addToUpdateList(ArrayList<Pair> list, boolean upload) {
-		return toUpdate.add(new Tuple<ArrayList<Pair>, Boolean>(list, upload));
+	public boolean addToUpdateList(Pair currTab, ArrayList<Pair> setList, ArrayList<Pair> whereList, boolean local) {
+		if (local)
+			return toUpdateLocally.add(
+					new Tuple<Pair, Tuple<
+									ArrayList<Pair>,
+									ArrayList<Pair>
+									>>
+					(currTab, new Tuple<ArrayList<Pair>, ArrayList<Pair>>(setList, whereList)));
+		else
+			return toUpdateRemotely.add(
+					new Tuple<Pair, Tuple<
+									ArrayList<Pair>,
+									ArrayList<Pair>
+									>>
+					(currTab, new Tuple<ArrayList<Pair>, ArrayList<Pair>>(setList, whereList)));
 	}
 	
 	/**
@@ -79,8 +96,11 @@ public class ComparisonResult {
 	public ArrayList<Tuple<Integer,Integer>> getDeleteList() {
 		return toDelete;
 	}
-	public ArrayList<Tuple<ArrayList<Pair>, Boolean>> getUpdateList() {
-		return toUpdate;
+	public ArrayList<Tuple<Pair, Tuple<ArrayList<Pair>, ArrayList<Pair>>>> getLocalUpdateList() {
+		return toUpdateLocally;
+	}
+	public ArrayList<Tuple<Pair, Tuple<ArrayList<Pair>, ArrayList<Pair>>>> getRemoteUpdateList() {
+		return toUpdateRemotely;
 	}
 	public ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> getConflictList() {
 		return conflict;

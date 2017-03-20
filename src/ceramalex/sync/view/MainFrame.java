@@ -53,7 +53,7 @@ import ceramalex.sync.data.CallManager;
  * @author horle (Felix Kussmaul)
  */
 
-public class MainWindow {
+public class MainFrame {
 
 	private static final String FM_URL_PREFIX = "jdbc:filemaker://";
 	private static final String MYSQL_URL_PREFIX = "jdbc:mysql://";
@@ -124,7 +124,7 @@ public class MainWindow {
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
-					MainWindow window = new MainWindow();
+					MainFrame window = new MainFrame();
 					window.frame.setVisible(true);
 				} catch (Exception e) {
 					e.printStackTrace();
@@ -136,7 +136,7 @@ public class MainWindow {
 	/**
 	 * Create the application.
 	 */
-	public MainWindow() {
+	public MainFrame() {
 		initialize();
 		reconfigure();
 		initSyncStatus();

@@ -159,17 +159,13 @@ public class SQLDataModel {
 		}
 	}
 	
-	public ComparisonResult getDiffByUUID(Pair currTab) throws SQLException,
+	public ComparisonResult getDiffByUUID(Pair currTab, boolean upload, boolean download) throws SQLException,
 			FilemakerIsCrapException, SyncException, EntityManagementException {
 		
 		ComparisonResult result = new ComparisonResult();
 		
 		// both connected?
 		if (sqlAccess.isMySQLConnected() && sqlAccess.isFMConnected()) {
-
-			// calculate common tables!
-			if (commonTables == null)
-				commonTables = getCommonTables();
 
 			ArrayList<String> commonFields = new ArrayList<String>();
 			
@@ -250,7 +246,7 @@ public class SQLDataModel {
 					}
 					
 					if (currAAUID == currCAUID) {
-					// timestamps all equal: SKIP
+						// timestamps all equal: SKIP
 						if (currATS.equals(currCTS) && currCTS.equals(currLRTS)) { continue; }
 						// local after remote, remote did not change: SAFE UPLOAD
 						if (currCTS.after(currATS) && currATS.equals(currLRTS)) {
@@ -290,24 +286,61 @@ public class SQLDataModel {
 				e.printStackTrace();
 			}
 			
+			if (upload) {
+				try {
+					ResultSet fNull = sqlAccess.doFMQuery(fmSQL + (archerFMSkip==""?" WHERE ":" AND ") + "ArachneEntityID IS NULL");
+					
+					// CAUID == null
+					while (fNull.next()) {
+						// add local row content to arraylist, lookup remotely
+						ArrayList<Pair> row = new ArrayList<Pair>();
+						for (int i = 0; i < commonFields.size(); i++) {
+							row.add(new Pair(commonFields.get(i), fNull.getString(commonFields.get(i))));
+						}
+						ArrayList<Pair> res = isRowOnRemote(currTab, row);
+						// already uploaded, same content, just missing CAUID? update locally ...
+						if (res != null) {
+							ArrayList<Pair> aauid = new ArrayList<Pair>();
+							aauid.add(new Pair("ArachneEntityID", res.get(0).getRight()));
+							result.addToUpdateList(currTab, aauid , res, true);
+						}
+						// nothing remotely. upload whole row and update CAUID
+						else {
+							result.addRowToUploadList(row);
+						}
+					}
+				} catch (FMSQLException e) {
+					System.err.println("FEHLER: " + e);
+					e.printStackTrace();
+				}
+			}
 			try {
-				ResultSet fNull = sqlAccess.doFMQuery(fmSQL + (archerFMSkip==""?" WHERE ":" AND ") + "ArachneEntityID IS NULL");
+				
+				// AAUID == null
 				ResultSet mNull = sqlAccess.doMySQLQuery(msSQL + " AND ArachneEntityID IS NULL");
 				
-				while (fNull.next()) {
+				while (mNull.next()) { //TODO
 					ArrayList<Pair> row = new ArrayList<Pair>();
 					for (int i = 0; i < commonFields.size(); i++) {
-						row.add(new Pair(commonFields.get(i), fNull.getString(commonFields.get(i))));
-					}
-					if (isRowOnRemote(currTab, row)) {
-						System.out.println();
+						row.add(new Pair(commonFields.get(i), mNull.getString(commonFields.get(i))));
 					}
 				}
+			}  catch (FMSQLException e) {
+				System.err.println("FEHLER: " + e);
+				e.printStackTrace();
+			}
+			
+			System.out.println("done.");
+			
+			
+			
+			/**
+			 * OLD LOGIC TODO
+			 */
+			try{
+				ResultSet fNull = null;
+				ResultSet mNull = null;
 				
-				System.out.println("done.");
-				/**
-				 * OLD LOGIC TODO
-				 */
 				while (new Boolean("false")) {	
 					// missing entry in regular table, but entry in entity management! bug in db!
 					// TODO: delete entry in arachne entity management
@@ -372,7 +405,7 @@ public class SQLDataModel {
 									for (int l = 0; l < commonFields.size(); l++) {
 										row.add(new Pair(commonFields.get(l),fmVals.get(l)));
 									}
-									result.addToUpdateList(row, true);
+									result.addToUpdateList(currTab, row, null, true);
 								// Conflict!
 								// same TS and same UID, but different content!
 								} else {
@@ -512,22 +545,22 @@ public class SQLDataModel {
 	 * method checks, if row with common fields is already in remote DB
 	 * @param currTab
 	 * @param row
-	 * @return true, if row is already in remote db. false else.
+	 * @return ArrayList<Tuple<String, Object>> with Pair of AAUID, TS, and PK, if row is already in remote db. empty list else.
 	 * @throws SQLException
 	 */
-	private boolean isRowOnRemote(Pair currTab, ArrayList<Pair> row) throws SQLException {
+	private ArrayList<Pair> isRowOnRemote(Pair currTab, ArrayList<Pair> row) throws SQLException {
 		String archerMSSkip = "";
 		if (currTab.getLeft().equalsIgnoreCase("mainabstract")) {
 			archerMSSkip = " AND " + currTab.getRight() + ".ImportSource!='Comprehensive Table'";
 		}
-		String sql = "SELECT arachneentityidentification.ArachneEntityID"
+		String pk = sqlAccess.getMySQLTablePrimaryKey(currTab.getRight());
+		String sql = "SELECT arachneentityidentification.ArachneEntityID, "
+				+ currTab.getRight() + ".lastModified, "
+				+ currTab.getRight() + "." + pk
 				+ " FROM arachneentityidentification LEFT JOIN " // left join includes deleted or empty UIDs
 				+ currTab.getRight()
 				+ " ON arachneentityidentification.ForeignKey = "
-				+ currTab.getRight()
-				+ "."
-				+ sqlAccess.getMySQLTablePrimaryKey(currTab
-						.getRight())
+				+ currTab.getRight() + "." + pk
 				+ " WHERE arachneentityidentification.TableName=\""
 				+ currTab.getRight() + "\""
 				+ archerMSSkip;
@@ -543,7 +576,13 @@ public class SQLDataModel {
 				sql += " AND " + currTab.getRight() + "." + p.getLeft() + " = '" + p.getRight()+"'";
 		}
 		ResultSet r = sqlAccess.doMySQLQuery(sql);
-		return r.next();
+		ArrayList<Pair> result = new ArrayList<Pair>();
+		while (r.next()) {
+			result.add(new Pair("ArachneEntityID", r.getString(1))); // aauid
+			result.add(new Pair("lastModified", r.getTimestamp(2).toLocalDateTime().format(formatTS))); // lastmodified
+			result.add(new Pair(pk, r.getString(3))); 	//pk value
+		}
+		return result;
 	}
 
 	/**
@@ -639,6 +678,7 @@ public class SQLDataModel {
 				vals += "),(";
 			
 		}
+		// update local AUIDs
 		ArrayList<Integer> localIDs = sqlAccess.doMySQLInsert(sql + vals);
 		ArrayList<Integer> result = new ArrayList<Integer>();
 		String key = sqlAccess.getFMTablePrimaryKey(currTab.getLeft());
@@ -652,9 +692,11 @@ public class SQLDataModel {
 			if (id.next()) {
 				int aauid = id.getInt(1);
 				if (!updateLocalUID(currTab, aauid, id.getTimestamp(2).toLocalDateTime(), key, localIDs.get(i)))
-					throw new EntityManagementException("Updating local UID "+ id.getInt(1)+" in table "+currTab.getLeft()+" FAILED!");
-				else
+					throw new EntityManagementException("Updating local AUID "+ id.getInt(1)+" in table "+currTab.getLeft()+" FAILED!");
+				else{
+					logger.debug("Updated local AUID "+ id.getInt(1)+" in table "+currTab.getLeft()+" after upload.");
 					result.add(aauid);
+				}
 			}
 		}
 		
@@ -877,7 +919,7 @@ public class SQLDataModel {
 			for (int i = 0; i < commonTables.size(); i++){
 				try {
 					System.out.print("Processing table "+commonTables.get(i)+ " ... ");
-					m.getDiffByUUID(commonTables.get(i));
+					ComparisonResult result = m.getDiffByUUID(commonTables.get(i), true, true);
 					logger.info("Processed table "+commonTables.get(i) + " without errors.");
 				} catch (Exception e) {
 					logger.error(commonTables.get(i) + ": "+ e.getMessage());
