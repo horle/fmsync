@@ -8,7 +8,7 @@ import java.text.SimpleDateFormat;
  * 
  * @author horle (Felix Kussmaul)
  */
-class SyncStatus {
+class FrameStatus {
 	private String lblConnectFM;
 	private String lblConnectMySQL;
 	private String logMsg;
@@ -40,7 +40,7 @@ class SyncStatus {
 	 *            enabled? mysql user textfield enabled? fm pass textfield
 	 *            enabled? mysql pass textfield enabled?
 	 */
-	public SyncStatus(String logMsg, String lblConnectMySQL,
+	public FrameStatus(String logMsg, String lblConnectMySQL,
 			String lblConnectFM, String btnConnectText,
 			boolean btnConnectEn, boolean txtEn, boolean actionEn) {
 		this.logMsg = logMsg;
@@ -53,12 +53,12 @@ class SyncStatus {
 		this.actionEn = actionEn;
 	}
 
-	public SyncStatus setLogMsg(String logMsg) {
+	public FrameStatus setLogMsg(String logMsg) {
 		this.logMsg = logMsg;
 		return this;
 	}
 	
-	public SyncStatus setLogAppend(String logApp) {
+	public FrameStatus setLogAppend(String logApp) {
 		this.logAppend = logApp;
 		return this;
 	}

@@ -1,33 +1,32 @@
 package ceramalex.sync.view;
 
 import java.awt.BorderLayout;
-import java.awt.EventQueue;
+import java.awt.Color;
+import java.awt.FlowLayout;
+import java.awt.Font;
 
+import javax.swing.ButtonGroup;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
-import javax.swing.border.EmptyBorder;
+import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
-import java.awt.Font;
 import javax.swing.JTable;
-import javax.swing.JLabel;
-import java.awt.FlowLayout;
-import javax.swing.border.TitledBorder;
-import javax.swing.JButton;
 import javax.swing.JToggleButton;
-import javax.swing.BoxLayout;
-import javax.swing.JCheckBox;
-import com.jgoodies.forms.layout.FormLayout;
-import com.jgoodies.forms.layout.ColumnSpec;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
+import javax.swing.border.TitledBorder;
+
 import com.jgoodies.forms.factories.FormFactory;
+import com.jgoodies.forms.layout.ColumnSpec;
+import com.jgoodies.forms.layout.FormLayout;
 import com.jgoodies.forms.layout.RowSpec;
 import com.jgoodies.forms.layout.Sizes;
-import javax.swing.border.LineBorder;
-import java.awt.Color;
-import javax.swing.JRadioButton;
-import javax.swing.ButtonGroup;
 
-public class ComparisonFrame extends JFrame {
+public class ComparisonDialog extends JDialog {
 
 	private JPanel container;
 	private JTable table;
@@ -36,9 +35,10 @@ public class ComparisonFrame extends JFrame {
 	/**
 	 * Create the frame.
 	 */
-	public ComparisonFrame() {
+	public ComparisonDialog() {
+		setModal(true);
 		setTitle("Sync databases");
-		setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 		setBounds(100, 100, 791, 472);
 		container = new JPanel();
 		container.setBorder(new EmptyBorder(5, 5, 5, 5));

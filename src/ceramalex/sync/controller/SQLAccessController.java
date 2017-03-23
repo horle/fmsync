@@ -1,5 +1,6 @@
 package ceramalex.sync.controller;
 
+import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -28,10 +29,11 @@ public class SQLAccessController {
 
 	/**
 	 * singleton getter
+	 * @throws IOException 
 	 * 
 	 * @throws SQLException
 	 */
-	public static SQLAccessController getInstance() {
+	public static SQLAccessController getInstance() throws IOException {
 		if (mInstance == null)
 			mInstance = new SQLAccessController();
 		return mInstance;
@@ -39,10 +41,11 @@ public class SQLAccessController {
 
 	/**
 	 * constructor. defines config controller object
+	 * @throws IOException 
 	 * 
 	 * @throws SQLException
 	 */
-	private SQLAccessController() {
+	private SQLAccessController() throws IOException {
 		config = ConfigController.getInstance();
 	}
 
@@ -210,9 +213,10 @@ public class SQLAccessController {
 	 *            all common tables
 	 * @return set (without duplicates) of numeric fields
 	 * @throws SQLException
+	 * @throws IOException 
 	 */
 	public HashSet<String> fetchNumericFields(ArrayList<Pair> result)
-			throws SQLException {
+			throws SQLException, IOException {
 		ConfigController conf = ConfigController.getInstance();
 		HashSet<String> list = new HashSet<String>();
 		ResultSet mysql = this.mDataAccess
@@ -250,9 +254,10 @@ public class SQLAccessController {
 	 *            all common tables
 	 * @return set (without duplicates) of timestamp fields
 	 * @throws SQLException
+	 * @throws IOException 
 	 */
 	public HashSet<String> fetchTimestampFields(ArrayList<Pair> commonTables)
-			throws SQLException {
+			throws SQLException, IOException {
 		ConfigController conf = ConfigController.getInstance();
 		HashSet<String> list = new HashSet<String>();
 		ResultSet mysql = this.mDataAccess
@@ -336,7 +341,7 @@ public class SQLAccessController {
 		return this.fDataAccess.getFMTablePrimaryKey(f);
 	}
 
-	public ArrayList<Integer> doFMAlter(String sql) throws SQLException {
+	public ArrayList<Integer> doFMAlter(String sql) throws SQLException, IOException {
 		return fDataAccess.doSQLAlter(sql);
 	}
 }

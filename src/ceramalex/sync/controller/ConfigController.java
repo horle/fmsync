@@ -1,68 +1,130 @@
 package ceramalex.sync.controller;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.HashSet;
+import java.util.Properties;
+
+import org.apache.log4j.Logger;
+
+import ceramalex.sync.model.SQLDataModel;
 
 public class ConfigController {
 
 	private static ConfigController control;
 
-//	/** Tabellen, die von MySQL nach FM importiert werden sollen */
-//	private String[] tables = null;
+	public static final String FM_URL_PREFIX = "jdbc:filemaker://";
+	public static final String MYSQL_URL_PREFIX = "jdbc:mysql://";
 
-	/** URL der MySQL-Datenbank */
-	private String mySQLURL = null;
+	private static Logger logger = Logger.getLogger(SQLDataModel.class);
 
-	/** URL der MySQL-Datenbank */
-	private String mySQLPort = null;
+	private File propertyFile;
+	private Properties propertyList;
 
-	/** User der MySQL-Datenbank */
-	private String mySQLUser = null;
-
-	/** Passwort der MySQL-Datenbank */
-	private String mySQLPassword = null;
-
-	/** Passwort der MySQL-Datenbank */
-	private String mySQLDB = null;
-
-	/** URL der FM-Datenbank */
-	private String fmURL = null;
-
-	/** User der FM-Datenbank */
-	private String fmUser = null;
-
-	/** Passwort der FM-Datenbank */
-	private String fmPassword = null;
-
-	/** Passwort der FM-Datenbank */
-	private String fmDB = null;
+	private String mySQLURL;
+	private String mySQLPort;
+	private String mySQLUser;
+	private String mySQLPassword;
+	private String mySQLDB;
+	private String fmURL;
+	private final String fmPort = "2399";
+	private String fmUser;
+	private String fmPassword;
+	private String fmDB;
 
 	private HashSet<String> timestampFields;
 	private HashSet<String> numericFields;
 
-	public static ConfigController getInstance() {
+	private String fileName = "sync.conf";
+
+	public static ConfigController getInstance() throws IOException {
 		if (control == null)
 			control = new ConfigController();
 		return control;
 	}
 
-	private ConfigController() {
-		setPrefs("jdbc:mysql://192.168.1.4:3306", "root", "",
-				"ceramalex", "jdbc:filemaker://localhost", "admin", "btbw", "iDAIAbstractCeramalex", "3306");
+	private ConfigController() throws IOException {
+		propertyFile = new File(fileName);
+		propertyList = new Properties();
+		
+		if (!propertyFile.exists()) {
+			if (!createConfigFile()) throw new IOException("Could not create config file! Missing permissions?");
+			// set standard values
+			propertyList.setProperty("mySQLDatabaseURL", "arachne.dainst.org");
+			propertyList.setProperty("mySQLPort", "3306");
+			propertyList.setProperty("mySQLDB", "ceramalex");
+			propertyList.setProperty("mySQLUser", "ceramalex");
+			propertyList.setProperty("mySQLPassword", "");
+			propertyList.setProperty("FMDatabaseURL", "localhost");
+			propertyList.setProperty("FMDB", "iDAIAbstractCeramalex");
+			propertyList.setProperty("FMUser", "admin");
+			propertyList.setProperty("FMPassword", "");
+			writeConfigFile();
+		}
+		// in any case //TODO liest auch leere datei
+		readConfigFile();
 	}
 
-	public void setPrefs(String sqlURL, String sqlUser, String sqlPwd,
-			String sqlDB, String fURL, String fUser, String fPwd, String fDB,
-			String sqlPort) {
-		// filemaker port is fix ...
-		this.mySQLURL = sqlURL;
-		this.mySQLPort = sqlPort;
-		this.mySQLUser = sqlUser;
-		this.mySQLPassword = sqlPwd;
-		this.mySQLDB = sqlDB;
+	private boolean createConfigFile() throws IOException {
+		if (!propertyFile.exists()) {
+			propertyFile = new File(fileName);
+			if (!propertyFile.createNewFile())
+				return false;
+		} else
+			return true;
+		return false;
+	}
+
+	private boolean readConfigFile() throws IOException {
+		if(!propertyFile.exists())
+			createConfigFile();
+		
+		propertyList = new Properties();
+		try {
+			propertyList.load(new FileInputStream(propertyFile));
+		} catch (FileNotFoundException e) {
+			logger.error(e);
+			return false;
+		} catch (IOException e) {
+			logger.error(e);
+			return false;
+		}
+		
+		mySQLURL = MYSQL_URL_PREFIX + propertyList.getProperty("mySQLDatabaseURL", "arachne.dainst.org");
+		mySQLPort = propertyList.getProperty("mySQLPort", "3306");
+		mySQLDB = propertyList.getProperty("mySQLDB", "ceramalex");
+		mySQLUser = propertyList.getProperty("mySQLUser", "ceramalex");
+		mySQLPassword = propertyList.getProperty("mySQLPassword", "");
+		fmURL = FM_URL_PREFIX + propertyList.getProperty("FMDatabaseURL", "localhost");
+		fmDB = propertyList.getProperty("FMDB", "iDAIAbstractCeramalex");
+		fmUser = propertyList.getProperty("FMUser", "admin");
+		fmPassword = propertyList.getProperty("FMPassword", "");
+		return true;
+	}
+
+	public boolean setPrefs(String mURL, String mPort, String mUser,
+			String mPwd, String mDB, String fURL, String fUser, String fPwd,
+			String fDB) {
+		this.mySQLURL = mURL;
+		this.mySQLPort = mPort;
+		this.mySQLUser = mUser;
+		this.mySQLPassword = mPwd;
+		this.mySQLDB = mDB;
 		this.fmURL = fURL;
 		this.fmUser = fUser;
 		this.fmPassword = fPwd;
 		this.fmDB = fDB;
+
+		try {
+			writeConfigFile();
+			return true;
+		} catch (IOException e) {
+			logger.error("Error writing log file!");
+			return false;
+		}
 	}
 
 	public String getMySQLURL() {
@@ -113,14 +175,6 @@ public class ConfigController {
 		this.fmPassword = fmPassword;
 	}
 
-//	public void setTableRewrites(Map<String, String> tableRewrites) {
-//		this.tableRewrites = tableRewrites;
-//	}
-//
-//	public void setFieldRewrites(Map<String, String> fieldRewrites) {
-//		this.fieldRewrites = fieldRewrites;
-//	}
-
 	public String getMySQLDB() {
 		return mySQLDB;
 	}
@@ -146,10 +200,10 @@ public class ConfigController {
 	}
 
 	public boolean isInitialised() {
-		return !( mySQLURL.isEmpty() || mySQLPort.isEmpty() || mySQLUser.isEmpty()
-				|| mySQLPassword.isEmpty() || mySQLDB.isEmpty()
-				|| fmURL.isEmpty() || fmUser.isEmpty() || fmPassword.isEmpty()
-				|| fmDB.isEmpty() );
+		return !(mySQLURL.isEmpty() || mySQLPort.isEmpty()
+				|| mySQLUser.isEmpty() || mySQLPassword.isEmpty()
+				|| mySQLDB.isEmpty() || fmURL.isEmpty() || fmUser.isEmpty()
+				|| fmPassword.isEmpty() || fmDB.isEmpty());
 	}
 
 	public HashSet<String> getNumericFields() {
@@ -168,4 +222,8 @@ public class ConfigController {
 		this.timestampFields = timestampFields;
 	}
 
+	public boolean writeConfigFile() throws IOException {
+		propertyList.store(new FileWriter(propertyFile), "");
+		return true;
+	}
 }

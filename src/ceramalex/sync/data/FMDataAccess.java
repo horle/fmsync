@@ -1,5 +1,6 @@
 package ceramalex.sync.data;
 
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 
@@ -18,7 +19,7 @@ public class FMDataAccess extends AbstractDatabase {
 		return "com.filemaker.jdbc.Driver";
 	}
 	
-	public ArrayList<Integer> doSQLAlter(String sql) throws SQLException {
+	public ArrayList<Integer> doSQLAlter(String sql) throws SQLException, IOException {
 		if (sql.toLowerCase().startsWith("alter table datierung")) {
 			ConfigController conf = ConfigController.getInstance();
 			return this.doSQLModifyViaNewConnection(sql, conf.getFmURL(), conf.getFmUser(), conf.getFmPassword(), "iDAIDatierung");
