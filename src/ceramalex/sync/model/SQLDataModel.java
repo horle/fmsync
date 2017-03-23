@@ -1,5 +1,6 @@
 package ceramalex.sync.model;
 
+import java.io.IOException;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -34,14 +35,13 @@ public class SQLDataModel {
 	
 	private static Logger logger = Logger.getLogger(SQLDataModel.class);
 
-	public SQLDataModel() throws SQLException {
+	public SQLDataModel() throws IOException {
 		formatTS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");//yyyy-MM-dd HH:mm:ss");
 		zoneBerlin = ZoneId.of("Europe/Berlin");
 		sqlAccess = SQLAccessController.getInstance();
-		sqlAccess.connect();
 	}
 
-	private ArrayList<Pair> getCommonTables() throws SQLException {
+	private ArrayList<Pair> getCommonTables() throws SQLException, IOException {
 		ArrayList<Pair> result = new ArrayList<Pair>();
 
 		ArrayList<String> fmNames = new ArrayList<String>();
@@ -79,7 +79,7 @@ public class SQLDataModel {
 		return result;
 	}
 	
-	private boolean addLastModifiedField(String table) throws SQLException, FilemakerIsCrapException {
+	private boolean addLastModifiedField(String table) throws SQLException, FilemakerIsCrapException, IOException {
 		try {
 			ResultSet fmColumns = sqlAccess.getFMColumnMetaData(table);
 
@@ -107,7 +107,7 @@ public class SQLDataModel {
 		}
 	}
 	
-	private boolean addLastRemoteTSField(String table) throws SQLException, FilemakerIsCrapException {
+	private boolean addLastRemoteTSField(String table) throws SQLException, FilemakerIsCrapException, IOException {
 		try {
 			ResultSet fmColumns = sqlAccess.getFMColumnMetaData(table);
 
@@ -133,7 +133,7 @@ public class SQLDataModel {
 		}
 	}
 	
-	private boolean addAUIDField(String table) throws SQLException, FilemakerIsCrapException {
+	private boolean addAUIDField(String table) throws SQLException, FilemakerIsCrapException, IOException {
 		try {
 			ResultSet fmColumns = sqlAccess.getFMColumnMetaData(table);
 
@@ -160,7 +160,7 @@ public class SQLDataModel {
 	}
 	
 	public ComparisonResult getDiffByUUID(Pair currTab, boolean upload, boolean download) throws SQLException,
-			FilemakerIsCrapException, SyncException, EntityManagementException {
+			FilemakerIsCrapException, SyncException, EntityManagementException, IOException {
 		
 		ComparisonResult result = new ComparisonResult();
 		
@@ -547,8 +547,9 @@ public class SQLDataModel {
 	 * @param row
 	 * @return ArrayList<Tuple<String, Object>> with Pair of AAUID, TS, and PK, if row is already in remote db. empty list else.
 	 * @throws SQLException
+	 * @throws IOException 
 	 */
-	private ArrayList<Pair> isRowOnRemote(Pair currTab, ArrayList<Pair> row) throws SQLException {
+	private ArrayList<Pair> isRowOnRemote(Pair currTab, ArrayList<Pair> row) throws SQLException, IOException {
 		String archerMSSkip = "";
 		if (currTab.getLeft().equalsIgnoreCase("mainabstract")) {
 			archerMSSkip = " AND " + currTab.getRight() + ".ImportSource!='Comprehensive Table'";
@@ -589,9 +590,10 @@ public class SQLDataModel {
 	 * prepare row packs of size 25 to upload into arachne
 	 * @throws SQLException 
 	 * @throws EntityManagementException 
+	 * @throws IOException 
 	 *  
 	 */
-	public ArrayList<Integer> prepareRowsAndInsert(Pair currTab, ArrayList<ArrayList<Pair>> rows, int packSize) throws SQLException, EntityManagementException {
+	public ArrayList<Integer> prepareRowsAndInsert(Pair currTab, ArrayList<ArrayList<Pair>> rows, int packSize) throws SQLException, EntityManagementException, IOException {
 		int count = rows.size()/25;
 		int mod = rows.size() % 25;
 		ArrayList<Integer> resultIDs = new ArrayList<Integer>();
@@ -617,8 +619,9 @@ public class SQLDataModel {
 	 * @return array of inserted IDs. null, if given row list is empty
 	 * @throws SQLException
 	 * @throws EntityManagementException 
+	 * @throws IOException 
 	 */
-	private ArrayList<Integer> uploadRowsToArachne(Pair currTab, ArrayList<ArrayList<Pair>> rows) throws SQLException, EntityManagementException{
+	private ArrayList<Integer> uploadRowsToArachne(Pair currTab, ArrayList<ArrayList<Pair>> rows) throws SQLException, EntityManagementException, IOException{
 		
 		if (rows.size() == 0) return null;
 		
@@ -734,10 +737,11 @@ public class SQLDataModel {
 	 * 			5, if arachne index is missing and has to be shifted.
 	 * 			6, if fm index is missing and has to be shifted.
 	 * @throws SQLException
+	 * @throws IOException 
 	 */
 	private int compareFields(ArrayList<String> commonFields,
 			ArrayList<String> msVals, ArrayList<String> fmVals, Pair currentTable)
-			throws SQLException {
+			throws SQLException, IOException {
 		
 		int col = commonFields.size();
 		int res = 1;
@@ -898,12 +902,12 @@ public class SQLDataModel {
 		return LocalDateTime.now(zoneBerlin).format(formatTS); 
 	}
 
-	private boolean isNumericalField(String field) {
+	private boolean isNumericalField(String field) throws IOException {
 		return ConfigController.getInstance().getNumericFields()
 				.contains(field);
 	}
 	
-	private boolean isTimestampField(String field) {
+	private boolean isTimestampField(String field) throws IOException {
 		return ConfigController.getInstance().getTimestampFields()
 				.contains(field);
 	}
@@ -911,8 +915,8 @@ public class SQLDataModel {
 	public static void main(String[] args) {
 		try {
 			DOMConfigurator.configureAndWatch("log4j.xml");
-			ConfigController.getInstance().setPrefs("jdbc:mysql://192.168.1.4:3306", "root", "",
-					"ceramalex", "jdbc:filemaker://localhost", "admin", "btbw", "iDAIAbstractCeramalex", "3306");
+			ConfigController.getInstance().setPrefs("jdbc:mysql://192.168.1.4", "3306", "root", "",
+					"ceramalex", "jdbc:filemaker://localhost", "admin", "btbw", "iDAIAbstractCeramalex");
 			SQLDataModel m = new SQLDataModel();
 			commonTables = m.getCommonTables();
 			
