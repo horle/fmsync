@@ -71,7 +71,7 @@ public class ConfigDialog extends JDialog {
 		panel.add(lblMAdd);
 
 		txtMySQLAddress = new JTextField(10);
-		txtMySQLAddress.setText(conf.getMySQLURL());
+		txtMySQLAddress.setText(ConfigController.MYSQL_URL_PREFIX+conf.getMySQLURL());
 		txtMySQLAddress.setBounds(12, 46, 315, 24);
 		((AbstractDocument) txtMySQLAddress.getDocument())
 				.setDocumentFilter(new DocumentFilter() {
@@ -137,7 +137,7 @@ public class ConfigDialog extends JDialog {
 
 		txtFMAddress = new JTextField(10);
 		txtFMAddress.setEditable(false);
-		txtFMAddress.setText(ConfigController.FM_URL_PREFIX + "localhost");
+		txtFMAddress.setText(ConfigController.FM_URL_PREFIX + conf.getFmURL());
 		((AbstractDocument) txtFMAddress.getDocument())
 				.setDocumentFilter(new DocumentFilter() {
 					@Override
@@ -205,6 +205,7 @@ public class ConfigDialog extends JDialog {
 		panel.add(lblMPass);
 
 		txtMySQLPass = new JPasswordField();
+		txtMySQLPass.setText(conf.getMySQLPassword());
 		txtMySQLPass.setBounds(220, 106, 165, 24);
 		panel.add(txtMySQLPass);
 
@@ -214,6 +215,7 @@ public class ConfigDialog extends JDialog {
 		panel.add(lblFMPass);
 
 		txtFMPass = new JPasswordField();
+		txtFMPass.setText(conf.getFmPassword());
 		txtFMPass.setBounds(220, 245, 165, 24);
 		panel.add(txtFMPass);
 
@@ -262,12 +264,13 @@ public class ConfigDialog extends JDialog {
 		JButton btnSave = new JButton("Save");
 		btnSave.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				if (conf.setPrefs(txtMySQLAddress.getText(),
+				if (conf.setPrefs(txtMySQLAddress.getText().replace(ConfigController.MYSQL_URL_PREFIX, ""),
 						txtMySQLPort.getText(), txtMySQLUser.getText(),
-						txtMySQLPass.getPassword().toString(),
-						txtMySQLDB.getText(), txtFMAddress.getText(),
+						new String(txtMySQLPass.getPassword()),
+						txtMySQLDB.getText(), txtFMAddress.getText().replace(ConfigController.FM_URL_PREFIX, ""),
 						txtFMUser.getText(),
-						txtFMPass.getPassword().toString(), txtFMDB.getText()))
+						new String(txtFMPass.getPassword()),
+						txtFMDB.getText()))
 					self.dispose();
 			}
 		});

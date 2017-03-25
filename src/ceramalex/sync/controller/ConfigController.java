@@ -46,23 +46,26 @@ public class ConfigController {
 		return control;
 	}
 
+	private boolean setStandardValues() throws IOException {
+		propertyList.setProperty("mySQLDatabaseURL", "arachne.dainst.org");
+		propertyList.setProperty("mySQLPort", "3306");
+		propertyList.setProperty("mySQLDB", "ceramalex");
+		propertyList.setProperty("mySQLUser", "ceramalex");
+		propertyList.setProperty("mySQLPassword", "");
+		propertyList.setProperty("FMDatabaseURL", "localhost");
+		propertyList.setProperty("FMDB", "iDAIAbstractCeramalex");
+		propertyList.setProperty("FMUser", "admin");
+		propertyList.setProperty("FMPassword", "");
+		return writeConfigFile();
+	}
+	
 	private ConfigController() throws IOException {
 		propertyFile = new File(fileName);
 		propertyList = new Properties();
 		
 		if (!propertyFile.exists()) {
 			if (!createConfigFile()) throw new IOException("Could not create config file! Missing permissions?");
-			// set standard values
-			propertyList.setProperty("mySQLDatabaseURL", "arachne.dainst.org");
-			propertyList.setProperty("mySQLPort", "3306");
-			propertyList.setProperty("mySQLDB", "ceramalex");
-			propertyList.setProperty("mySQLUser", "ceramalex");
-			propertyList.setProperty("mySQLPassword", "");
-			propertyList.setProperty("FMDatabaseURL", "localhost");
-			propertyList.setProperty("FMDB", "iDAIAbstractCeramalex");
-			propertyList.setProperty("FMUser", "admin");
-			propertyList.setProperty("FMPassword", "");
-			writeConfigFile();
+			setStandardValues();
 		}
 		// in any case //TODO liest auch leere datei
 		readConfigFile();
@@ -93,12 +96,16 @@ public class ConfigController {
 			return false;
 		}
 		
-		mySQLURL = MYSQL_URL_PREFIX + propertyList.getProperty("mySQLDatabaseURL", "arachne.dainst.org");
+		if (propertyList.isEmpty()) {
+			setStandardValues();
+		}
+		
+		mySQLURL = propertyList.getProperty("mySQLDatabaseURL", "arachne.dainst.org");
 		mySQLPort = propertyList.getProperty("mySQLPort", "3306");
 		mySQLDB = propertyList.getProperty("mySQLDB", "ceramalex");
 		mySQLUser = propertyList.getProperty("mySQLUser", "ceramalex");
 		mySQLPassword = propertyList.getProperty("mySQLPassword", "");
-		fmURL = FM_URL_PREFIX + propertyList.getProperty("FMDatabaseURL", "localhost");
+		fmURL = propertyList.getProperty("FMDatabaseURL", "localhost");
 		fmDB = propertyList.getProperty("FMDB", "iDAIAbstractCeramalex");
 		fmUser = propertyList.getProperty("FMUser", "admin");
 		fmPassword = propertyList.getProperty("FMPassword", "");
@@ -118,9 +125,18 @@ public class ConfigController {
 		this.fmPassword = fPwd;
 		this.fmDB = fDB;
 
+		propertyList.setProperty("mySQLDatabaseURL", mURL);
+		propertyList.setProperty("mySQLPort", mPort);
+		propertyList.setProperty("mySQLDB", mDB);
+		propertyList.setProperty("mySQLUser", mUser);
+		propertyList.setProperty("mySQLPassword", mPwd);
+		propertyList.setProperty("FMDatabaseURL", fURL);
+		propertyList.setProperty("FMDB", fDB);
+		propertyList.setProperty("FMUser", fUser);
+		propertyList.setProperty("FMPassword", fPwd);
+		
 		try {
-			writeConfigFile();
-			return true;
+			return writeConfigFile();
 		} catch (IOException e) {
 			logger.error("Error writing log file!");
 			return false;
