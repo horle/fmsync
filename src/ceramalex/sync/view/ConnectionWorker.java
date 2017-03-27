@@ -1,18 +1,10 @@
 package ceramalex.sync.view;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JButton;
-import javax.swing.JComboBox;
-import javax.swing.JComponent;
-import javax.swing.JFormattedTextField;
-import javax.swing.JLabel;
 import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.JToggleButton;
 import javax.swing.SwingWorker;
-import javax.swing.text.JTextComponent;
 
 import ceramalex.sync.controller.SQLAccessController;
 
@@ -26,7 +18,7 @@ public abstract class ConnectionWorker extends SwingWorker<Boolean, FrameStatus>
 
 	private SQLAccessController sqlControl;
 	// GUI elements to update
-	private final JButton btnStart;
+	private final JButton btnCancel;
 	private final JButton btnConnect;
 	private final JTextArea txtLog;
 
@@ -37,13 +29,13 @@ public abstract class ConnectionWorker extends SwingWorker<Boolean, FrameStatus>
 	 *            logging textarea
 	 * @param bConnect
 	 *            connect button
-	 * @param bStart
+	 * @param bCancel
 	 *            start button
 	 */
-	public ConnectionWorker(JButton bConnect, JButton bStart, JTextArea tLog) {
+	public ConnectionWorker(JButton bConnect, JButton bCancel, JTextArea tLog) {
 
 		this.btnConnect = bConnect;
-		this.btnStart = bStart;
+		this.btnCancel = bCancel;
 		this.txtLog = tLog;
 	}
 
@@ -56,8 +48,8 @@ public abstract class ConnectionWorker extends SwingWorker<Boolean, FrameStatus>
 	@Override
 	protected void process(List<FrameStatus> statusList) {
 		for (FrameStatus status : statusList) {
-			btnConnect.setText(status.getBtnConnectText());
 			txtLog.append(status.getLogMsg());
+			btnCancel.setEnabled(status.isBtnCancelEn());
 			btnConnect.setEnabled(status.isBtnConnectEn());
 		}
 	}
