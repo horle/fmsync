@@ -54,8 +54,18 @@ public class SQLAccessController {
 	 * @return true, if both successfully closed
 	 */
 	public boolean close() {
-		return this.mDataAccess.closeConnection()
-				&& this.fDataAccess.closeConnection();
+		boolean mClosed = false;
+		boolean fClosed = false;
+		if (mDataAccess == null) {
+			mClosed = true;
+		} else
+			mClosed = mDataAccess.closeConnection();
+		if (fDataAccess == null) {
+			fClosed = true;
+		} else
+			fClosed = fDataAccess.closeConnection();
+		
+		return mClosed && fClosed;
 	}
 
 	/**

@@ -20,6 +20,8 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
 
+import ceramalex.sync.model.ComparisonResult;
+
 import com.jgoodies.forms.factories.FormFactory;
 import com.jgoodies.forms.layout.ColumnSpec;
 import com.jgoodies.forms.layout.FormLayout;
@@ -31,11 +33,10 @@ public class ComparisonDialog extends JDialog {
 	private JPanel container;
 	private JTable table;
 	private final ButtonGroup buttonGroup = new ButtonGroup();
+	
+	private ComparisonResult comp;
 
-	/**
-	 * Create the frame.
-	 */
-	public ComparisonDialog() {
+	private void initialize() {
 		setModal(true);
 		setTitle("Sync databases");
 		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -160,5 +161,18 @@ public class ComparisonDialog extends JDialog {
 		btnCancel.setFont(new Font("Dialog", Font.PLAIN, 12));
 		pnlActions.add(btnCancel, "2, 4, fill, fill");
 	}
+	
+	/**
+	 * Create the frame.
+	 */
+	public ComparisonDialog() {
+		initialize();
+		comp = new ComparisonResult();
+	}
 
+	public ComparisonResult showDialog() {
+		this.pack();
+		this.setVisible(true);
+		return comp;
+	}
 }

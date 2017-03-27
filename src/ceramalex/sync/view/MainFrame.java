@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.sql.SQLException;
 import java.text.NumberFormat;
+import java.util.ArrayList;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -39,6 +40,7 @@ import org.apache.log4j.xml.DOMConfigurator;
 
 import ceramalex.sync.controller.ConfigController;
 import ceramalex.sync.controller.SQLAccessController;
+import ceramalex.sync.model.ComparisonResult;
 import ceramalex.sync.model.SQLDataModel;
 
 /**
@@ -54,18 +56,19 @@ public class MainFrame {
 	private JPanel panelActions;
 	private JTextArea txtLog;
 	private JButton btnConnect;
-	private JButton btnStart;
+	private JButton btnCancel;
 
 	private boolean connected;
 	private boolean inProgress;
 	private JScrollPane scrollPane;
 	// private JProgressBar progressBar;
+	
+	private ComparisonResult currComp;
 
 	private final int CONN_TIMEOUT = 5;
-	protected static Logger logger = Logger
-			.getLogger("ceramalex.sync.view.mainwindow");
+	private static Logger logger = Logger.getLogger(MainFrame.class);
 	private static ConfigController config;
-	private static SQLDataModel data;
+	public static SQLDataModel data;
 
 	private ConnectionWorker worker;
 
@@ -80,14 +83,17 @@ public class MainFrame {
 	 */
 	public static void main(String[] args) {
 
-		DOMConfigurator.configureAndWatch("ressource/log4j.xml");
+		DOMConfigurator.configureAndWatch("log4j.xml");
 		try {
 			config = ConfigController.getInstance();
 			data = new SQLDataModel();
 		} catch (IOException e1) {
-			JOptionPane.showMessageDialog(null, "I was not able to create a new config file. Missing permissions?","Error",JOptionPane.WARNING_MESSAGE);
+			JOptionPane
+					.showMessageDialog(
+							null,
+							"I was not able to create a new config file. Missing permissions?",
+							"Error", JOptionPane.WARNING_MESSAGE);
 		}
-		
 
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
@@ -110,21 +116,19 @@ public class MainFrame {
 	}
 
 	private void initFrameStatus() {
-		closed = new FrameStatus("", "Not connected to MySQL.",
-				"Not connected to FM.", "Connect to DBs", true, true, false);
+		closed = new FrameStatus("", true, false);
+
 		connecting = new FrameStatus("Trying to connect to "
-				+ config.getMySQLURL() + ":" + config.getMySQLPort() + " as "
+				+ config.getShortMySQLURL() + ":" + config.getMySQLPort() + " as "
 				+ config.getMySQLUser() + " ...\nTrying to connect to "
-				+ config.getFmURL() + ":2399" + " as " + config.getFmUser()
-				+ " ...", "Not connected to MySQL.", "Not connected to FM.",
-				"Connecting ...", false, false, false);
+				+ config.getShortFMURL() + ":2399" + " as " + config.getFmUser()
+				+ " ...", false, false);
+
 		open = new FrameStatus(
 				"Successfully connected to MySQL.\nSuccessfully connected to FM.",
-				"Disconnect", "Connected to MySQL.", "Connected to FM.", false,
 				false, true);
-		closedError = new FrameStatus("Connection failed. ",
-				"Not connected to MySQL.", "Not connected to FM.",
-				"Connect to DBs", true, true, false);
+
+		closedError = new FrameStatus("Connection failed. ", true, false);
 	}
 
 	/**
@@ -137,6 +141,7 @@ public class MainFrame {
 		frame.setResizable(false);
 		frame.setTitle("CeramalexSync");
 		frame.setBounds(100, 100, 800, 346);
+		frame.setLocationRelativeTo(null);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frame.getContentPane().setLayout(null);
 
@@ -163,7 +168,9 @@ public class MainFrame {
 
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				new ConfigDialog().setVisible(true);
+				ConfigDialog confDia = new ConfigDialog();
+				confDia.setLocationRelativeTo(frame);
+				confDia.setVisible(true);
 			}
 		});
 
@@ -198,6 +205,13 @@ public class MainFrame {
 		mnHelp.add(mntmOpenHelpDocument);
 
 		JMenuItem mntmAbout = new JMenuItem("About");
+		mntmAbout.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				AboutDialog about = new AboutDialog();
+				about.setLocationRelativeTo(frame);
+				about.setVisible(true);
+			}
+		});
 		mntmAbout.setFont(new Font("Dialog", Font.PLAIN, 12));
 		mnHelp.add(mntmAbout);
 
@@ -237,275 +251,28 @@ public class MainFrame {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
 
-				ComparisonDialog comp = new ComparisonDialog();
-				comp.setVisible(true);
-
 				/**
-				 * Establish new connections to DBs
+				 * Check connections
 				 */
 				if (!connected) {
-					/**
-					 * Create watch dog SwingWorker to control timeout
-					 */
-					SwingWorker<Void, FrameStatus> watcher = new SwingWorker<Void, FrameStatus>() {
-
-						@Override
-						protected Void doInBackground() throws Exception {
-
-							/**
-							 * SwingWorkers to connect to DBs and update GUI
-							 * elements
-							 */
-							worker = new ConnectionWorker(btnStart, btnConnect,
-									txtLog) {
-
-								/**
-								 * @return true if connection established
-								 * @return false if connection failed
-								 */
-								@Override
-								protected Boolean doInBackground()
-										throws InterruptedException {
-
-									publish(connecting);
-
-									try {
-										this.setSQLControl(SQLAccessController
-												.getInstance());
-										if (this.getSQLControl().connect()) {
-											connected = true;
-											publish(open);
-											return true;
-										} else {
-											this.getSQLControl().close();
-											return false;
-										}
-									} catch (SQLException e) {
-
-										String msg = manageErrorMsg(e);
-
-										publish(closedError.setLogAppend(msg));
-										this.cancel(true);
-										SwingUtilities
-												.invokeLater(new Runnable() {
-													@Override
-													public void run() {
-
-														JOptionPane
-																.showMessageDialog(
-																		frame,
-																		"Connection error: "
-																				+ msg,
-																		"Connection failure",
-																		JOptionPane.WARNING_MESSAGE);
-													};
-												});
-										return false;
-									} catch (IOException e) {
-
-										String msg = manageErrorMsg(e);
-
-										publish(closedError.setLogAppend(msg));
-										this.cancel(true);
-										
-										SwingUtilities
-										.invokeLater(new Runnable() {
-											@Override
-											public void run() {
-
-												JOptionPane.showMessageDialog(null, "I was not able to create a new config file. Missing permissions?","Error",JOptionPane.WARNING_MESSAGE);
-											};
-										});
-										return false;
-									}
-								}
-
-								@Override
-								protected void done() {
-									try {
-										// close connection!
-										if (worker.getSQLControl() != null
-												&& !worker.getSQLControl()
-														.close())
-											throw new SQLException();
-										worker.cancel(true);
-										if (worker.isCancelled()) {
-											if (worker.get()) {
-												publish(closed);
-											} else
-												publish(closedError);
-										} else
-											publish(closedError);
-
-									} catch (InterruptedException
-											| ExecutionException e) {
-										publish(closedError
-												.setLogAppend(manageErrorMsg(e)));
-									} catch (CancellationException e) {
-										publish(closedError
-												.setLogAppend("Connection aborted."));
-									} catch (SQLException e) {
-										publish(closedError
-												.setLogAppend("Error closing the connection."));
-									}
-								}
-							};
-							worker.execute();
-							try {
-								worker.get(CONN_TIMEOUT, TimeUnit.SECONDS);
-							} catch (InterruptedException | ExecutionException e1) {
-								worker.cancel(true);
-								JOptionPane.showMessageDialog(
-										frame,
-										"Connection aborted by error: "
-												+ e1.getMessage(),
-										"Abort by error",
-										JOptionPane.INFORMATION_MESSAGE);
-
-							} catch (TimeoutException e2) {
-								worker.cancel(true);
-								publish(closedError
-										.setLogAppend("Connection timed out."));
-								SwingUtilities.invokeLater(new Runnable() {
-									@Override
-									public void run() {
-										JOptionPane
-												.showMessageDialog(
-														frame,
-														"Timeout while trying to contact the server.",
-														"Timeout",
-														JOptionPane.INFORMATION_MESSAGE);
-									};
-								});
-								System.out.println("cancelled: "
-										+ worker.isCancelled() + "; done: "
-										+ worker.isDone());
-							}
-							return null;
-						}
-					};
-					watcher.execute();
-				}
-
-				/**
-				 * Disconnect current connection
-				 */
-				else {
-
-					/**
-					 * SwingWorker to disconnect and update GUI elements
-					 */
-					worker = new ConnectionWorker(btnStart, btnConnect, txtLog) {
-
-						/**
-						 * @return true if connection closed
-						 * @return false if closing connection failed
-						 */
-						@Override
-						protected Boolean doInBackground() {
-
-							SQLAccessController connector = null;
-							try {
-								connector = SQLAccessController
-										.getInstance();
-							} catch (IOException e) {
-								JOptionPane.showMessageDialog(null, "I was not able to create a new config file. Missing permissions?","Error",JOptionPane.WARNING_MESSAGE);
-							}
-
-							if (connector.close()) {
-								connected = false;
-								publish(closed
-										.setLogAppend("Connection closed."));
-								return true;
-							} else {
-								publish(closedError
-										.setLogAppend("Error: Connection could not be closed."));
-								SwingUtilities.invokeLater(new Runnable() {
-									@Override
-									public void run() {
-										JOptionPane
-												.showMessageDialog(
-														frame,
-														"Connection could not be closed!",
-														"Error closing connection",
-														JOptionPane.ERROR_MESSAGE);
-									};
-								});
-								return false;
-							}
-						}
-					};
-					worker.execute();
+					invokeConnectWorker();
 				}
 			}
 		});
 		btnConnect.setBounds(12, 24, 141, 25);
 		panelActions.add(btnConnect);
 
-		btnStart = new JButton("START SYNC");
-		btnStart.setEnabled(false);
-		btnStart.setBounds(12, 61, 141, 25);
-		btnStart.addActionListener(new ActionListener() {
+		btnCancel = new JButton("Cancel");
+		btnCancel.setFont(new Font("Dialog", Font.PLAIN, 12));
+		btnCancel.setEnabled(false);
+		btnCancel.setBounds(12, 61, 141, 25);
+		btnCancel.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-
-				/**
-				 * Create watch dog SwingWorker to manage progress
-				 */
-				SwingWorker<Void, Void> watcher = new SwingWorker<Void, Void>() {
-
-					@Override
-					protected Void doInBackground() throws Exception {
-
-						if (true) {
-
-							// SwingUtilities.invokeLater(new Runnable(){
-							// @Override
-							// public void run() {
-							// progressBar.setVisible(true);
-							// progressBar.setStringPainted(true);
-							// progressBar.setValue(0);
-							// };
-							// });
-
-							/**
-							 * Create SwingWorker to manage download
-							 */
-							ProgressWorker worker = new ProgressWorker() {
-
-								@Override
-								protected Boolean doInBackground()
-										throws Exception {
-
-									return true;
-								}
-
-							};
-							worker.execute();
-						}
-						if (true) {
-
-							/**
-							 * Create SwingWorker to manage upload
-							 */
-							SwingWorker<Boolean, Void> worker = new SwingWorker<Boolean, Void>() {
-
-								@Override
-								protected Boolean doInBackground()
-										throws Exception {
-
-									return true;
-								}
-							};
-							worker.execute();
-						}
-						return null;
-					}
-				};
-				watcher.execute();
+				invokeDisconnectWorker();
 			}
 		});
-		panelActions.add(btnStart);
+		panelActions.add(btnCancel);
 
 		URL url = getClass().getResource("/ceramalex/sync/resources/logo.png");
 		JLabel lblPicture = new JLabel(new ImageIcon(url));
@@ -514,6 +281,243 @@ public class MainFrame {
 
 	}
 
+	private void invokeConnectWorker() {
+		/**
+		 * Create watch dog SwingWorker to control timeout
+		 */
+		SwingWorker<Void, FrameStatus> watcher = new SwingWorker<Void, FrameStatus>() {
+
+			@Override
+			protected Void doInBackground() throws Exception {
+
+				/**
+				 * SwingWorker to connect to DBs and update GUI
+				 * elements
+				 */
+				worker = new ConnectionWorker(btnConnect,
+						btnCancel, txtLog) {
+
+					/**
+					 * @return true if connection established; false if connection failed
+					 */
+					@Override
+					protected Boolean doInBackground()
+							throws InterruptedException {
+
+						publish(connecting);
+
+						try {
+							this.setSQLControl(SQLAccessController
+									.getInstance());
+							if (this.getSQLControl().connect()) {
+								connected = true;
+								publish(open);
+								logger.info(open.getLogMsg());
+								return true;
+							} else {
+								connected = false;
+								publish(closedError);
+								logger.error(closedError.getLogMsg());
+								this.getSQLControl().close();
+								return false;
+							}
+						} catch (SQLException e) {
+
+							String msg = manageErrorMsg(e);
+
+							publish(closedError.setLogAppend(msg));
+							logger.info(closedError.getLogMsg());
+							this.cancel(true);
+							SwingUtilities
+									.invokeLater(new Runnable() {
+										@Override
+										public void run() {
+
+											JOptionPane
+													.showMessageDialog(
+															frame,
+															"Connection error: "
+																	+ msg,
+															"Connection failure",
+															JOptionPane.WARNING_MESSAGE);
+										};
+									});
+							return false;
+						} catch (IOException e) {
+
+							String msg = manageErrorMsg(e);
+
+							publish(closedError.setLogAppend(msg));
+							logger.info(closedError.getLogMsg());
+							this.cancel(true);
+
+							SwingUtilities
+									.invokeLater(new Runnable() {
+										@Override
+										public void run() {
+
+											JOptionPane
+													.showMessageDialog(
+															null,
+															"I was not able to create a new config file. Missing permissions?",
+															"Error",
+															JOptionPane.WARNING_MESSAGE);
+										};
+									});
+							return false;
+						}
+					}
+
+					@Override
+					protected void done() {
+//						try {
+//							// close connection!
+//							if (worker.getSQLControl() != null
+//									&& !worker.getSQLControl()
+//											.close())
+//								throw new SQLException();
+//							worker.cancel(true);
+//							if (worker.isCancelled()) {
+//								try {
+//									if (worker.get()) {
+//										publish(closed);
+//										logger.info(closed.getLogMsg());
+//									} else{
+//										publish(closedError);
+//										logger.info(closedError.getLogMsg());
+//									}
+//								} catch (CancellationException e) {
+//									publish(closedError);
+//								}
+//							} else {
+//								publish(closedError);
+//								logger.info(closedError.getLogMsg());
+//							}
+//
+//						} catch (InterruptedException
+//								| ExecutionException e) {
+//							publish(closedError
+//									.setLogAppend(manageErrorMsg(e)));
+//						} catch (SQLException e) {
+//							publish(closedError
+//									.setLogAppend("Error closing the connection."));
+//						}
+					}
+				};
+				worker.execute();
+				try {
+					worker.get(CONN_TIMEOUT, TimeUnit.SECONDS);
+				} catch (InterruptedException | ExecutionException e1) {
+					worker.cancel(true);
+					publish(closedError
+							.setLogAppend("Connection aborted by error."));
+					SwingUtilities.invokeLater(new Runnable() {
+						@Override
+						public void run() {
+							JOptionPane.showMessageDialog(
+									frame,
+									"Connection aborted by error: "
+											+ e1.getMessage(),
+									"Aborted by error",
+									JOptionPane.INFORMATION_MESSAGE);
+						};
+					});
+				} catch (TimeoutException e2) {
+					worker.cancel(true);
+					publish(closedError
+							.setLogAppend("Connection timed out."));
+					SwingUtilities.invokeLater(new Runnable() {
+						@Override
+						public void run() {
+							JOptionPane
+									.showMessageDialog(
+											frame,
+											"Timeout while trying to contact the server.",
+											"Timeout",
+											JOptionPane.INFORMATION_MESSAGE);
+						};
+					});
+				}
+				return null;
+			}
+			@Override
+			protected void done() {
+				invokeComparisonDialog();
+			}
+		};
+		watcher.execute();
+	}
+
+	private void invokeDisconnectWorker() {
+		/**
+		 * SwingWorker to disconnect and update GUI elements
+		 */
+		worker = new ConnectionWorker(btnConnect,btnCancel,txtLog) {
+
+			/**
+			 * @return true if connection closed
+			 * @return false if closing connection failed
+			 */
+			@Override
+			protected Boolean doInBackground() {
+
+				SQLAccessController connector = null;
+				try {
+					connector = SQLAccessController.getInstance();
+				} catch (IOException e) {
+					SwingUtilities.invokeLater(new Runnable() {
+						@Override
+						public void run() {
+							JOptionPane
+									.showMessageDialog(
+											null,
+											"I was not able to create a new config file. Missing permissions?",
+											"Error",
+											JOptionPane.WARNING_MESSAGE);
+						}
+					});
+				}
+
+				if (connector.close()) {
+					connected = false;
+					publish(closed
+							.setLogMsg("Connection closed."));
+					logger.info(closed.getLogMsg());
+					return true;
+				} else {
+					publish(closedError
+							.setLogAppend("Error: Connection could not be closed."));
+					logger.error(closed.getLogMsg());
+					SwingUtilities.invokeLater(new Runnable() {
+						@Override
+						public void run() {
+							JOptionPane
+									.showMessageDialog(
+											frame,
+											"Connection could not be closed!",
+											"Error closing connection",
+											JOptionPane.ERROR_MESSAGE);
+						};
+					});
+					return false;
+				}
+			}
+		};
+		worker.execute();
+	}
+
+	private void invokeComparisonDialog() {
+		//TODO doppelte progressbar 
+		TableProgressDialog progress = new TableProgressDialog(txtLog);
+		progress.setLocationRelativeTo(frame);
+		progress.showAndStart();
+
+		
+		ComparisonDialog comp = new ComparisonDialog();
+		comp.setLocationRelativeTo(frame);
+		currComp = comp.showDialog();
+	}
+	
 	protected String manageErrorMsg(Exception e) {
 		String msg = e.getMessage();
 		String prefix = "";

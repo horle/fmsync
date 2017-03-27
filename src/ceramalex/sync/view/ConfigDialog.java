@@ -71,7 +71,7 @@ public class ConfigDialog extends JDialog {
 		panel.add(lblMAdd);
 
 		txtMySQLAddress = new JTextField(10);
-		txtMySQLAddress.setText(ConfigController.MYSQL_URL_PREFIX+conf.getMySQLURL());
+		txtMySQLAddress.setText(ConfigController.MYSQL_URL_PREFIX+conf.getShortMySQLURL());
 		txtMySQLAddress.setBounds(12, 46, 315, 24);
 		((AbstractDocument) txtMySQLAddress.getDocument())
 				.setDocumentFilter(new DocumentFilter() {
@@ -137,7 +137,7 @@ public class ConfigDialog extends JDialog {
 
 		txtFMAddress = new JTextField(10);
 		txtFMAddress.setEditable(false);
-		txtFMAddress.setText(ConfigController.FM_URL_PREFIX + conf.getFmURL());
+		txtFMAddress.setText(ConfigController.FM_URL_PREFIX + conf.getShortFMURL());
 		((AbstractDocument) txtFMAddress.getDocument())
 				.setDocumentFilter(new DocumentFilter() {
 					@Override

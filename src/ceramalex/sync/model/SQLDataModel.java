@@ -36,12 +36,12 @@ public class SQLDataModel {
 	private static Logger logger = Logger.getLogger(SQLDataModel.class);
 
 	public SQLDataModel() throws IOException {
-		formatTS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");//yyyy-MM-dd HH:mm:ss");
+		formatTS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 		zoneBerlin = ZoneId.of("Europe/Berlin");
 		sqlAccess = SQLAccessController.getInstance();
 	}
 
-	private ArrayList<Pair> getCommonTables() throws SQLException, IOException {
+	public ArrayList<Pair> getCommonTables() throws SQLException, IOException {
 		ArrayList<Pair> result = new ArrayList<Pair>();
 
 		ArrayList<String> fmNames = new ArrayList<String>();

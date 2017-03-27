@@ -118,7 +118,7 @@ public abstract class AbstractDatabase {
 		try {
 			warning = cn.getWarnings();
 			if (warning == null) {
-				logger.trace("Keine Warnungen");
+				logger.debug("Keine Warnungen");
 				return result;
 			}
 			while (warning != null) {
@@ -126,7 +126,7 @@ public abstract class AbstractDatabase {
 				warning = warning.getNextWarning();
 			}
 		} catch (SQLException e) {
-			System.out.println("stacktrace");
+			logger.error(e);
 			e.printStackTrace();
 			return false;
 		}
@@ -151,7 +151,7 @@ public abstract class AbstractDatabase {
 	public ResultSet doSQLQuery(String sql) {
 
 		try {
-			if (this.st == null)
+			if (this.st == null || this.st.isClosed())
 				this.st = cn.createStatement();
 			return this.st.executeQuery(sql);
 
@@ -373,7 +373,7 @@ public abstract class AbstractDatabase {
 			else
 				return true;
 		} catch (SQLException e) {
-			e.printStackTrace();
+			logger.error(e);
 			return false;
 		}
 		logger.info("Database-Connector erfolgreich zerstoert");
@@ -394,7 +394,10 @@ public abstract class AbstractDatabase {
 			s.executeQuery("SELECT 1 FROM fabric");
 			return true;
 		} catch (SQLException e) {
-			System.out.println(e.getMessage());
+			if (e.toString().contains("Connection is closed") || e.toString().contains("connection closed")) return false;
+			
+			logger.error(e);
+			System.out.println(e);
 			return false;
 		}
 	}
