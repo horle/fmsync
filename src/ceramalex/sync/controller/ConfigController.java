@@ -52,11 +52,6 @@ public class ConfigController {
 		propertyFile = new File(fileName);
 		propertyList = new Properties();
 		
-		if (!propertyFile.exists()) {
-			if (!createConfigFile()) throw new IOException("Could not create config file! Missing permissions?");
-			setStandardValues();
-		}
-		// in any case
 		readConfigFile();
 	}
 
@@ -72,8 +67,10 @@ public class ConfigController {
 	}
 
 	private boolean readConfigFile() throws IOException {
-		if(!propertyFile.exists())
-			createConfigFile();
+		if(!propertyFile.exists()) {
+			if (!createConfigFile()) throw new IOException("Could not create config file! Missing permissions?");
+			setStandardValues();
+		}
 		
 		propertyList = new Properties();
 		try {
@@ -211,7 +208,9 @@ public class ConfigController {
 	}
 
 	public boolean writeConfigFile() throws IOException {
-		propertyList.store(new FileWriter(propertyFile), "");
+		FileWriter fw = new FileWriter(propertyFile);
+		propertyList.store(fw, "");
+		fw.close();
 		return true;
 	}
 

@@ -41,7 +41,7 @@ public class SQLDataModel {
 		sqlAccess = SQLAccessController.getInstance();
 	}
 
-	public ArrayList<Pair> getCommonTables() throws SQLException, IOException {
+	public ArrayList<Pair> getCommonTables() throws SQLException {
 		ArrayList<Pair> result = new ArrayList<Pair>();
 
 		ArrayList<String> fmNames = new ArrayList<String>();

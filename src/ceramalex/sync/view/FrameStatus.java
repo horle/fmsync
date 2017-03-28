@@ -1,7 +1,10 @@
 package ceramalex.sync.view;
 
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
+
+import ceramalex.sync.controller.ConfigController;
 
 /**
  * Private class ("struct") for representing frontend element status
@@ -89,4 +92,34 @@ class FrameStatus {
 	public static SimpleDateFormat getSdf() {
 		return sdf;
 	}
+	
+	public final static FrameStatus open() {
+		return new FrameStatus("Successfully connected to MySQL.\nSuccessfully connected to FM.", false, true);
+	}
+	
+	public final static FrameStatus closed() {
+		return new FrameStatus("", true, false);
+	}
+	
+	public final static FrameStatus closed(String msg) {
+		return new FrameStatus(msg, true, false);
+	}
+	
+	public final static FrameStatus closedError(String msg) {
+		return new FrameStatus("Connection failed. " + msg, true, false);
+	}
+	
+	public final static FrameStatus closedError() {
+		return new FrameStatus("Connection failed.", true, false);
+	}
+	
+	public final static FrameStatus connecting() throws IOException {
+		ConfigController config = ConfigController.getInstance();
+		return new FrameStatus("Trying to connect to "
+				+ config.getShortMySQLURL() + ":" + config.getMySQLPort() + " as "
+				+ config.getMySQLUser() + " ...\nTrying to connect to "
+				+ config.getShortFMURL() + ":2399" + " as " + config.getFmUser()
+				+ " ...", false, false);
+	}
+	
 }

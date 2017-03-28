@@ -272,6 +272,9 @@ public class ConfigDialog extends JDialog {
 						new String(txtFMPass.getPassword()),
 						txtFMDB.getText()))
 					self.dispose();
+				else {
+					JOptionPane.showMessageDialog(null, "Could not save configuration file! Missing file permissions?", "Unable to write", JOptionPane.WARNING_MESSAGE);
+				}
 			}
 		});
 		btnSave.setFont(new Font("Dialog", Font.PLAIN, 12));

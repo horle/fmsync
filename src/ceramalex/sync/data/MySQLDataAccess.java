@@ -28,6 +28,7 @@ public class MySQLDataAccess extends AbstractDatabase {
 		
 		// Encoding fest vorgeben
 		result += "&useUnicode=true&characterEncoding=UTF-8";
+		result += "&connectTimeout=3000";
 		return result;
 	}
 	
