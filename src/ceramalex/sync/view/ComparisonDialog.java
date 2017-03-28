@@ -2,14 +2,18 @@ package ceramalex.sync.view;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.sql.SQLException;
+import java.util.ArrayList;
 
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
@@ -20,7 +24,11 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
 
+import org.apache.log4j.Logger;
+
 import ceramalex.sync.model.ComparisonResult;
+import ceramalex.sync.model.Pair;
+import ceramalex.sync.model.SQLDataModel;
 
 import com.jgoodies.forms.factories.FormFactory;
 import com.jgoodies.forms.layout.ColumnSpec;
@@ -31,15 +39,25 @@ import com.jgoodies.forms.layout.Sizes;
 public class ComparisonDialog extends JDialog {
 
 	private JPanel container;
-	private JTable table;
 	private final ButtonGroup buttonGroup = new ButtonGroup();
 	
 	private ComparisonResult comp;
+	private SQLDataModel data;
+	private ArrayList<Pair> commonTables;
+	
+	private static Logger logger = Logger.getLogger(ComparisonDialog.class);
+	private JTabbedPane tabs = new JTabbedPane(JTabbedPane.TOP);
 
-	private void initialize() {
+	private void initialize() {		
+		addWindowListener(new java.awt.event.WindowAdapter() {
+			@Override
+			public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+				abortMission();
+			}
+		});
 		setModal(true);
 		setTitle("Sync databases");
-		setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
 		setBounds(100, 100, 791, 472);
 		container = new JPanel();
 		container.setBorder(new EmptyBorder(5, 5, 5, 5));
@@ -49,12 +67,9 @@ public class ComparisonDialog extends JDialog {
 		JScrollPane scrollTables = new JScrollPane();
 		container.add(scrollTables, BorderLayout.CENTER);
 		
-		JTabbedPane tabs = new JTabbedPane(JTabbedPane.TOP);
 		tabs.setFont(new Font("Dialog", Font.PLAIN, 12));
 		scrollTables.setViewportView(tabs);
-		
-		table = new JTable();
-		tabs.addTab("New tab", null, table, null);
+		loadTables();
 		
 		JPanel pnlTop = new JPanel();
 		container.add(pnlTop, BorderLayout.NORTH);
@@ -159,13 +174,43 @@ public class ComparisonDialog extends JDialog {
 		
 		JButton btnCancel = new JButton("Cancel");
 		btnCancel.setFont(new Font("Dialog", Font.PLAIN, 12));
+		btnCancel.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				abortMission();
+			}
+		});
 		pnlActions.add(btnCancel, "2, 4, fill, fill");
 	}
 	
+	private void loadTables(){
+		try {
+			commonTables = data.getCommonTables();
+		} catch (SQLException e) {
+			JOptionPane.showMessageDialog(this, "I was unable to fetch tables from the databases.", "Unable to fetch tables", JOptionPane.ERROR_MESSAGE);
+			dispose();
+		}
+		for (int i = 0; i < commonTables.size(); i++) {
+			Pair p = commonTables.get(i);
+			tabs.addTab(p.getLeft(), null, new JTable(), p.toString());
+		}
+	}
+
+	protected void abortMission() {
+		if (JOptionPane.showConfirmDialog(this, 
+				"Are you sure to cancel the operation? No changes will apply.", "Really Closing?", 
+				JOptionPane.YES_NO_OPTION,
+				JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION){
+			comp = null;
+			dispose();
+		}
+	}
+
 	/**
 	 * Create the frame.
 	 */
 	public ComparisonDialog() {
+		data = MainFrame.data;
 		initialize();
 		comp = new ComparisonResult();
 	}

@@ -1,12 +1,11 @@
 package ceramalex.sync.view;
 
+import java.io.IOException;
 import java.util.List;
 
 import javax.swing.JButton;
 import javax.swing.JTextArea;
 import javax.swing.SwingWorker;
-
-import ceramalex.sync.controller.SQLAccessController;
 
 /**
  * Abstract SwingWorker class to update GUI elements in main window
@@ -16,7 +15,6 @@ import ceramalex.sync.controller.SQLAccessController;
 
 public abstract class ConnectionWorker extends SwingWorker<Boolean, FrameStatus> {
 
-	private SQLAccessController sqlControl;
 	// GUI elements to update
 	private final JButton btnCancel;
 	private final JButton btnConnect;
@@ -31,6 +29,7 @@ public abstract class ConnectionWorker extends SwingWorker<Boolean, FrameStatus>
 	 *            connect button
 	 * @param bCancel
 	 *            start button
+	 * @throws IOException 
 	 */
 	public ConnectionWorker(JButton bConnect, JButton bCancel, JTextArea tLog) {
 
@@ -47,18 +46,14 @@ public abstract class ConnectionWorker extends SwingWorker<Boolean, FrameStatus>
 	 */
 	@Override
 	protected void process(List<FrameStatus> statusList) {
+		System.out.println("processing");
 		for (FrameStatus status : statusList) {
 			txtLog.append(status.getLogMsg());
 			btnCancel.setEnabled(status.isBtnCancelEn());
 			btnConnect.setEnabled(status.isBtnConnectEn());
 		}
 	}
-
-	public SQLAccessController getSQLControl() {
-		return sqlControl;
-	}
-
-	public void setSQLControl(SQLAccessController sqlControl) {
-		this.sqlControl = sqlControl;
+	public void pub(FrameStatus fra){
+		publish(fra);
 	}
 }

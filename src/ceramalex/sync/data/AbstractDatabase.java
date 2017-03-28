@@ -107,7 +107,6 @@ public abstract class AbstractDatabase {
 		}
 		catch (SQLException e) {
 			logger.error("Driver:" + e);
-			System.out.println("Driver:" + e);
 			String eMsg = e.getMessage();
 			if (getDriverName().contains("mysql"))
 				eMsg = "MySQL: " + eMsg;

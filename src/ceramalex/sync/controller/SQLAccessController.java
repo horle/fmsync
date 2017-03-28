@@ -23,7 +23,7 @@ public class SQLAccessController {
 	private static SQLAccessController mInstance = null;
 	private MySQLDataAccess mDataAccess;
 	private FMDataAccess fDataAccess;
-	private ConfigController config;
+	private ConfigController conf;
 
 	private static Logger logger = Logger.getLogger(SQLAccessController.class);
 
@@ -46,7 +46,7 @@ public class SQLAccessController {
 	 * @throws SQLException
 	 */
 	private SQLAccessController() throws IOException {
-		config = ConfigController.getInstance();
+		conf = ConfigController.getInstance();
 	}
 
 	/**
@@ -195,16 +195,13 @@ public class SQLAccessController {
 		boolean mRes = true;
 		boolean fRes = true;
 
-		if (mDataAccess == null) {
-			mDataAccess = new MySQLDataAccess(config.getMySQLURL(),
-					config.getMySQLUser(), config.getMySQLPassword(),
-					config.getMySQLDB());
-		}
-		if (fDataAccess == null) {
-			fDataAccess = new FMDataAccess(config.getFmURL(),
-					config.getFmUser(), config.getFmPassword(),
-					config.getFmDB());
-		}
+		mDataAccess = new MySQLDataAccess(conf.getMySQLURL(),
+					conf.getMySQLUser(), conf.getMySQLPassword(),
+					conf.getMySQLDB());
+		fDataAccess = new FMDataAccess(conf.getFmURL(),
+					conf.getFmUser(), conf.getFmPassword(),
+					conf.getFmDB());
+		
 		if (!mDataAccess.isConnected()) {
 			mRes = mDataAccess.createConnection();
 		}
@@ -226,8 +223,7 @@ public class SQLAccessController {
 	 * @throws IOException 
 	 */
 	public HashSet<String> fetchNumericFields(ArrayList<Pair> result)
-			throws SQLException, IOException {
-		ConfigController conf = ConfigController.getInstance();
+			throws SQLException {
 		HashSet<String> list = new HashSet<String>();
 		ResultSet mysql = this.mDataAccess
 				.doSQLQuery("SELECT COLUMN_NAME, TABLE_NAME "
@@ -267,8 +263,7 @@ public class SQLAccessController {
 	 * @throws IOException 
 	 */
 	public HashSet<String> fetchTimestampFields(ArrayList<Pair> commonTables)
-			throws SQLException, IOException {
-		ConfigController conf = ConfigController.getInstance();
+			throws SQLException {
 		HashSet<String> list = new HashSet<String>();
 		ResultSet mysql = this.mDataAccess
 				.doSQLQuery("SELECT COLUMN_NAME, TABLE_NAME "
