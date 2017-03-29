@@ -146,18 +146,13 @@ public abstract class AbstractDatabase {
 	 * @param sql
 	 *            SQL-SELECT-Statement
 	 * @return ResultSet als Ergebnis der abgesendeten SQL-Anfrage
+	 * @throws SQLException 
 	 */
-	public ResultSet doSQLQuery(String sql) {
+	public ResultSet doSQLQuery(String sql) throws SQLException {
 
-		try {
-			if (this.st == null || this.st.isClosed())
-				this.st = cn.createStatement();
-			return this.st.executeQuery(sql);
-
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return null;
-		}
+		if (this.st == null || this.isConnected())
+			this.st = cn.createStatement();
+		return this.st.executeQuery(sql);
 	}
 
 	// -------------------------------------------------------------------------------
@@ -208,7 +203,6 @@ public abstract class AbstractDatabase {
 		}
 		catch (SQLException e) {
 			logger.error("Driver:" + e);
-			System.out.println("Driver:" + e);
 			String eMsg = e.getMessage();
 			if (getDriverName().contains("mysql"))
 				eMsg = "MySQL: " + eMsg;
@@ -391,6 +385,7 @@ public abstract class AbstractDatabase {
 		try {
 			Statement s = cn.createStatement();
 			s.executeQuery("SELECT 1 FROM fabric");
+			s.close();
 			return true;
 		} catch (SQLException e) {
 			if (e.toString().contains("Connection is closed") || e.toString().contains("connection closed")) return false;

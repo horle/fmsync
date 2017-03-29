@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.sql.SQLException;
 import java.text.NumberFormat;
+import java.util.ArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -54,7 +55,7 @@ public class MainFrame {
 	private static final int CONN_TIMEOUT = 5;
 	private static Logger logger = Logger.getLogger(MainFrame.class);
 	private static ConfigController config;
-	public static SQLDataModel data;
+	private static SQLDataModel data;
 	/**
 	 * Launch the application.
 	 */
@@ -63,13 +64,19 @@ public class MainFrame {
 		DOMConfigurator.configureAndWatch("log4j.xml");
 		try {
 			config = ConfigController.getInstance();
-			data = new SQLDataModel();
+			data = SQLDataModel.getInstance();
 		} catch (IOException e1) {
 			JOptionPane
 					.showMessageDialog(
 							null,
 							"I was not able to create a new config file. Missing permissions?",
 							"Error", JOptionPane.WARNING_MESSAGE);
+		} catch (SQLException e) {
+			JOptionPane
+			.showMessageDialog(
+					null,
+					e,
+					"Error", JOptionPane.WARNING_MESSAGE);
 		}
 
 		EventQueue.invokeLater(new Runnable() {
@@ -87,7 +94,7 @@ public class MainFrame {
 
 	private JPanel panelLog;
 	private JPanel panelActions;
-	private JTextArea txtLog;
+	private static JTextArea txtLog;
 	private JButton btnConnect;
 	private JButton btnCancel;
 	private JScrollPane scrollPane;
@@ -95,13 +102,14 @@ public class MainFrame {
 	private boolean connected;
 	private boolean inProgress;
 
-	private ComparisonResult currComp;
+	private ArrayList<ComparisonResult> currComp;
 	private ConnectionWorker worker;
 	private SQLAccessController sqlAccess;
 	
 	private boolean timedOut = false;
 
 	private JMenu mnFile;
+	private ComparisonFrame comp;
 
 	/**
 	 * Create the application.
@@ -116,8 +124,21 @@ public class MainFrame {
 				public void run() {
 					JOptionPane
 							.showMessageDialog(
-									null,
+									frame,
 									"I was not able to create a new config file. Missing permissions?",
+									"Error",
+									JOptionPane.WARNING_MESSAGE);
+				};
+			});
+		} catch (SQLException e) {
+			SwingUtilities
+			.invokeLater(new Runnable() {
+				@Override
+				public void run() {
+					JOptionPane
+							.showMessageDialog(
+									frame,
+									e,
 									"Error",
 									JOptionPane.WARNING_MESSAGE);
 				};
@@ -192,13 +213,7 @@ public class MainFrame {
 				if (!inProgress) {
 					System.exit(0);
 				} else {
-					if (JOptionPane
-							.showConfirmDialog(
-									null,
-									"The sync is still in progress. Do you really want to quit and RISK DATA LOSS?",
-									"Really interrupt?",
-									JOptionPane.OK_CANCEL_OPTION,
-									JOptionPane.WARNING_MESSAGE) == JOptionPane.OK_OPTION) {
+					if (confirmClose()) {
 						// SAFELY INTERRUPT TODO
 						System.exit(0);
 					}
@@ -280,7 +295,10 @@ public class MainFrame {
 		btnCancel.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
-				invokeDisconnectWorker();
+				if (confirmClose()) {
+					invokeDisconnectWorker();
+					comp.dispose();
+				}
 			}
 		});
 		panelActions.add(btnCancel);
@@ -291,15 +309,20 @@ public class MainFrame {
 		frame.getContentPane().add(lblPicture);
 
 	}
+	
+	private boolean confirmClose() {
+		if (JOptionPane.showConfirmDialog(
+				frame,
+				"The sync is still in progress. Do you really want to quit and RISK DATA LOSS?",
+				"Really interrupt?",
+				JOptionPane.OK_CANCEL_OPTION,
+				JOptionPane.WARNING_MESSAGE) == JOptionPane.OK_OPTION) {
+			return true;
+		}else return false;
+	}
 
-	private void invokeComparisonDialog() {
-		//TODO doppelte progressbar 
-		TableProgressDialog progress = new TableProgressDialog(txtLog);
-		progress.setLocationRelativeTo(frame);
-		progress.showAndStart();
-
-		
-		ComparisonDialog comp = new ComparisonDialog();
+	private void invokeComparisonDialog() throws SQLException {
+		comp = new ComparisonFrame(data.fetchCommonTables());
 		comp.setLocationRelativeTo(frame);
 		currComp = comp.showDialog();
 		
@@ -451,7 +474,12 @@ public class MainFrame {
 			@Override
 			protected void done() {
 				if (connected)
-					invokeComparisonDialog();
+					try {
+						invokeComparisonDialog();
+					} catch (SQLException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
 			}
 		};
 		watcher.execute();
@@ -479,8 +507,20 @@ public class MainFrame {
 						public void run() {
 							JOptionPane
 									.showMessageDialog(
-											null,
+											frame,
 											"I was not able to create a new config file. Missing permissions?",
+											"Error",
+											JOptionPane.WARNING_MESSAGE);
+						}
+					});
+				} catch (SQLException e) {
+					SwingUtilities.invokeLater(new Runnable() {
+						@Override
+						public void run() {
+							JOptionPane
+									.showMessageDialog(
+											frame,
+											e,
 											"Error",
 											JOptionPane.WARNING_MESSAGE);
 						}
@@ -518,5 +558,9 @@ public class MainFrame {
 		this.btnCancel.setEnabled(status.isBtnCancelEn());
 		if (!status.getLogMsg().equals(""))
 			this.txtLog.append(status.getLogMsg());
+	}
+
+	public static JTextArea getLog() {
+		return txtLog;
 	}
 }

@@ -33,7 +33,7 @@ public class SQLAccessController {
 	 * 
 	 * @throws SQLException
 	 */
-	public static SQLAccessController getInstance() throws IOException {
+	public static SQLAccessController getInstance() throws IOException, SQLException {
 		if (mInstance == null)
 			mInstance = new SQLAccessController();
 		return mInstance;
@@ -45,8 +45,9 @@ public class SQLAccessController {
 	 * 
 	 * @throws SQLException
 	 */
-	private SQLAccessController() throws IOException {
+	private SQLAccessController() throws IOException, SQLException {
 		conf = ConfigController.getInstance();
+		connect();
 	}
 
 	/**
@@ -143,8 +144,9 @@ public class SQLAccessController {
 	 * @param sql
 	 *            SQL-Select-String
 	 * @return resultset
+	 * @throws SQLException 
 	 */
-	public ResultSet doMySQLQuery(String sql) {
+	public ResultSet doMySQLQuery(String sql) throws SQLException {
 		return mDataAccess.doSQLQuery(sql);
 	}
 	
@@ -178,8 +180,9 @@ public class SQLAccessController {
 	 * @param sql
 	 *            SQL-Select-String
 	 * @return resultset
+	 * @throws SQLException 
 	 */
-	public ResultSet doFMQuery(String sql) {
+	public ResultSet doFMQuery(String sql) throws SQLException {
 		return fDataAccess.doSQLQuery(sql);
 	}
 

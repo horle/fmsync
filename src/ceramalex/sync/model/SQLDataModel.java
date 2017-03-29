@@ -28,20 +28,39 @@ import com.filemaker.jdbc.FMSQLException;
  *
  */
 public class SQLDataModel {
+	private static SQLDataModel instance = null;
+	
 	private SQLAccessController sqlAccess;
 	private DateTimeFormatter formatTS;
 	private ZoneId zoneBerlin;
-	private static ArrayList<Pair> commonTables = new ArrayList<Pair>();
+	private static ArrayList<Pair> commonTables;
+	private ArrayList<ComparisonResult> results;
 	
+	public ArrayList<ComparisonResult> getResults() {
+		return results;
+	}
+
+	public void addResult(ComparisonResult result) {
+		this.results.add(result);
+	}
+
 	private static Logger logger = Logger.getLogger(SQLDataModel.class);
 
-	public SQLDataModel() throws IOException {
+	public static SQLDataModel getInstance() throws IOException, SQLException{
+		if (instance == null) {
+			instance = new SQLDataModel();
+		}
+		return instance;
+	}
+	
+	private SQLDataModel() throws IOException, SQLException {
 		formatTS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 		zoneBerlin = ZoneId.of("Europe/Berlin");
 		sqlAccess = SQLAccessController.getInstance();
+		results = new ArrayList<ComparisonResult>();
 	}
 
-	public ArrayList<Pair> getCommonTables() throws SQLException {
+	public ArrayList<Pair> fetchCommonTables() throws SQLException {
 		ArrayList<Pair> result = new ArrayList<Pair>();
 
 		ArrayList<String> fmNames = new ArrayList<String>();
@@ -79,6 +98,10 @@ public class SQLDataModel {
 		return result;
 	}
 	
+	public ArrayList<Pair> getCommonTables() {
+		return commonTables;
+	}
+
 	private boolean addLastModifiedField(String table) throws SQLException, FilemakerIsCrapException, IOException {
 		try {
 			ResultSet fmColumns = sqlAccess.getFMColumnMetaData(table);
@@ -102,7 +125,7 @@ public class SQLDataModel {
 								+ table + "\"");
 			
 		} catch (FMSQLException e) {
-			if (e.getMessage().contains("Duplicate name")) return true;
+			if (e.toString().contains("Duplicate name")) return true;
 			else throw e;
 		}
 	}
@@ -128,7 +151,7 @@ public class SQLDataModel {
 								+ table + "\"");
 			
 		} catch (FMSQLException e) {
-			if (e.getMessage().contains("Duplicate name")) return true;
+			if (e.toString().contains("Duplicate name")) return true;
 			else throw e;
 		}
 	}
@@ -154,7 +177,7 @@ public class SQLDataModel {
 								+ table + "\"");
 			
 		} catch (FMSQLException e) {
-			if (e.getMessage().contains("Duplicate name")) return true;
+			if (e.toString().contains("Duplicate name")) return true;
 			else throw e;
 		}
 	}
@@ -162,7 +185,7 @@ public class SQLDataModel {
 	public ComparisonResult getDiffByUUID(Pair currTab, boolean upload, boolean download) throws SQLException,
 			FilemakerIsCrapException, SyncException, EntityManagementException, IOException {
 		
-		ComparisonResult result = new ComparisonResult();
+		ComparisonResult result = new ComparisonResult(currTab);
 		
 		// both connected?
 		if (sqlAccess.isMySQLConnected() && sqlAccess.isFMConnected()) {
@@ -273,17 +296,16 @@ public class SQLDataModel {
 							result.addToConflictList(rowFM,rowMS);
 						}
 					}
-					else if (currAAUID < currCAUID) {
-						throw new SyncException(currAAUID+" in arachne, fm: "+currCAUID);
+					else if (currAAUID < currCAUID) { //TODO nur zum debug auskommentiert
+						//throw new SyncException(currAAUID+" in arachne, fm: "+currCAUID);
 					}
 					else if (currAAUID > currCAUID) {
-						throw new SyncException(currAAUID+" in arachne, fm: "+currCAUID);
+						//throw new SyncException(currAAUID+" in arachne, fm: "+currCAUID);
 					}
 				}
 			} catch (SQLException e) {
-				System.err.println("FEHLER: " + e);
-				logger.error("FEHLER: " + e);
-				e.printStackTrace();
+				logger.error(e);
+				throw e;
 			}
 			
 			if (upload) {
@@ -299,10 +321,10 @@ public class SQLDataModel {
 						}
 						ArrayList<Pair> res = isRowOnRemote(currTab, row);
 						// already uploaded, same content, just missing CAUID? update locally ...
-						if (res != null) {
+						if (!res.isEmpty()) {
 							ArrayList<Pair> aauid = new ArrayList<Pair>();
 							aauid.add(new Pair("ArachneEntityID", res.get(0).getRight()));
-							result.addToUpdateList(currTab, aauid , res, true);
+							result.addToUpdateList(aauid , res, true);
 						}
 						// nothing remotely. upload whole row and update CAUID
 						else {
@@ -310,8 +332,7 @@ public class SQLDataModel {
 						}
 					}
 				} catch (FMSQLException e) {
-					System.err.println("FEHLER: " + e);
-					e.printStackTrace();
+					throw e;
 				}
 			}
 			try {
@@ -330,18 +351,19 @@ public class SQLDataModel {
 				e.printStackTrace();
 			}
 			
-			System.out.println("done.");
+			System.out.println(currTab + " done.");
 			
 			
 			
 			/**
 			 * OLD LOGIC TODO
 			 */
+			if (new Boolean("false"))
 			try{
 				ResultSet fNull = null;
 				ResultSet mNull = null;
 				
-				while (new Boolean("false")) {	
+				while (new Boolean("false")) {
 					// missing entry in regular table, but entry in entity management! bug in db!
 					// TODO: delete entry in arachne entity management
 					if (currATS == null) {
@@ -405,7 +427,7 @@ public class SQLDataModel {
 									for (int l = 0; l < commonFields.size(); l++) {
 										row.add(new Pair(commonFields.get(l),fmVals.get(l)));
 									}
-									result.addToUpdateList(currTab, row, null, true);
+									result.addToUpdateList(row, null, true);
 								// Conflict!
 								// same TS and same UID, but different content!
 								} else {
@@ -537,7 +559,7 @@ public class SQLDataModel {
 				e.printStackTrace();
 			}
 		}
-		System.out.println("done");
+		results.add(result);
 		return result;
 	}
 
@@ -569,18 +591,24 @@ public class SQLDataModel {
 		for (int i = 0; i < row.size(); i++) {
 			// pair of key-value
 			Pair p = row.get(i);
-			if (p.getRight().equals("null"))
+			String val = p.getRight() == null ? null : escapeChars(p.getRight());
+			
+			if (p.getLeft().equals(pk) || p.getLeft().equals("ArachneEntityID") || p.getLeft().equals("lastModified")) continue;
+			if (p.getLeft().equals("lastRemoteTS") && (val == null || val.equals("null"))) continue;
+			
+			if (val == null || val.equals("null"))
 				sql += " AND " + currTab.getRight() + "." + p.getLeft() + " IS NULL";
 			else if (isNumericalField(currTab.getLeft() + "." + p.getLeft()))
-				sql += " AND " + currTab.getRight() + "." + p.getLeft() + " = " + p.getRight();
+				sql += " AND " + currTab.getRight() + "." + p.getLeft() + " = " + val;
 			else
-				sql += " AND " + currTab.getRight() + "." + p.getLeft() + " = '" + p.getRight()+"'";
+				sql += " AND " + currTab.getRight() + "." + p.getLeft() + " = '" + val+"'";
 		}
 		ResultSet r = sqlAccess.doMySQLQuery(sql);
 		ArrayList<Pair> result = new ArrayList<Pair>();
 		while (r.next()) {
 			result.add(new Pair("ArachneEntityID", r.getString(1))); // aauid
-			result.add(new Pair("lastModified", r.getTimestamp(2).toLocalDateTime().format(formatTS))); // lastmodified
+			String t = r.getTimestamp(2) == null ? null : r.getTimestamp(2).toLocalDateTime().format(formatTS);
+			result.add(new Pair("lastModified", t)); // lastmodified
 			result.add(new Pair(pk, r.getString(3))); 	//pk value
 		}
 		return result;
@@ -667,9 +695,8 @@ public class SQLDataModel {
 				} else if (isLastOut) isLastOut = false;
 				
 				String currFieldVal = currRow.get(j).getRight();
-				
 				if (!isNumericalField(currFieldName) && !isTimestampField(currFieldName) && currFieldVal != null) {
-					currFieldVal = "'" + currFieldVal.replace("'", "\\'").replace("\"", "\\\"").replace("%", "\\%") + "'";
+					currFieldVal = "'" + escapeChars(currFieldVal) + "'";
 				}
 				else if (isTimestampField(currFieldName) && currFieldVal != null) {
 					currFieldVal = "TIMESTAMP '" + currFieldVal + "'";
@@ -704,6 +731,10 @@ public class SQLDataModel {
 		}
 		
 		return result;
+	}
+	
+	private String escapeChars(String currFieldVal) throws IOException {
+		return currFieldVal.replace("'", "\\'").replace("\"", "\\\"").replace("%", "\\%");
 	}
 	
 	private boolean updateLocalUID(Pair currTab, int currAAUID, LocalDateTime currArachneTS, String pkName, int pkVal) throws SQLException {
@@ -800,7 +831,7 @@ public class SQLDataModel {
 								continue;
 							}
 						} catch (NumberFormatException e) {
-							System.err.println("NFException! "+e.getMessage());
+							System.err.println("NFException! "+e);
 						}
 					}
 				}
@@ -915,10 +946,9 @@ public class SQLDataModel {
 	public static void main(String[] args) {
 		try {
 			DOMConfigurator.configureAndWatch("log4j.xml");
-			ConfigController.getInstance().setPrefs("jdbc:mysql://192.168.1.4", "3306", "root", "",
-					"ceramalex", "jdbc:filemaker://localhost", "admin", "btbw", "iDAIAbstractCeramalex");
+			ConfigController.getInstance();
 			SQLDataModel m = new SQLDataModel();
-			commonTables = m.getCommonTables();
+			commonTables = m.fetchCommonTables();
 			
 			for (int i = 0; i < commonTables.size(); i++){
 				try {
@@ -926,13 +956,14 @@ public class SQLDataModel {
 					ComparisonResult result = m.getDiffByUUID(commonTables.get(i), true, true);
 					logger.info("Processed table "+commonTables.get(i) + " without errors.");
 				} catch (Exception e) {
-					logger.error(commonTables.get(i) + ": "+ e.getMessage());
+					logger.error(commonTables.get(i) + ": "+ e);
+					System.out.println("Error!");
 				}
 			}
 			System.out.println("Exit.");
 		} catch (Exception e) {
-			System.err.println("ERROR: "+e.getMessage());
-			logger.error(e.getMessage());
+			System.err.println("ERROR: "+e);
+			logger.error(e);
 			e.printStackTrace();
 		}
 	}

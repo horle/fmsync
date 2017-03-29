@@ -3,24 +3,26 @@ package ceramalex.sync.model;
 import java.util.ArrayList;
 
 /**
- * simple struct to handle the result of a sync comparison.
+ * simple struct to handle the table result of a sync comparison.
  * @author horle (Felix Kussmaul)
  *
  */
 public class ComparisonResult {
+	private Pair currTab;
 	private ArrayList<Integer> toDownload;
 	private ArrayList<ArrayList<Pair>> toUpload;
 	private ArrayList<Tuple<Integer,Integer>> toDelete;
-	private ArrayList<Tuple<Pair, Tuple<ArrayList<Pair>, ArrayList<Pair>>>> toUpdateLocally;
-	private ArrayList<Tuple<Pair, Tuple<ArrayList<Pair>, ArrayList<Pair>>>> toUpdateRemotely;
+	private ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> toUpdateLocally;
+	private ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> toUpdateRemotely;
 	private ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> conflict;
 	
-	public ComparisonResult() {
+	public ComparisonResult(Pair table) {
+		currTab = table;
 		toDownload = new ArrayList<Integer>();
 		toUpload = new ArrayList<ArrayList<Pair>>();
 		toDelete = new ArrayList<Tuple<Integer,Integer>>();
-		toUpdateLocally = new ArrayList<Tuple<Pair, Tuple<ArrayList<Pair>, ArrayList<Pair>>>>();
-		toUpdateRemotely = new ArrayList<Tuple<Pair, Tuple<ArrayList<Pair>, ArrayList<Pair>>>>();
+		toUpdateLocally = new ArrayList<Tuple<ArrayList<Pair>,ArrayList<Pair>>>();
+		toUpdateRemotely = new ArrayList<Tuple<ArrayList<Pair>,ArrayList<Pair>>>();
 		conflict = new ArrayList<Tuple<ArrayList<Pair>,ArrayList<Pair>>>();
 	}
 	
@@ -36,27 +38,20 @@ public class ComparisonResult {
 
 	/**
 	 * Adds a list of key-value-pairs to the update list, along with a boolean to decide whether to up- or download
-	 * @param currTab current table
 	 * @param setList list of key-value pairs with new content
 	 * @param whereList list of key-value pairs to determine row to update
 	 * @param local true, if local row shall be updated. false, if remote row shall be updated.
 	 * @return true, if successfully added
 	 */
-	public boolean addToUpdateList(Pair currTab, ArrayList<Pair> setList, ArrayList<Pair> whereList, boolean local) {
+	public boolean addToUpdateList(ArrayList<Pair> setList, ArrayList<Pair> whereList, boolean local) {
 		if (local)
 			return toUpdateLocally.add(
-					new Tuple<Pair, Tuple<
-									ArrayList<Pair>,
-									ArrayList<Pair>
-									>>
-					(currTab, new Tuple<ArrayList<Pair>, ArrayList<Pair>>(setList, whereList)));
+					new Tuple<ArrayList<Pair>,ArrayList<Pair>>
+					(setList, whereList));
 		else
 			return toUpdateRemotely.add(
-					new Tuple<Pair, Tuple<
-									ArrayList<Pair>,
-									ArrayList<Pair>
-									>>
-					(currTab, new Tuple<ArrayList<Pair>, ArrayList<Pair>>(setList, whereList)));
+					new Tuple<ArrayList<Pair>,ArrayList<Pair>>
+					(setList, whereList));
 	}
 	
 	/**
@@ -96,13 +91,17 @@ public class ComparisonResult {
 	public ArrayList<Tuple<Integer,Integer>> getDeleteList() {
 		return toDelete;
 	}
-	public ArrayList<Tuple<Pair, Tuple<ArrayList<Pair>, ArrayList<Pair>>>> getLocalUpdateList() {
+	public ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> getLocalUpdateList() {
 		return toUpdateLocally;
 	}
-	public ArrayList<Tuple<Pair, Tuple<ArrayList<Pair>, ArrayList<Pair>>>> getRemoteUpdateList() {
+	public ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> getRemoteUpdateList() {
 		return toUpdateRemotely;
 	}
 	public ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> getConflictList() {
 		return conflict;
+	}
+
+	public Pair getTableName() {
+		return currTab;
 	}
 }
