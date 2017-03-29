@@ -3,8 +3,10 @@ package ceramalex.sync.view;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Font;
+import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 
@@ -16,6 +18,7 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
+import javax.swing.JRootPane;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
@@ -24,11 +27,17 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
 
+import nl.jj.swingx.gui.modal.JModalFrame;
+
 import org.apache.log4j.Logger;
 
+import ceramalex.sync.exception.EntityManagementException;
+import ceramalex.sync.exception.FilemakerIsCrapException;
+import ceramalex.sync.exception.SyncException;
 import ceramalex.sync.model.ComparisonResult;
 import ceramalex.sync.model.Pair;
 import ceramalex.sync.model.SQLDataModel;
+import ceramalex.sync.model.Tuple;
 
 import com.jgoodies.forms.factories.FormFactory;
 import com.jgoodies.forms.layout.ColumnSpec;
@@ -36,16 +45,16 @@ import com.jgoodies.forms.layout.FormLayout;
 import com.jgoodies.forms.layout.RowSpec;
 import com.jgoodies.forms.layout.Sizes;
 
-public class ComparisonDialog extends JDialog {
+public class ComparisonFrame extends JModalFrame {
 
 	private JPanel container;
 	private final ButtonGroup buttonGroup = new ButtonGroup();
 	
-	private ComparisonResult comp;
+	private ArrayList<ComparisonResult> comp;
 	private SQLDataModel data;
 	private ArrayList<Pair> commonTables;
 	
-	private static Logger logger = Logger.getLogger(ComparisonDialog.class);
+	private static Logger logger = Logger.getLogger(ComparisonFrame.class);
 	private JTabbedPane tabs = new JTabbedPane(JTabbedPane.TOP);
 
 	private void initialize() {		
@@ -55,8 +64,8 @@ public class ComparisonDialog extends JDialog {
 				abortMission();
 			}
 		});
-		setModal(true);
 		setTitle("Sync databases");
+		this.setModal(true);
 		setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
 		setBounds(100, 100, 791, 472);
 		container = new JPanel();
@@ -134,6 +143,12 @@ public class ComparisonDialog extends JDialog {
 				FormFactory.DEFAULT_ROWSPEC,}));
 		
 		JButton btnReload = new JButton("Reload tables");
+		btnReload.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				loadTables();
+			}
+		});
 		pnlOptions.add(btnReload, "2, 2");
 		btnReload.setFont(new Font("Dialog", Font.PLAIN, 12));
 		
@@ -184,15 +199,33 @@ public class ComparisonDialog extends JDialog {
 	}
 	
 	private void loadTables(){
+		tabs.removeAll();
 		try {
-			commonTables = data.getCommonTables();
+			commonTables = data.fetchCommonTables();
 		} catch (SQLException e) {
 			JOptionPane.showMessageDialog(this, "I was unable to fetch tables from the databases.", "Unable to fetch tables", JOptionPane.ERROR_MESSAGE);
 			dispose();
 		}
-		for (int i = 0; i < commonTables.size(); i++) {
-			Pair p = commonTables.get(i);
-			tabs.addTab(p.getLeft(), null, new JTable(), p.toString());
+		ArrayList<ComparisonResult> comps = data.getResults(); 
+		
+		for (int i = 0; i < comps.size(); i++) {
+			ComparisonResult comp = comps.get(i);
+			Pair p = comp.getTableName();
+			
+			ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> conflict = comp.getConflictList();
+			ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> updateLocally = comp.getLocalUpdateList();
+			ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> updateRemotely = comp.getRemoteUpdateList();
+			ArrayList<Integer> download = comp.getDownloadList();
+			ArrayList<ArrayList<Pair>> upload = comp.getUploadList();
+			
+			JTable table1 = new JTable();
+			JTable table2 = new JTable();
+			JPanel panel = new JPanel();
+			panel.setLayout(new GridLayout(1, 2));
+			panel.add(table1);
+			panel.add(table2);
+			
+			tabs.addTab(p.getLeft(), null, new JScrollPane(panel), p.toString());
 		}
 	}
 
@@ -209,13 +242,27 @@ public class ComparisonDialog extends JDialog {
 	/**
 	 * Create the frame.
 	 */
-	public ComparisonDialog() {
-		data = MainFrame.data;
+	public ComparisonFrame(ArrayList<Pair> commonTables) {
+		try {
+			data = SQLDataModel.getInstance();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		//TODO doppelte progressbar 
+		TableProgressDialog progress = new TableProgressDialog(MainFrame.getLog());
+		progress.setLocationRelativeTo(this);
+		progress.showAndStart();
+
 		initialize();
-		comp = new ComparisonResult();
+		comp = new ArrayList<ComparisonResult>();
 	}
 
-	public ComparisonResult showDialog() {
+	public ArrayList<ComparisonResult> showDialog() {
 		this.pack();
 		this.setVisible(true);
 		return comp;

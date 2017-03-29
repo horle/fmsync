@@ -12,6 +12,10 @@ public class FMDataAccess extends AbstractDatabase {
 	public FMDataAccess(String dbUrl, String user, String pwd, String serverDataSource) throws SQLException {
 		super(dbUrl, user, pwd, serverDataSource);
 	}
+	
+	public FMDataAccess() throws SQLException {
+		super("","","","");
+	}
 
 	//-------------------------------------------------------------------------------
 	@Override

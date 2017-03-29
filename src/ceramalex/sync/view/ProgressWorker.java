@@ -1,5 +1,7 @@
 package ceramalex.sync.view;
 
+import java.io.IOException;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,54 +12,48 @@ import javax.swing.SwingWorker;
 import ceramalex.sync.model.Pair;
 import ceramalex.sync.model.SQLDataModel;
 
-public class ProgressWorker extends SwingWorker<Boolean, String[]> {
-
-	private JLabel lblEntire;
+public class ProgressWorker extends SwingWorker<Void, String[]> {
+	
 	private JLabel lblCurrTab;
 	private JTextArea txtLog;
-	private SQLDataModel data = MainFrame.data;
+	private SQLDataModel data;
 	
-	public ProgressWorker(JLabel lblEntire, JLabel lblCurrTab, JTextArea txtLog){
+	public ProgressWorker(JLabel lblCurrTab, JTextArea txtLog) throws IOException, SQLException{
+		this.data = SQLDataModel.getInstance();
 		this.lblCurrTab = lblCurrTab;
-		this.lblEntire = lblEntire;
 		this.txtLog = txtLog;
 	}
 	
 	@Override
-	protected Boolean doInBackground() throws Exception {
-		int progress = 0;
+	protected Void doInBackground() throws Exception {
+		ArrayList<Pair> commonTables = data.fetchCommonTables();
 		
-		ArrayList<Pair> commonTables = data.getCommonTables();
-		
+		String[] arr = {"",""};
 		setProgress(0);
 		
 		for (int i = 0; i < commonTables.size(); i++) {
-			String[] arr = {"","",""};
-			arr[0] = "Current table: " + commonTables.get(i).toString() + " (" + (i+1) + "/" + commonTables.size() + ")";
-			arr[1] = "Current row: " + i;
-			arr[2] = "Fetching " + commonTables.get(i).toString() +" ...";
+			Pair p = commonTables.get(i);
+			arr[0] = "Current table: " + p.getLeft() + " (" + (i+1) + "/" + commonTables.size() + ")";
+			arr[1] = "Fetching table " + p.getLeft() +" ...";
 			
 			publish(arr);
 			setProgress(100*(i/commonTables.size()));
+			
+			try {
+				data.getDiffByUUID(p, true, true);
+			} catch ( Exception e) {
+				e.printStackTrace();
+			}
 		}
-		
-		return true;
+		return null;
 	}
 	
 	@Override
 	protected void process(List<String[]> listProgress) {
 		for (String[] arr : listProgress) {
-			lblEntire.setText(arr[0]);
-			lblCurrTab.setText(arr[1]);
-			txtLog.append(arr[2] + "\n");
+			lblCurrTab.setText(arr[0]);
+			txtLog.append(arr[1] + "\n");
 		}
 		return;
 	}
-	
-	@Override
-	protected void done() {
-		// TODO Auto-generated method stub
-		return;
-	}
-
 }
