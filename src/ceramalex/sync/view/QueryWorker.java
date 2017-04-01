@@ -1,5 +1,7 @@
 package ceramalex.sync.view;
 
+import java.io.IOException;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -11,6 +13,7 @@ import javax.swing.SwingWorker;
 
 import ceramalex.sync.model.ComparisonResult;
 import ceramalex.sync.model.Pair;
+import ceramalex.sync.model.SQLDataModel;
 
 class QueryWorker extends SwingWorker<Void, Integer[]> {
 
@@ -38,10 +41,10 @@ class QueryWorker extends SwingWorker<Void, Integer[]> {
 	@Override
 	protected Void doInBackground() throws Exception {
 		
-		ComparisonResult comp = MainFrame.data.getDiffByUUID(currTab, true, true);
+		ComparisonResult comp =SQLDataModel.getInstance().getDiffByUUID(currTab, true, true);
 		Integer[] arr = new Integer[3];
-		arr[0] = MainFrame.data.getCommonTables().indexOf(currTab);
-		arr[1] = 
+		arr[0] = SQLDataModel.getInstance().getCommonTables().indexOf(currTab);
+		arr[1] = null;
 		publish(arr);
 		
 		return null;
@@ -50,8 +53,13 @@ class QueryWorker extends SwingWorker<Void, Integer[]> {
 	@Override
 	protected void process(List<Integer[]> listProgress) {
 		for (Integer[] arr : listProgress) {
-			lblEntire.setText("Current table: " + currTab + "(" + arr[0] + "/" + MainFrame.data.getCommonTables().size() + ")");
-			lblCurrTab.setText(arr[1]);
+			try {
+				lblEntire.setText("Current table: " + currTab + "(" + arr[0] + "/" + SQLDataModel.getInstance().getCommonTables().size() + ")");
+			} catch (IOException | SQLException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			lblCurrTab.setText(""+arr[1]);
 			txtLog.append("Fetching " + currTab.getLeft() + " ... \n");
 		}
 		return;
