@@ -27,8 +27,6 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
 
-import nl.jj.swingx.gui.modal.JModalFrame;
-
 import org.apache.log4j.Logger;
 
 import ceramalex.sync.exception.EntityManagementException;
@@ -45,7 +43,7 @@ import com.jgoodies.forms.layout.FormLayout;
 import com.jgoodies.forms.layout.RowSpec;
 import com.jgoodies.forms.layout.Sizes;
 
-public class ComparisonFrame extends JModalFrame {
+public class ComparisonFrame extends JFrame {
 
 	private JPanel container;
 	private final ButtonGroup buttonGroup = new ButtonGroup();
@@ -65,7 +63,6 @@ public class ComparisonFrame extends JModalFrame {
 			}
 		});
 		setTitle("Sync databases");
-		this.setModal(true);
 		setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
 		setBounds(100, 100, 791, 472);
 		container = new JPanel();
