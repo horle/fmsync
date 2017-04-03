@@ -58,7 +58,6 @@ public class TableProgressDialog extends JDialog {
 		getContentPane().add(lblCurrTab, gbc_lblCurrTab);
 		
 		proTotal.setFont(new Font("Dialog", Font.PLAIN, 12));
-		proTotal.setIndeterminate(true);
 		proTotal.setPreferredSize(new Dimension(146, 18));
 		proTotal.setMinimumSize(new Dimension(10, 18));
 		GridBagConstraints gbc_proEntire = new GridBagConstraints();
@@ -84,7 +83,8 @@ public class TableProgressDialog extends JDialog {
 
 	}
 
-	public void showAndStart() {
+	public int showAndStart() {
+		int result = 0;
 		try {
 			ProgressWorker worker = new ProgressWorker(lblCurrTab, txtLog);
 			worker.addPropertyChangeListener(new PropertyChangeListener() {
@@ -107,8 +107,10 @@ public class TableProgressDialog extends JDialog {
 			worker.execute();
 			
 			setVisible(true);
+			return result;
 		} catch (Exception e) {
 			JOptionPane.showMessageDialog(this, "An error occured.", "Error", JOptionPane.ERROR_MESSAGE);
+			return -1;
 		}
 	}
 }

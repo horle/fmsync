@@ -35,6 +35,8 @@ public class Tuple<T,S> {
 
 	@Override
 	public String toString() {
-		return this.left.toString() + " -> " + this.right.toString();
+		String le = this.left == null ? "null" : this.left.toString();
+		String re = this.right == null ? "null" : this.right.toString();
+		return le + " -> " + re;
 	}
 }
