@@ -1,6 +1,7 @@
 package ceramalex.sync.model;
 
 import java.util.ArrayList;
+import java.util.Vector;
 
 /**
  * simple struct to handle the table result of a sync comparison.
@@ -9,31 +10,31 @@ import java.util.ArrayList;
  */
 public class ComparisonResult {
 	private Pair currTab;
-	private ArrayList<Integer> toDownload;
-	private ArrayList<ArrayList<Pair>> toUpload;
-	private ArrayList<Tuple<Integer,Integer>> toDelete;
-	private ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> toUpdateLocally;
-	private ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> toUpdateRemotely;
-	private ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> conflict;
+	private Vector<Integer> toDownload;
+	private Vector<Vector<Pair>> toUpload;
+	private Vector<Tuple<Integer,Integer>> toDelete;
+	private Vector<Tuple<Vector<Pair>, Vector<Pair>>> toUpdateLocally;
+	private Vector<Tuple<Vector<Pair>, Vector<Pair>>> toUpdateRemotely;
+	private Vector<Tuple<Vector<Pair>, Vector<Pair>>> conflict;
 	
 	public ComparisonResult(Pair table) {
 		currTab = table;
-		toDownload = new ArrayList<Integer>();
-		toUpload = new ArrayList<ArrayList<Pair>>();
-		toDelete = new ArrayList<Tuple<Integer,Integer>>();
-		toUpdateLocally = new ArrayList<Tuple<ArrayList<Pair>,ArrayList<Pair>>>();
-		toUpdateRemotely = new ArrayList<Tuple<ArrayList<Pair>,ArrayList<Pair>>>();
-		conflict = new ArrayList<Tuple<ArrayList<Pair>,ArrayList<Pair>>>();
+		toDownload = new Vector<Integer>();
+		toUpload = new Vector<Vector<Pair>>();
+		toDelete = new Vector<Tuple<Integer,Integer>>();
+		toUpdateLocally = new Vector<Tuple<Vector<Pair>,Vector<Pair>>>();
+		toUpdateRemotely = new Vector<Tuple<Vector<Pair>,Vector<Pair>>>();
+		conflict = new Vector<Tuple<Vector<Pair>, Vector<Pair>>>();
 	}
 	
 	/**
-	 * 
+	 * Adds two lists of concurring rows to conflict list 
 	 * @param rowFM
 	 * @param rowMS
 	 * @return
 	 */
-	public boolean addToConflictList(ArrayList<Pair> rowFM, ArrayList<Pair> rowMS) {
-		return conflict.add(new Tuple<ArrayList<Pair>, ArrayList<Pair>>(rowFM, rowMS));
+	public boolean addToConflictList(Vector<Pair> rowFM, Vector<Pair> rowMS) {
+		return conflict.add(new Tuple<Vector<Pair>, Vector<Pair>>(rowFM, rowMS));
 	}
 
 	/**
@@ -43,14 +44,14 @@ public class ComparisonResult {
 	 * @param local true, if local row shall be updated. false, if remote row shall be updated.
 	 * @return true, if successfully added
 	 */
-	public boolean addToUpdateList(ArrayList<Pair> setList, ArrayList<Pair> whereList, boolean local) {
+	public boolean addToUpdateList(Vector<Pair> setList, Vector<Pair> whereList, boolean local) {
 		if (local)
 			return toUpdateLocally.add(
-					new Tuple<ArrayList<Pair>,ArrayList<Pair>>
+					new Tuple<Vector<Pair>,Vector<Pair>>
 					(setList, whereList));
 		else
 			return toUpdateRemotely.add(
-					new Tuple<ArrayList<Pair>,ArrayList<Pair>>
+					new Tuple<Vector<Pair>,Vector<Pair>>
 					(setList, whereList));
 	}
 	
@@ -75,29 +76,29 @@ public class ComparisonResult {
 	
 	/**
 	 * Adds set of row values to local upload list
-	 * @param row ArrayList of Pair values that represent key-value-Pairs of attributes in one row
+	 * @param row Vector of Pair values that represent key-value-Pairs of attributes in one row
 	 * @return true, if successfully added
 	 */
-	public boolean addRowToUploadList(ArrayList<Pair> row) {
+	public boolean addRowToUploadList(Vector<Pair> row) {
 		return toUpload.add(row);
 	}
 	
-	public ArrayList<Integer> getDownloadList() {
+	public Vector<Integer> getDownloadList() {
 		return toDownload;
 	}
-	public ArrayList<ArrayList<Pair>> getUploadList() {
+	public Vector<Vector<Pair>> getUploadList() {
 		return toUpload;
 	}
-	public ArrayList<Tuple<Integer,Integer>> getDeleteList() {
+	public Vector<Tuple<Integer,Integer>> getDeleteList() {
 		return toDelete;
 	}
-	public ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> getLocalUpdateList() {
+	public Vector<Tuple<Vector<Pair>, Vector<Pair>>> getLocalUpdateList() {
 		return toUpdateLocally;
 	}
-	public ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> getRemoteUpdateList() {
+	public Vector<Tuple<Vector<Pair>, Vector<Pair>>> getRemoteUpdateList() {
 		return toUpdateRemotely;
 	}
-	public ArrayList<Tuple<ArrayList<Pair>, ArrayList<Pair>>> getConflictList() {
+	public Vector<Tuple<Vector<Pair>, Vector<Pair>>> getConflictList() {
 		return conflict;
 	}
 

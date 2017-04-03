@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Vector;
 
 import org.apache.log4j.Logger;
 import org.apache.log4j.xml.DOMConfigurator;
@@ -273,7 +274,7 @@ public class SQLDataModel {
 						if (currATS.equals(currCTS) && currCTS.equals(currLRTS)) { continue; }
 						// local after remote, remote did not change: SAFE UPLOAD
 						if (currCTS.after(currATS) && currATS.equals(currLRTS)) {
-							ArrayList<Pair> row = new ArrayList<Pair>();
+							Vector<Pair> row = new Vector<Pair>();
 							for (int l = 0; l < commonFields.size(); l++) {
 								row.add(new Pair(commonFields.get(l),fNotNull.getString(commonFields.get(l))));
 							}
@@ -287,8 +288,8 @@ public class SQLDataModel {
 						}
 						// local after last remote AND remote after last remote: CONFLICT
 						if (currCTS.after(currLRTS) && currLRTS.before(currATS)) {
-							ArrayList<Pair> rowFM = new ArrayList<Pair>();
-							ArrayList<Pair> rowMS = new ArrayList<Pair>();
+							Vector<Pair> rowFM = new Vector<Pair>();
+							Vector<Pair> rowMS = new Vector<Pair>();
 							for (int l = 0; l < commonFields.size(); l++) {
 								rowFM.add(new Pair(commonFields.get(l),fNotNull.getString(commonFields.get(l))));
 								rowMS.add(new Pair(commonFields.get(l),mNotNull.getString(commonFields.get(l))));
@@ -314,15 +315,15 @@ public class SQLDataModel {
 					
 					// CAUID == null
 					while (fNull.next()) {
-						// add local row content to arraylist, lookup remotely
-						ArrayList<Pair> row = new ArrayList<Pair>();
+						// add local row content to Vector, lookup remotely
+						Vector<Pair> row = new Vector<Pair>();
 						for (int i = 0; i < commonFields.size(); i++) {
 							row.add(new Pair(commonFields.get(i), fNull.getString(commonFields.get(i))));
 						}
-						ArrayList<Pair> res = isRowOnRemote(currTab, row);
+						Vector<Pair> res = isRowOnRemote(currTab, row);
 						// already uploaded, same content, just missing CAUID? update locally ...
 						if (!res.isEmpty()) {
-							ArrayList<Pair> aauid = new ArrayList<Pair>();
+							Vector<Pair> aauid = new Vector<Pair>();
 							aauid.add(new Pair("ArachneEntityID", res.get(0).getRight()));
 							result.addToUpdateList(aauid , res, true);
 						}
@@ -341,7 +342,7 @@ public class SQLDataModel {
 				ResultSet mNull = sqlAccess.doMySQLQuery(msSQL + " AND ArachneEntityID IS NULL");
 				
 				while (mNull.next()) { //TODO
-					ArrayList<Pair> row = new ArrayList<Pair>();
+					Vector<Pair> row = new Vector<Pair>();
 					for (int i = 0; i < commonFields.size(); i++) {
 						row.add(new Pair(commonFields.get(i), mNull.getString(commonFields.get(i))));
 					}
@@ -423,7 +424,7 @@ public class SQLDataModel {
 								// deleted remote, but new local one with same UID
 								} else if (currATS.before(currCTS)) {
 									// update entry on remote, do not overwrite UID
-									ArrayList<Pair> row = new ArrayList<Pair>();
+									Vector<Pair> row = new Vector<Pair>();
 									for (int l = 0; l < commonFields.size(); l++) {
 										row.add(new Pair(commonFields.get(l),fmVals.get(l)));
 									}
@@ -475,7 +476,7 @@ public class SQLDataModel {
 								
 							// all remote fields are empty AND A-AUID doesn't exist. upload to arachne
 							case 3:
-								ArrayList<Pair> row = new ArrayList<Pair>();
+								Vector<Pair> row = new Vector<Pair>();
 								for (int l = 0; l < commonFields.size(); l++) {
 									row.add(new Pair(commonFields.get(l),fmVals.get(l)));
 								}
@@ -505,7 +506,7 @@ public class SQLDataModel {
 						if (currATS.equals(currCTS) && currCTS.equals(currLRTS)) { continue; }
 						// local after remote, remote did not change: SAFE UPLOAD
 						if (currCTS.after(currATS) && currATS.equals(currLRTS)) {
-							ArrayList<Pair> row = new ArrayList<Pair>();
+							Vector<Pair> row = new Vector<Pair>();
 							for (int l = 0; l < commonFields.size(); l++) {
 								row.add(new Pair(commonFields.get(l),fNull.getString(commonFields.get(l))));
 							}
@@ -529,9 +530,9 @@ public class SQLDataModel {
 					fNull.previous();
 					String pk = sqlAccess.getFMTablePrimaryKey(currTab.getLeft());
 					int first=0, last=0;
-					ArrayList<ArrayList<Pair>> inserts = new ArrayList<ArrayList<Pair>>();
+					Vector<Vector<Pair>> inserts = new Vector<Vector<Pair>>();
 					while (fNull.next()) {
-						ArrayList<Pair> ins = new ArrayList<Pair>();
+						Vector<Pair> ins = new Vector<Pair>();
 						ArrayList<String> names = getCommonFields(currTab);
 						if (first == 0) first = fNull.getInt(pk);
 						last = fNull.getInt(pk);
@@ -571,7 +572,7 @@ public class SQLDataModel {
 	 * @throws SQLException
 	 * @throws IOException 
 	 */
-	private ArrayList<Pair> isRowOnRemote(Pair currTab, ArrayList<Pair> row) throws SQLException, IOException {
+	private Vector<Pair> isRowOnRemote(Pair currTab, Vector<Pair> row) throws SQLException, IOException {
 		String archerMSSkip = "";
 		if (currTab.getLeft().equalsIgnoreCase("mainabstract")) {
 			archerMSSkip = " AND " + currTab.getRight() + ".ImportSource!='Comprehensive Table'";
@@ -604,7 +605,7 @@ public class SQLDataModel {
 				sql += " AND " + currTab.getRight() + "." + p.getLeft() + " = '" + val+"'";
 		}
 		ResultSet r = sqlAccess.doMySQLQuery(sql);
-		ArrayList<Pair> result = new ArrayList<Pair>();
+		Vector<Pair> result = new Vector<Pair>();
 		while (r.next()) {
 			result.add(new Pair("ArachneEntityID", r.getString(1))); // aauid
 			String t = r.getTimestamp(2) == null ? null : r.getTimestamp(2).toLocalDateTime().format(formatTS);
@@ -621,21 +622,21 @@ public class SQLDataModel {
 	 * @throws IOException 
 	 *  
 	 */
-	public ArrayList<Integer> prepareRowsAndInsert(Pair currTab, ArrayList<ArrayList<Pair>> rows, int packSize) throws SQLException, EntityManagementException, IOException {
+	public Vector<Integer> prepareRowsAndInsert(Pair currTab, Vector<Vector<Pair>> rows, int packSize) throws SQLException, EntityManagementException, IOException {
 		int count = rows.size()/25;
 		int mod = rows.size() % 25;
-		ArrayList<Integer> resultIDs = new ArrayList<Integer>();
+		Vector<Integer> resultIDs = new Vector<Integer>();
 		for (int k = 0; k < count; k++) {
 			resultIDs.addAll(
 					uploadRowsToArachne(
 							currTab, 
-							new ArrayList<ArrayList<Pair>>(
+							new Vector<Vector<Pair>>(
 									rows.subList(k*25, (k+1)*25))));
 		}
 		resultIDs.addAll(
 				uploadRowsToArachne(
 						currTab, 
-						new ArrayList<ArrayList<Pair>>(
+						new Vector<Vector<Pair>>(
 								rows.subList(count*25, count*25+mod))));
 		return resultIDs;
 	}
@@ -643,23 +644,23 @@ public class SQLDataModel {
 	/**
 	 * Insert given rows
 	 * @param currTab
-	 * @param rows
+	 * @param vector
 	 * @return array of inserted IDs. null, if given row list is empty
 	 * @throws SQLException
 	 * @throws EntityManagementException 
 	 * @throws IOException 
 	 */
-	private ArrayList<Integer> uploadRowsToArachne(Pair currTab, ArrayList<ArrayList<Pair>> rows) throws SQLException, EntityManagementException, IOException{
+	private ArrayList<Integer> uploadRowsToArachne(Pair currTab, Vector<Vector<Pair>> vector) throws SQLException, EntityManagementException, IOException{
 		
-		if (rows.size() == 0) return null;
+		if (vector.size() == 0) return null;
 		
 		String sql = "INSERT INTO "+currTab.getRight()+ " (";
 		String vals = " VALUES (";
 		
 		boolean isLastOut = false; // prevent comma before skipped field
-		for (int i = 0; i <= rows.size(); i++) {
+		for (int i = 0; i <= vector.size(); i++) {
 			
-			ArrayList<Pair> currRow = i != rows.size() ? rows.get(i) : null;
+			Vector<Pair> currRow = i != vector.size() ? vector.get(i) : null;
 			
 			// ( col1, col2, col3, ..)
 			if (i == 0) {
@@ -678,7 +679,7 @@ public class SQLDataModel {
 			}
 			
 			// final paranthese
-			if (i == rows.size()) {
+			if (i == vector.size()) {
 				vals += ");";
 				break;
 			}
@@ -704,7 +705,7 @@ public class SQLDataModel {
 				
 				vals += currFieldVal;
 			}
-			if (i < rows.size()-1)
+			if (i < vector.size()-1)
 				vals += "),(";
 			
 		}
@@ -910,7 +911,7 @@ public class SQLDataModel {
 	 * @return common field names as Pairs in ArrayList
 	 * @throws SQLException
 	 */
-	private ArrayList<String> getCommonFields(Pair currTab)
+	public ArrayList<String> getCommonFields(Pair currTab)
 			throws SQLException {
 		
 		ArrayList<String> result = new ArrayList<String>();

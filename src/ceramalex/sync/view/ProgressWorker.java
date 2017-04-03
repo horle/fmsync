@@ -29,7 +29,7 @@ public class ProgressWorker extends SwingWorker<Void, String[]> {
 		ArrayList<Pair> commonTables = data.fetchCommonTables();
 		
 		String[] arr = {"",""};
-		setProgress(0);
+		setProgress(1);
 		
 		for (int i = 0; i < commonTables.size(); i++) {
 			Pair p = commonTables.get(i);
@@ -38,6 +38,7 @@ public class ProgressWorker extends SwingWorker<Void, String[]> {
 			
 			publish(arr);
 			setProgress(100*(i/commonTables.size()));
+			firePropertyChange("progress", 100*(i/commonTables.size()), 100*(i/commonTables.size()));
 			
 			try {
 				data.getDiffByUUID(p, true, true);

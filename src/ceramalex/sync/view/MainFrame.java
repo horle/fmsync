@@ -321,10 +321,11 @@ public class MainFrame {
 		}else return false;
 	}
 
-	private void invokeComparisonDialog() throws SQLException {
-		comp = new ComparisonFrame(data.fetchCommonTables());
+	private void invokeComparisonDialog() {
+		
+		comp = new ComparisonFrame();
 		comp.setLocationRelativeTo(frame);
-		currComp = comp.showDialog();
+		currComp = comp.showDialog(frame);
 		
 		if (currComp == null) {
 			sqlAccess.close();
@@ -474,12 +475,7 @@ public class MainFrame {
 			@Override
 			protected void done() {
 				if (connected)
-					try {
-						invokeComparisonDialog();
-					} catch (SQLException e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
+					invokeComparisonDialog();
 			}
 		};
 		watcher.execute();
