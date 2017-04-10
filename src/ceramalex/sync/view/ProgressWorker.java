@@ -7,20 +7,19 @@ import java.util.List;
 
 import javax.swing.JLabel;
 import javax.swing.JTextArea;
+import javax.swing.ProgressMonitor;
 import javax.swing.SwingWorker;
 
 import ceramalex.sync.model.Pair;
 import ceramalex.sync.model.SQLDataModel;
 
-public class ProgressWorker extends SwingWorker<Void, String[]> {
+public class ProgressWorker extends SwingWorker<Void, String> {
 	
-	private JLabel lblCurrTab;
 	private JTextArea txtLog;
 	private SQLDataModel data;
 	
-	public ProgressWorker(JLabel lblCurrTab, JTextArea txtLog) throws IOException, SQLException{
+	public ProgressWorker(JTextArea txtLog) throws IOException, SQLException{
 		this.data = SQLDataModel.getInstance();
-		this.lblCurrTab = lblCurrTab;
 		this.txtLog = txtLog;
 	}
 	
@@ -28,33 +27,40 @@ public class ProgressWorker extends SwingWorker<Void, String[]> {
 	protected Void doInBackground() throws Exception {
 		ArrayList<Pair> commonTables = data.fetchCommonTables();
 		
-		String[] arr = {"",""};
 		setProgress(1);
 		
 		for (int i = 0; i < commonTables.size(); i++) {
-			Pair p = commonTables.get(i);
-			arr[0] = "Current table: " + p.getLeft() + " (" + (i+1) + "/" + commonTables.size() + ")";
-			arr[1] = "Fetching table " + p.getLeft() +" ...";
-			
-			publish(arr);
-			setProgress(100*(i/commonTables.size()));
-			firePropertyChange("progress", 100*(i/commonTables.size()), 100*(i/commonTables.size()));
-			
-			try {
-				data.getDiffByUUID(p, true, true);
-			} catch ( Exception e) {
-				e.printStackTrace();
-			}
+			if (!isCancelled()) {
+				Pair p = commonTables.get(i);
+				String out = "Processing table " + p.getLeft() +" ...";
+				
+				publish(out);
+				setProgress(100*(i/commonTables.size()));
+				
+				try {
+					data.getDiffByUUID(p, true, true);
+				} catch ( Exception e) {
+					e.printStackTrace();
+				}
+			} else return null;
 		}
 		return null;
 	}
 	
 	@Override
-	protected void process(List<String[]> listProgress) {
-		for (String[] arr : listProgress) {
-			lblCurrTab.setText(arr[0]);
-			txtLog.append(arr[1] + "\n");
+	protected void process(List<String> listProgress) {
+		for (String arr : listProgress) {
+//			monitor.setText(arr[0]);
+			txtLog.append(arr + "\n");
 		}
 		return;
+	}
+	
+	@Override
+	protected void done() {
+		try { get();
+		} catch (Exception e) {e.printStackTrace();
+		
+		}
 	}
 }

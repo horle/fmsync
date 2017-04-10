@@ -191,10 +191,7 @@ public class SQLDataModel {
 		// both connected?
 		if (sqlAccess.isMySQLConnected() && sqlAccess.isFMConnected()) {
 
-			ArrayList<String> commonFields = new ArrayList<String>();
-			
-			if (commonFields.isEmpty())
-				commonFields = getCommonFields(currTab);
+			ArrayList<String> commonFields = getCommonFields(currTab);
 			
 			// test, if fields are available in FM				
 			if (!commonFields.contains("ArachneEntityID")){
@@ -320,12 +317,17 @@ public class SQLDataModel {
 						for (int i = 0; i < commonFields.size(); i++) {
 							row.add(new Pair(commonFields.get(i), fNull.getString(commonFields.get(i))));
 						}
-						Vector<Pair> res = isRowOnRemote(currTab, row);
+						Vector<Pair> where = isRowOnRemote(currTab, row);
 						// already uploaded, same content, just missing CAUID? update locally ...
-						if (!res.isEmpty()) {
-							Vector<Pair> aauid = new Vector<Pair>();
-							aauid.add(new Pair("ArachneEntityID", res.get(0).getRight()));
-							result.addToUpdateList(aauid , res, true);
+						if (!where.isEmpty()) {
+							Vector<Tuple<String, Object>> set = new Vector<Tuple<String, Object>>();
+							// get AAUID
+							String aauid = where.get(0).getRight();
+							// no AAUID, but in remote DB?!
+							if (aauid == null || aauid.equals("")) throw new EntityManagementException("An entry is on remote DB but has no AUID!");
+							// setting cauid = aauid via local update list
+							set.add(new Tuple<String, Object>("ArachneEntityID", aauid));
+							result.addToUpdateList(where, set, true);
 						}
 						// nothing remotely. upload whole row and update CAUID
 						else {
@@ -568,7 +570,7 @@ public class SQLDataModel {
 	 * method checks, if row with common fields is already in remote DB
 	 * @param currTab
 	 * @param row
-	 * @return ArrayList<Tuple<String, Object>> with Pair of AAUID, TS, and PK, if row is already in remote db. empty list else.
+	 * @return Vector<Tuple<Pair, Object>> with Pair of AAUID, TS, and PK, if row is already in remote db. empty list else.
 	 * @throws SQLException
 	 * @throws IOException 
 	 */

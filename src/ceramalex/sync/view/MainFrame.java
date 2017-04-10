@@ -321,9 +321,9 @@ public class MainFrame {
 		}else return false;
 	}
 
-	private void invokeComparisonDialog() {
+	private void invokeComparisonFrame() {
 		
-		comp = new ComparisonFrame();
+		comp = new ComparisonFrame(txtLog);
 		comp.setLocationRelativeTo(frame);
 		currComp = comp.showDialog(frame);
 		
@@ -475,7 +475,7 @@ public class MainFrame {
 			@Override
 			protected void done() {
 				if (connected)
-					invokeComparisonDialog();
+					invokeComparisonFrame();
 			}
 		};
 		watcher.execute();
