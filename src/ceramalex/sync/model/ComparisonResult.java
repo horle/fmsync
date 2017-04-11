@@ -1,5 +1,6 @@
 package ceramalex.sync.model;
 
+import java.sql.ResultSet;
 import java.util.Vector;
 
 /**
@@ -9,6 +10,25 @@ import java.util.Vector;
  */
 public class ComparisonResult {
 	private Pair currTab;
+	private ResultSet fmColumns;
+	private ResultSet msColumns;
+	
+	public ResultSet getFmColumns() {
+		return fmColumns;
+	}
+
+	public void setFmColumns(ResultSet fmColumns) {
+		this.fmColumns = fmColumns;
+	}
+
+	public ResultSet getMsColumns() {
+		return msColumns;
+	}
+
+	public void setMsColumns(ResultSet msColumns) {
+		this.msColumns = msColumns;
+	}
+
 	private Vector<Integer> toDownload;
 	private Vector<Vector<Pair>> toUpload;
 	private Vector<Tuple<Integer,Integer>> toDelete;

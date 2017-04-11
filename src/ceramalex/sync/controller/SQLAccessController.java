@@ -47,7 +47,13 @@ public class SQLAccessController {
 	 */
 	private SQLAccessController() throws IOException, SQLException {
 		conf = ConfigController.getInstance();
-		connect();
+		mDataAccess = new MySQLDataAccess(conf.getMySQLURL(),
+				conf.getMySQLUser(), conf.getMySQLPassword(),
+				conf.getMySQLDB());
+		fDataAccess = new FMDataAccess(conf.getFmURL(),
+				conf.getFmUser(), conf.getFmPassword(),
+				conf.getFmDB());
+
 	}
 
 	/**
@@ -349,7 +355,7 @@ public class SQLAccessController {
 		return this.fDataAccess.getFMTablePrimaryKey(f);
 	}
 
-	public ArrayList<Integer> doFMAlter(String sql) throws SQLException, IOException {
+	public boolean doFMAlter(String sql) throws SQLException, IOException {
 		return fDataAccess.doSQLAlter(sql);
 	}
 }
