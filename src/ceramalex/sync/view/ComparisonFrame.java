@@ -88,18 +88,17 @@ public class ComparisonFrame extends JFrame {
 		container.setBorder(new EmptyBorder(5, 5, 5, 5));
 		setContentPane(container);
 		container.setLayout(new BorderLayout(0, 0));
-		loadTables();
 
 		tabs = new JTabbedPane(JTabbedPane.TOP);
 		chkTimestamp = new JRadioButton("by Timestamp");
 		chkContent = new JRadioButton("by Content");
 		btnReload = new JButton("Reload tables");
 		btnPairs = new JToggleButton("Pairs");
-		btnDownload = new JToggleButton("");
-		btnUpload = new JToggleButton("Upload");
+		btnDownload = new JToggleButton("<-");
+		btnUpload = new JToggleButton("->");
 		btnIndividuals = new JToggleButton("Individuals");
-		btnEqual = new JToggleButton("");
-		btnUnequal = new JToggleButton("");
+		btnEqual = new JToggleButton("=");
+		btnUnequal = new JToggleButton("!=");
 
 		JPanel pnlTop = new JPanel();
 		container.add(pnlTop, BorderLayout.NORTH);
@@ -112,9 +111,9 @@ public class ComparisonFrame extends JFrame {
 		pnlTop.add(pnlFilters, BorderLayout.WEST);
 		pnlFilters.setLayout(new FormLayout(new ColumnSpec[] {
 				FormFactory.RELATED_GAP_COLSPEC,
-				ColumnSpec.decode("30px"),
+				ColumnSpec.decode("45px"),
 				FormFactory.RELATED_GAP_COLSPEC,
-				ColumnSpec.decode("30px"),
+				ColumnSpec.decode("45px"),
 				FormFactory.UNRELATED_GAP_COLSPEC,
 				new ColumnSpec(ColumnSpec.FILL, Sizes.bounded(Sizes.PREFERRED,
 						Sizes.constant("50dlu", true),
@@ -218,6 +217,7 @@ public class ComparisonFrame extends JFrame {
 		container.add(tabs, BorderLayout.CENTER);
 
 		tabs.setFont(new Font("Dialog", Font.PLAIN, 12));
+		loadTables();
 	}
 
 	private void loadTables() {
@@ -361,10 +361,10 @@ public class ComparisonFrame extends JFrame {
 			e.printStackTrace();
 		}
 
-		ProgressMonitor monitor = ProgressUtil.createModalProgressMonitor(this, 100, false, 1000); 
+		ProgressMonitor monitor = ProgressUtil.createModalProgressMonitor(this, 100, false, 0); 
 				//new ProgressMonitor(null,
 				//"Comparing tables ...", "Current table: ", 0, 100);
-		monitor.start("Fetching ...");
+//		monitor.start("Fetching ...");
 
 		try {
 			worker = new ProgressWorker(txtLog) {

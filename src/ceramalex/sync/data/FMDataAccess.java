@@ -23,17 +23,18 @@ public class FMDataAccess extends AbstractDatabase {
 		return "com.filemaker.jdbc.Driver";
 	}
 	
-	public ArrayList<Integer> doSQLAlter(String sql) throws SQLException, IOException {
+	public boolean doSQLAlter(String sql) throws SQLException, IOException {
 		if (sql.toLowerCase().startsWith("alter table datierung")) {
 			ConfigController conf = ConfigController.getInstance();
-			return this.doSQLModifyViaNewConnection(sql, conf.getFmURL(), conf.getFmUser(), conf.getFmPassword(), "iDAIDatierung");
-			
+			this.doSQLModifyViaNewConnection(sql, conf.getFmURL(), conf.getFmUser(), conf.getFmPassword(), "iDAIDatierung");
+			return true;
 		} else if (sql.toLowerCase().startsWith("alter table literatur") || sql.toLowerCase().contains("alter table literaturzitat")) {
 			ConfigController conf = ConfigController.getInstance();
-			return this.doSQLModifyViaNewConnection(sql, conf.getFmURL(), conf.getFmUser(), conf.getFmPassword(), "iDAILiteratur");
-			
+			this.doSQLModifyViaNewConnection(sql, conf.getFmURL(), conf.getFmUser(), conf.getFmPassword(), "iDAILiteratur");
+			return true;
 		} else {
-			return doSQLModify(sql);
+			doSQLModify(sql);
+			return true;
 		}
 	}
 	
