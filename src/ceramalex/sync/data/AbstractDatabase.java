@@ -247,68 +247,23 @@ public abstract class AbstractDatabase {
 	}
 	
 	/**
-	 * Method returns metadata of given FM table
+	 * Method returns metadata of given table
 	 * 
 	 * @param table
 	 *            table to get the metadata from
 	 * @return ResultSet with metadata
 	 * @throws SQLException 
 	 */
-	public ResultSet getFMColumnMetaData(String table) throws SQLException {
-			DatabaseMetaData md = cn.getMetaData();
-			return md.getColumns(null, "iDAIAbstractCeramalex", table, "%");
-	}
+	public abstract ResultSet getColumnMetaData(String table) throws SQLException;
 	
 	/**
-	 * Method returns metadata of given FM table
-	 * 
-	 * @param table
-	 *            table to get the metadata from
-	 * @return ResultSet with metadata
-	 * @throws SQLException 
-	 */
-	public ResultSet getMySQLColumnMetaData(String table) throws SQLException {
-
-		DatabaseMetaData md = cn.getMetaData();
-		return md.getColumns(null, null, table, "%");
-	}
-	
-	/**
-	 * Method returns primary key of mysql table
+	 * Method returns primary key of given table
 	 * 
 	 * @return name of primary key. if not found, returns empty string
 	 * @throws SQLException 
 	 */
-	public String getMySQLTablePrimaryKey(String table) throws SQLException {
-		String result = "";
-		ResultSet md = cn.getMetaData().getPrimaryKeys(null, null, table);
-		if (md.next()) {
-			result = md.getString("COLUMN_NAME");
-		}
-		return result;
-	}
-	
-	/**
-	 * Method returns primary key of filemaker table
-	 * 
-	 * @return name of primary key for certain table. if not found, returns empty string
-	 */
-	public String getFMTablePrimaryKey(String table) {
-		String result = "";
-		
-		try {
-			ResultSet r = cn.getMetaData().getColumns(null, "iDAIAbstractCeramalex", table, "PS%");
-			if (r.next())
-				result = r.getString("COLUMN_NAME");
-			while (r.next()) { // another PS_* column?
-				result += "," + r.getString("COLUMN_NAME");
-			}
-			return result;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return result;
-		}
-	}
+	public abstract String getTablePrimaryKey(String table) throws SQLException;
+
 	
 	/**
 	 * Methode liefert die Metadaten
