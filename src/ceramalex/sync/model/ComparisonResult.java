@@ -32,9 +32,9 @@ public class ComparisonResult {
 	private Vector<Integer> toDownload;
 	private Vector<Vector<Pair>> toUpload;
 	private Vector<Tuple<Integer,Integer>> toDelete;
-	private Vector<Tuple<Vector<Pair>, Vector<Tuple<String, Object>>>> toUpdateLocally;
-	private Vector<Tuple<Vector<Pair>, Vector<Tuple<String, Object>>>> toUpdateRemotely;
-	private Vector<Tuple<Vector<Pair>, Vector<Tuple<String, Object>>>> conflict;
+	private Vector<Tuple<Vector<Pair>, Vector<Pair>>> toUpdateLocally;
+	private Vector<Tuple<Vector<Pair>, Vector<Pair>>> toUpdateRemotely;
+	private Vector<Tuple<Vector<Pair>, Vector<Pair>>> conflict;
 	
 	private Vector<Vector<String>> toDownloadView;
 	
@@ -43,9 +43,9 @@ public class ComparisonResult {
 		toDownload = new Vector<Integer>();
 		toUpload = new Vector<Vector<Pair>>();
 		toDelete = new Vector<Tuple<Integer,Integer>>();
-		toUpdateLocally = new Vector<Tuple<Vector<Pair>, Vector<Tuple<String, Object>>>>();
-		toUpdateRemotely = new Vector<Tuple<Vector<Pair>, Vector<Tuple<String, Object>>>>();
-		conflict = new Vector<Tuple<Vector<Pair>, Vector<Tuple<String, Object>>>>();
+		toUpdateLocally = new Vector<Tuple<Vector<Pair>, Vector<Pair>>>();
+		toUpdateRemotely = new Vector<Tuple<Vector<Pair>, Vector<Pair>>>();
+		conflict = new Vector<Tuple<Vector<Pair>, Vector<Pair>>>();
 		
 		toDownloadView = new Vector<Vector<String>>();
 	}
@@ -58,7 +58,7 @@ public class ComparisonResult {
 	 */
 	public boolean addToConflictList(Vector<Pair> rowFM, Vector<Pair> rowMS) {
 		Vector<Pair> row = new Vector<Pair>();
-		Vector<Tuple<String, Object>> diff = new Vector<Tuple<String, Object>>();
+		Vector<Pair> diff = new Vector<Pair>();
 		
 		for (int i = 0; i < rowFM.size(); i++) {
 			Pair f = rowFM.get(i);
@@ -67,13 +67,13 @@ public class ComparisonResult {
 				Pair m = rowMS.get(j);
 				if (!f.getRight().equals(m.getRight()))	// if diff between values
 					diff.add(
-							new Tuple<String, Object>(
+							new Pair(
 									f.getLeft(), // name of fm field
 									m.getRight() ) // value of mysql field
 						);
 			}
 		}
-		return conflict.add(new Tuple<Vector<Pair>, Vector<Tuple<String, Object>>>(row, diff));
+		return conflict.add(new Tuple<Vector<Pair>, Vector<Pair>>(row, diff));
 	}
 	
 	/**
@@ -82,8 +82,8 @@ public class ComparisonResult {
 	 * @param diffs diffs on REMOTE
 	 * @return
 	 */
-	public boolean addToConflictListDiff(Vector<Pair> row, Vector<Tuple<String, Object>> diffs) {
-		return conflict.add(new Tuple<Vector<Pair>, Vector<Tuple<String, Object>>>(row, diffs));
+	public boolean addToConflictListDiff(Vector<Pair> row, Vector<Pair> diffs) {
+		return conflict.add(new Tuple<Vector<Pair>, Vector<Pair>>(row, diffs));
 	}
 
 	/**
@@ -93,14 +93,14 @@ public class ComparisonResult {
 	 * @param local true, if local row shall be updated. false, if remote row shall be updated.
 	 * @return true, if successfully added
 	 */
-	public boolean addToUpdateList(Vector<Pair> whereList, Vector<Tuple<String, Object>> setList, boolean local) {
+	public boolean addToUpdateList(Vector<Pair> whereList, Vector<Pair> setList, boolean local) {
 		if (local)
 			return toUpdateLocally.add(
-					new Tuple<Vector<Pair>,Vector<Tuple<String, Object>>>
+					new Tuple<Vector<Pair>,Vector<Pair>>
 					(whereList, setList));
 		else
 			return toUpdateRemotely.add(
-					new Tuple<Vector<Pair>,Vector<Tuple<String, Object>>>
+					new Tuple<Vector<Pair>,Vector<Pair>>
 					(whereList, setList));
 	}
 	
@@ -155,17 +155,65 @@ public class ComparisonResult {
 	public Vector<Tuple<Integer,Integer>> getDeleteList() {
 		return toDelete;
 	}
-	public Vector<Tuple<Vector<Pair>, Vector<Tuple<String, Object>>>> getLocalUpdateList() {
+	public Vector<Tuple<Vector<Pair>, Vector<Pair>>> getLocalUpdateList() {
 		return toUpdateLocally;
 	}
-	public Vector<Tuple<Vector<Pair>, Vector<Tuple<String, Object>>>> getRemoteUpdateList() {
+	public Vector<Tuple<Vector<Pair>, Vector<Pair>>> getRemoteUpdateList() {
 		return toUpdateRemotely;
 	}
-	public Vector<Tuple<Vector<Pair>, Vector<Tuple<String, Object>>>> getConflictList() {
+	public Vector<Tuple<Vector<Pair>, Vector<Pair>>> getConflictList() {
 		return conflict;
 	}
 
 	public Pair getTableName() {
 		return currTab;
+	}
+
+	public Vector<Tuple<Vector<String>, Vector<String>>> getConflictViewList() {
+		Vector<Tuple<Vector<String>, Vector<String>>> v = new Vector<Tuple<Vector<String>, Vector<String>>>();
+		for (Tuple<Vector<Pair>, Vector<Pair>> con : conflict) {
+			Vector<String> row = new Vector<String>();
+			Vector<String> diff = new Vector<String>();
+			for (Pair p : con.getLeft()) {
+				row.add(p.getRight());
+			}
+			for (Pair p : con.getRight()) {
+				diff.add(p.getRight());
+			}
+			v.add(new Tuple<Vector<String>, Vector<String>>(row, diff));
+		}
+		return v;
+	}
+
+	public Vector<Tuple<Vector<String>, Vector<String>>> getLocalUpdateViewList() {
+		Vector<Tuple<Vector<String>, Vector<String>>> v = new Vector<Tuple<Vector<String>, Vector<String>>>();
+		for (Tuple<Vector<Pair>, Vector<Pair>> con : toUpdateLocally) {
+			Vector<String> row = new Vector<String>();
+			Vector<String> diff = new Vector<String>();
+			for (Pair p : con.getLeft()) {
+				row.add(p.getRight());
+			}
+			for (Pair p : con.getRight()) {
+				diff.add(p.getRight());
+			}
+			v.add(new Tuple<Vector<String>, Vector<String>>(row, diff));
+		}
+		return v;
+	}
+
+	public Vector<Tuple<Vector<String>, Vector<String>>> getRemoteUpdateViewList() {
+		Vector<Tuple<Vector<String>, Vector<String>>> v = new Vector<Tuple<Vector<String>, Vector<String>>>();
+		for (Tuple<Vector<Pair>, Vector<Pair>> con : toUpdateRemotely) {
+			Vector<String> row = new Vector<String>();
+			Vector<String> diff = new Vector<String>();
+			for (Pair p : con.getLeft()) {
+				row.add(p.getRight());
+			}
+			for (Pair p : con.getRight()) {
+				diff.add(p.getRight());
+			}
+			v.add(new Tuple<Vector<String>, Vector<String>>(row, diff));
+		}
+		return v;
 	}
 }

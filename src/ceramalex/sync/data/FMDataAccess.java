@@ -1,6 +1,8 @@
 package ceramalex.sync.data;
 
 import java.io.IOException;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 
@@ -16,7 +18,45 @@ public class FMDataAccess extends AbstractDatabase {
 	public FMDataAccess() throws SQLException {
 		super("","","","");
 	}
+	
+	
+	/**
+	 * Method returns primary key of filemaker table
+	 * 
+	 * @return name of primary key for certain table. if not found, returns empty string
+	 */
+	@Override
+	public String getTablePrimaryKey(String table) {
+		String result = "";
+		
+		try {
+			ResultSet r = cn.getMetaData().getColumns(null, "iDAIAbstractCeramalex", table, "PS%");
+			if (r.next())
+				result = r.getString("COLUMN_NAME");
+			while (r.next()) { // another PS_* column?
+				result += "," + r.getString("COLUMN_NAME");
+			}
+			return result;
+		} catch (SQLException e) {
+			e.printStackTrace();
+			return result;
+		}
+	}
 
+	/**
+	 * Method returns metadata of given FM table
+	 * 
+	 * @param table
+	 *            table to get the metadata from
+	 * @return ResultSet with metadata
+	 * @throws SQLException 
+	 */
+	@Override
+	public ResultSet getColumnMetaData(String table) throws SQLException {
+			DatabaseMetaData md = cn.getMetaData();
+			return md.getColumns(null, "iDAIAbstractCeramalex", table, "%");
+	}
+	
 	//-------------------------------------------------------------------------------
 	@Override
 	protected String getDriverName() {

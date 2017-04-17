@@ -7,8 +7,12 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.TimeZone;
 import java.util.Vector;
 
 import org.apache.log4j.Logger;
@@ -212,6 +216,9 @@ public class SQLDataModel {
 			ResultSet fmColumnMeta = sqlAccess.getFMColumnMetaData(currTab.getLeft());
 			ResultSet msColumnMeta = sqlAccess.getMySQLColumnMetaData(currTab.getRight());
 			
+			result.setFmColumns(fmColumnMeta);
+			result.setMsColumns(msColumnMeta);
+			
 			ArrayList<String> commonFields = getCommonFields(currTab, fmColumnMeta, msColumnMeta);
 
 			// test, if fields are available in FM
@@ -240,22 +247,15 @@ public class SQLDataModel {
 						+ ".ImportSource!='Comprehensive Table'";
 			}
 
-			String fmSQL = "SELECT " + fmFields + " FROM " + currTab.getLeft()
+			String fmSQL = "SELECT " + fmFields + ", lastRemoteTS FROM " + currTab.getLeft()
 					+ archerFMSkip;
 			String msSQL = "SELECT arachneentityidentification.ArachneEntityID, "
 					+ currTab.getRight()
-					+ ".* FROM arachneentityidentification LEFT JOIN " // left
-																		// join
-																		// includes
-																		// deleted
-																		// or
-																		// empty
-																		// UIDs
-					+ currTab.getRight()
+					+ ".* FROM arachneentityidentification"
+					// left join includes deleted or empty UIDs
+					+ " LEFT JOIN " + currTab.getRight()
 					+ " ON arachneentityidentification.ForeignKey = "
-					+ currTab.getRight()
-					+ "."
-					+ sqlAccess.getMySQLTablePrimaryKey(currTab.getRight())
+					+ currTab.getRight() + "." + sqlAccess.getMySQLTablePrimaryKey(currTab.getRight())
 					+ " WHERE arachneentityidentification.TableName=\""
 					+ currTab.getRight() + "\"" + archerMSSkip;
 
@@ -283,6 +283,8 @@ public class SQLDataModel {
 					currATS = mNotNull.getTimestamp("lastModified");
 					currCTS = fNotNull.getTimestamp("lastModified");
 					currLRTS = fNotNull.getTimestamp("lastRemoteTS");
+					
+					ZonedDateTime utc = ZonedDateTime.of(currATS.toLocalDateTime(), ZoneOffset.UTC);
 
 					// missing entry in regular table, but entry in entity
 					// management! bug in db!
@@ -305,6 +307,7 @@ public class SQLDataModel {
 						}
 						// local after remote, remote did not change: SAFE
 						// UPLOAD
+						
 						if (currCTS.after(currATS) && currATS.equals(currLRTS)) {
 							Vector<Pair> row = new Vector<Pair>();
 							for (int l = 0; l < commonFields.size(); l++) {
@@ -364,23 +367,27 @@ public class SQLDataModel {
 							
 							row.add(new Pair(commonFields.get(i), fNull
 									.getString(commonFields.get(i))));
-							System.out.println(new Pair(commonFields.get(i), fNull
-									.getString(commonFields.get(i))));
 						}
 						Vector<Pair> where = isRowOnRemote(currTab, row);
 						// already uploaded, same content, just missing CAUID?
 						// update locally ...
 						if (!where.isEmpty()) {
-							Vector<Tuple<String, Object>> set = new Vector<Tuple<String, Object>>();
+							Vector<Pair> set = new Vector<Pair>();
 							// get AAUID
-							String aauid = where.get(0).getRight();
+							Pair aauid = where.get(0);
+							Pair lastModified = where.get(1);
 							// no AAUID, but in remote DB?!
-							if (aauid == null || aauid.equals(""))
+							if (aauid.getRight() == null || aauid.getRight().equals(""))
 								throw new EntityManagementException(
 										"An entry is on remote DB but has no AUID!");
 							// setting cauid = aauid via local update list
-							set.add(new Tuple<String, Object>(
-									"ArachneEntityID", aauid));
+							where.remove(aauid);
+							set.add(new Pair(
+									"ArachneEntityID", aauid.getRight()));
+							// content is equal to remote. so overwrite local TS with remote
+							where.remove(lastModified);
+							set.add(new Pair(
+									"lastModified", lastModified.getRight()));
 							result.addToUpdateList(where, set, true);
 						}
 						// nothing remotely. upload whole row and update CAUID
@@ -466,7 +473,7 @@ public class SQLDataModel {
 									int msKeyVal = mNull.getInt(msKeyName);
 
 									if (fmKeyVal == msKeyVal
-											&& !updateLocalUID(currTab,
+											&& !updateLocalUIDAndTS(currTab,
 													currAAUID, currArachneTS,
 													fmKeyName, fmKeyVal))
 										throw new SQLException(
@@ -703,17 +710,11 @@ public class SQLDataModel {
 		}
 		String pk = sqlAccess.getMySQLTablePrimaryKey(currTab.getRight());
 		String sql = "SELECT arachneentityidentification.ArachneEntityID, "
-				+ currTab.getRight()
-				+ ".lastModified, "
-				+ currTab.getRight()
-				+ "."
-				+ pk
-				+ " FROM arachneentityidentification LEFT JOIN " // left join
-																	// includes
-																	// deleted
-																	// or empty
-																	// UIDs
-				+ currTab.getRight()
+				+ "CONVERT_TZ(" + currTab.getRight() + ".`lastModified`, @@session.time_zone, '+00:00') as lastModified, "
+				+ currTab.getRight() + "." + pk
+				+ " FROM arachneentityidentification"
+				// left join includes deleted or empty UIDs
+				+ " LEFT JOIN " + currTab.getRight()
 				+ " ON arachneentityidentification.ForeignKey = "
 				+ currTab.getRight() + "." + pk
 				+ " WHERE arachneentityidentification.TableName=\""
@@ -723,7 +724,7 @@ public class SQLDataModel {
 			// pair of key-value
 			Pair p = row.get(i);
 			
-			if (p.getLeft().equals(pk) || p.getLeft().equals("ArachneEntityID")
+			if ( p.getLeft().equals("ArachneEntityID")
 					|| p.getLeft().equals("lastModified"))
 				continue;
 			
@@ -748,10 +749,10 @@ public class SQLDataModel {
 		Vector<Pair> result = new Vector<Pair>();
 		while (r.next()) {
 			result.add(new Pair("ArachneEntityID", r.getString(1))); // aauid
-			String t = r.getTimestamp(2) == null ? null : r.getTimestamp(2)
+			String t = r.getTimestamp("lastModified") == null ? null : r.getTimestamp("lastModified")
 					.toLocalDateTime().format(formatTS);
 			result.add(new Pair("lastModified", t)); // lastmodified
-			result.add(new Pair(pk, r.getString(3))); // pk value
+			result.add(new Pair(pk, r.getString(pk))); // pk value
 		}
 		return result;
 	}
@@ -864,24 +865,26 @@ public class SQLDataModel {
 		// update local AUIDs
 		ArrayList<Integer> localIDs = sqlAccess.doMySQLInsert(sql + vals);
 		ArrayList<Integer> result = new ArrayList<Integer>();
-		String key = sqlAccess.getFMTablePrimaryKey(currTab.getLeft());
+		String keyField = sqlAccess.getFMTablePrimaryKey(currTab.getLeft());
 
+		// get remote AUID and TS
 		for (int i = 0; i < localIDs.size(); i++) {
-			ResultSet id = sqlAccess.doMySQLQuery("select ArachneEntityID,"
-					+ key + ", lastModified"
-					+ " from arachneentityidentification right join "
-					+ currTab.getRight()
-					+ " on arachneentityidentification.ForeignKey="
-					+ currTab.getRight() + "." + key
-					+ " AND arachneentityidentification.TableName='"
-					+ currTab.getRight() + "'" + " WHERE "+currTab.getRight()+"."+key+"="
-					+ localIDs.get(i) + ";");
+			ResultSet id = sqlAccess.doMySQLQuery("SELECT arachneentityidentification.ArachneEntityID,"
+						+ currTab.getLeft() + "." + keyField + ","
+						+ "CONVERT_TZ(" + currTab.getRight() + ".`lastModified`, @@session.time_zone, '+00:00') as lastModified "
+						+ " FROM arachneentityidentification RIGHT JOIN "
+						+ currTab.getRight()
+						+ " ON arachneentityidentification.ForeignKey="
+						+ currTab.getRight() + "." + keyField
+						+ " AND arachneentityidentification.TableName='"
+						+ currTab.getRight() + "'" + " WHERE "+currTab.getRight()+"."+keyField+"="
+						+ localIDs.get(i) + ";");
 			if (id.next()) {
-				int aauid = id.getInt(1);
-				if (!updateLocalUID(currTab, aauid, id.getTimestamp(2)
-						.toLocalDateTime(), key, localIDs.get(i)))
+				int aauid = id.getInt("ArachneEntityID");
+				if (!updateLocalUIDAndTS(currTab, aauid, id.getTimestamp("lastModified")
+						.toLocalDateTime(), keyField, localIDs.get(i)))
 					throw new EntityManagementException("Updating local AUID "
-							+ id.getInt(1) + " in table " + currTab.getLeft()
+							+ id.getInt(1) + " and timestamp in table " + currTab.getLeft()
 							+ " FAILED!");
 				else {
 					logger.debug("Updated local AUID " + id.getInt(1)
@@ -889,7 +892,9 @@ public class SQLDataModel {
 							+ " after upload.");
 					result.add(aauid);
 				}
-			}
+			} else 
+				throw new EntityManagementException("Updating local AUID and timestamp in table " + currTab.getLeft()
+					+ " FAILED!");
 		}
 
 		return result;
@@ -900,15 +905,17 @@ public class SQLDataModel {
 				.replace("%", "\\%");
 	}
 
-	private boolean updateLocalUID(Pair currTab, int currAAUID,
+	private boolean updateLocalUIDAndTS(Pair currTab, int currAAUID,
 			LocalDateTime currArachneTS, String pkName, int pkVal)
 			throws SQLException {
+		
 
 		// locate row by local ID
 		if (sqlAccess.doFMUpdate("UPDATE \"" + currTab.getLeft()
 				+ "\" SET ArachneEntityID=" + currAAUID
-				+ ", lastModified={ts '" + currArachneTS.format(formatTS)
-				+ "'}" + " WHERE " + pkName + "=" + pkVal) != null) {
+				+ ", lastModified={ts '" + currArachneTS.format(formatTS) + "'}"
+				+ ", lastRemoteTS={ts '" + currArachneTS.format(formatTS) + "'}"
+				+ " WHERE " + pkName + "=" + pkVal) != null) {
 			logger.debug("Added Arachne UID " + currAAUID
 					+ " and TS to local entry with ID " + pkVal + ".");
 			return true;
@@ -1151,6 +1158,39 @@ public class SQLDataModel {
 							System.out.println();
 						}
 					}
+					if (!result.getLocalUpdateList().isEmpty()) {
+						System.out.println("printing LOCAL UPDATE list:");
+						for (Tuple<Vector<Pair>, Vector<Pair>> r : result.getLocalUpdateList()) {
+							System.out.println("row "+i+" IDENTIFIED by:");
+							for (Pair d : r.getLeft()) {
+								System.out.print(d.getLeft() + ":"
+										+ d.getRight() + ", ");
+							}
+							System.out.println();
+							System.out.println("CHANGES in: ");
+							for (Pair d : r.getRight()) {
+								System.out.print(d.getLeft() + ":"
+										+ d.getRight() + ", ");
+							}
+							System.out.println();
+						}
+					}
+					if (!result.getRemoteUpdateList().isEmpty()) {
+						System.out.println("printing REMOTE UPDATE list:");
+						for (Tuple<Vector<Pair>, Vector<Pair>> r : result.getRemoteUpdateList()) {
+							for (Pair d : r.getLeft()) {
+								System.out.print(d.getLeft() + ":"
+										+ d.getRight() + ", ");
+							}
+							System.out.println();
+							System.out.println("changes in: ");
+							for (Pair d : r.getRight()) {
+								System.out.print(d.getLeft() + ":"
+										+ d.getRight() + ", ");
+							}
+							System.out.println();
+						}
+					}
 					if (!result.getUploadList().isEmpty()) {
 						System.out.println("printing UPLOAD list:");
 						for (Vector<Pair> r : result.getUploadList()) {
@@ -1163,15 +1203,14 @@ public class SQLDataModel {
 					}
 					if (!result.getConflictList().isEmpty()) {
 						System.out.println("printing CONFLICT list:");
-						for (Tuple<Vector<Pair>, Vector<Tuple<String, Object>>> r : result
-								.getConflictList()) {
+						for (Tuple<Vector<Pair>, Vector<Pair>> r : result.getConflictList()) {
 							for (Pair d : r.getLeft()) {
 								System.out.print(d.getLeft() + ":"
 										+ d.getRight() + ", ");
 							}
 							System.out.println();
 							System.out.println("changes in: ");
-							for (Tuple<String, Object> d : r.getRight()) {
+							for (Pair d : r.getRight()) {
 								System.out.print(d.getLeft() + ":"
 										+ d.getRight() + ", ");
 							}
@@ -1185,11 +1224,12 @@ public class SQLDataModel {
 					logger.info("Processed table " + commonTables.get(i)
 							+ " without errors.");
 				} catch (Exception e) {
+					e.printStackTrace();
 					logger.error(commonTables.get(i) + ": " + e);
 					System.out.println("Error!");
 				}
 			}
-			System.out.println("Exit.");
+			System.out.println("\n Exit.");
 		} catch (Exception e) {
 			System.err.println("ERROR: " + e);
 			logger.error(e);

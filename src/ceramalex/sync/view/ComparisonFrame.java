@@ -67,7 +67,6 @@ public class ComparisonFrame extends JFrame {
 	private JToggleButton btnDownload;
 	private JToggleButton btnUpload;
 	private JToggleButton btnIndividuals;
-	private JToggleButton btnEqual;
 	private JToggleButton btnUnequal;
 	// private ProgressMonitor monitor;
 	private ProgressWorker worker;
@@ -97,7 +96,6 @@ public class ComparisonFrame extends JFrame {
 		btnDownload = new JToggleButton("<-");
 		btnUpload = new JToggleButton("->");
 		btnIndividuals = new JToggleButton("Individuals");
-		btnEqual = new JToggleButton("=");
 		btnUnequal = new JToggleButton("!=");
 
 		JPanel pnlTop = new JPanel();
@@ -126,10 +124,6 @@ public class ComparisonFrame extends JFrame {
 		btnUnequal.setSelected(true);
 		btnUnequal.setFont(new Font("Dialog", Font.PLAIN, 12));
 		pnlFilters.add(btnUnequal, "2, 2, default, fill");
-
-		btnEqual.setSelected(false);
-		btnEqual.setFont(new Font("Dialog", Font.PLAIN, 12));
-		pnlFilters.add(btnEqual, "4, 2, default, fill");
 
 		btnIndividuals.setSelected(true);
 		btnIndividuals.setFont(new Font("Dialog", Font.PLAIN, 12));
@@ -237,7 +231,7 @@ public class ComparisonFrame extends JFrame {
 			Pair p = comp.getTableName();
 			ArrayList<String> commonFields = null;
 			try {
-				commonFields = data.getCommonFields(p);
+				commonFields = data.getCommonFields(p, comp.getFmColumns(), comp.getMsColumns());
 			} catch (SQLException e) {
 				JOptionPane
 						.showMessageDialog(
@@ -248,12 +242,12 @@ public class ComparisonFrame extends JFrame {
 				dispose();
 			}
 
-			Vector<Tuple<Vector<Pair>, Vector<Tuple<String, Object>>>> conflict = comp
-					.getConflictList();
-			Vector<Tuple<Vector<Pair>, Vector<Tuple<String, Object>>>> updateLocally = comp
-					.getLocalUpdateList();
-			Vector<Tuple<Vector<Pair>, Vector<Tuple<String, Object>>>> updateRemotely = comp
-					.getRemoteUpdateList();
+			Vector<Tuple<Vector<String>, Vector<String>>> conflict = comp
+					.getConflictViewList();
+			Vector<Tuple<Vector<String>, Vector<String>>> updateLocally = comp
+					.getLocalUpdateViewList();
+			Vector<Tuple<Vector<String>, Vector<String>>> updateRemotely = comp
+					.getRemoteUpdateViewList();
 			Vector<Tuple<Integer, Integer>> delete = comp.getDeleteList();
 			Vector<Vector<String>> download = comp.getDownloadViewList();
 			Vector<Vector<String>> upload = comp.getUploadViewList();
@@ -304,12 +298,20 @@ public class ComparisonFrame extends JFrame {
 
 			m1.setColumnIdentifiers(header);
 			m2.setColumnIdentifiers(header);
-
+			
 			if (btnUnequal.isSelected()) {
 				if (btnPairs.isSelected()) {
 					for (int j = 0; j < conflict.size(); j++) {
 						m1.addRow(conflict.get(j).getLeft());
 						m2.addRow(conflict.get(j).getRight());
+					}
+					for (int j = 0; j < updateLocally.size(); j++) {
+						m1.addRow(updateLocally.get(j).getLeft());
+						m2.addRow(updateLocally.get(j).getRight());
+					}
+					for (int j = 0; j < updateRemotely.size(); j++) {
+						m1.addRow(updateRemotely.get(j).getLeft());
+						m2.addRow(updateRemotely.get(j).getRight());
 					}
 				}
 				if (btnIndividuals.isSelected()) {
@@ -370,7 +372,6 @@ public class ComparisonFrame extends JFrame {
 			worker = new ProgressWorker(txtLog) {
 				@Override
 				protected void done() {
-					System.out.println("process done");
 					initialize();
 				}
 			};

@@ -226,7 +226,7 @@ public class MainFrame {
 		mnHelp.setFont(new Font("Dialog", Font.PLAIN, 12));
 		menuBar.add(mnHelp);
 
-		JMenuItem mntmOpenHelpDocument = new JMenuItem("FrameStatus.open() Help Document");
+		JMenuItem mntmOpenHelpDocument = new JMenuItem("Online Help Document");
 		mntmOpenHelpDocument.setFont(new Font("Dialog", Font.PLAIN, 12));
 		mnHelp.add(mntmOpenHelpDocument);
 

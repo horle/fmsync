@@ -110,7 +110,7 @@ public class SQLAccessController {
 	 * @throws SQLException
 	 */
 	public String getMySQLTablePrimaryKey(String table) throws SQLException {
-		return this.mDataAccess.getMySQLTablePrimaryKey(table);
+		return this.mDataAccess.getTablePrimaryKey(table);
 	}
 
 	/**
@@ -314,7 +314,7 @@ public class SQLAccessController {
 	private HashSet<String> getFMNumericFields(String table)
 			throws SQLException {
 		HashSet<String> list = new HashSet<String>();
-		ResultSet s = this.fDataAccess.getFMColumnMetaData(table);
+		ResultSet s = this.fDataAccess.getColumnMetaData(table);
 		while (s.next()) {
 			if (s.getInt(5) == java.sql.Types.DOUBLE
 					&& !s.getString(4).startsWith("["))
@@ -334,7 +334,7 @@ public class SQLAccessController {
 	private HashSet<String> getFMTimestampFields(String table)
 			throws SQLException {
 		HashSet<String> list = new HashSet<String>();
-		ResultSet s = this.fDataAccess.getFMColumnMetaData(table);
+		ResultSet s = this.fDataAccess.getColumnMetaData(table);
 		while (s.next()) {
 			if (s.getInt(5) == java.sql.Types.TIMESTAMP
 					&& !s.getString(4).startsWith("["))
@@ -344,15 +344,15 @@ public class SQLAccessController {
 	}
 
 	public ResultSet getFMColumnMetaData(String f) throws SQLException {
-		return this.fDataAccess.getFMColumnMetaData(f);
+		return this.fDataAccess.getColumnMetaData(f);
 	}
 
 	public ResultSet getMySQLColumnMetaData(String m) throws SQLException {
-		return this.mDataAccess.getMySQLColumnMetaData(m);
+		return this.mDataAccess.getColumnMetaData(m);
 	}
 
 	public String getFMTablePrimaryKey(String f) {
-		return this.fDataAccess.getFMTablePrimaryKey(f);
+		return this.fDataAccess.getTablePrimaryKey(f);
 	}
 
 	public boolean doFMAlter(String sql) throws SQLException, IOException {
