@@ -299,17 +299,22 @@ public class ComparisonFrame extends JFrame {
 			m1.setColumnIdentifiers(header);
 			m2.setColumnIdentifiers(header);
 			
+			boolean notEmpty = false;
+			
 			if (btnUnequal.isSelected()) {
 				if (btnPairs.isSelected()) {
 					for (int j = 0; j < conflict.size(); j++) {
+						notEmpty = true;
 						m1.addRow(conflict.get(j).getLeft());
 						m2.addRow(conflict.get(j).getRight());
 					}
 					for (int j = 0; j < updateLocally.size(); j++) {
+						notEmpty = true;
 						m1.addRow(updateLocally.get(j).getLeft());
 						m2.addRow(updateLocally.get(j).getRight());
 					}
 					for (int j = 0; j < updateRemotely.size(); j++) {
+						notEmpty = true;
 						m1.addRow(updateRemotely.get(j).getLeft());
 						m2.addRow(updateRemotely.get(j).getRight());
 					}
@@ -317,12 +322,14 @@ public class ComparisonFrame extends JFrame {
 				if (btnIndividuals.isSelected()) {
 					if (btnUpload.isSelected()) {
 						for (int j = 0; j < upload.size(); j++) {
+							notEmpty = true;
 							m1.addRow(upload.get(j));
 							m2.addRow(new String[] {});
 						}
 					}
 					if (btnDownload.isSelected()) {
 						for (int j = 0; j < download.size(); j++) {
+							notEmpty = true;
 							m2.addRow(download.get(j));
 							m1.addRow(new String[] {});
 						}
@@ -333,7 +340,8 @@ public class ComparisonFrame extends JFrame {
 			table1.setModel(m1);
 			table2.setModel(m2);
 
-			tabs.addTab(p.getLeft(), null, outerScroll, p.toString());
+			if (notEmpty)
+				tabs.addTab(p.getLeft(), null, outerScroll, p.toString());
 		}
 	}
 
