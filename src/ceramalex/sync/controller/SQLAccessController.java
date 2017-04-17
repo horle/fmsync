@@ -297,7 +297,7 @@ public class SQLAccessController {
 			}
 		}
 		mysql.close();
-		list.add("*.lastModified");
+		list.add("lastModified");
 		logger.debug("New common timestamp field: *.lastModified");
 		conf.setTimestampFields(list);
 		return list;

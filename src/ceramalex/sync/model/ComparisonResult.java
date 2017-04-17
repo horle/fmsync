@@ -29,7 +29,7 @@ public class ComparisonResult {
 		this.msColumns = msColumns;
 	}
 
-	private Vector<Integer> toDownload;
+	private Vector<Vector<Pair>> toDownload;
 	private Vector<Vector<Pair>> toUpload;
 	private Vector<Tuple<Integer,Integer>> toDelete;
 	private Vector<Tuple<Vector<Pair>, Vector<Pair>>> toUpdateLocally;
@@ -40,7 +40,7 @@ public class ComparisonResult {
 	
 	public ComparisonResult(Pair table) {
 		currTab = table;
-		toDownload = new Vector<Integer>();
+		toDownload = new Vector<Vector<Pair>>();
 		toUpload = new Vector<Vector<Pair>>();
 		toDelete = new Vector<Tuple<Integer,Integer>>();
 		toUpdateLocally = new Vector<Tuple<Vector<Pair>, Vector<Pair>>>();
@@ -119,8 +119,12 @@ public class ComparisonResult {
 	 * @param aauid AAUID in arachne that has to be downloaded
 	 * @return true, if successfully added
 	 */
-	public boolean addAAUIDToDownloadList(int aauid) {
-		return toDownload.add(aauid);
+//	public boolean addAAUIDToDownloadList(int aauid) {
+//		return toDownload.add(aauid);
+//	}
+
+	public void addRowToDownloadList(Vector<Pair> row) {
+		toDownload.add(row);
 	}
 	
 	/**
@@ -132,11 +136,19 @@ public class ComparisonResult {
 		return toUpload.add(row);
 	}
 	
-	public Vector<Integer> getDownloadList() {
+	public Vector<Vector<Pair>> getDownloadList() {
 		return toDownload;
 	}
 	public Vector<Vector<String>> getDownloadViewList() {
-		return toDownloadView;
+		Vector<Vector<String>> v = new Vector<Vector<String>>();
+		for (Vector<Pair> u : toDownload) {
+			Vector<String> s = new Vector<String>();
+			for (Pair p : u) {
+				s.add(p.getRight());
+			}
+			v.add(s);
+		}
+		return v;
 	}
 	public Vector<Vector<Pair>> getUploadList() {
 		return toUpload;
@@ -187,32 +199,56 @@ public class ComparisonResult {
 
 	public Vector<Tuple<Vector<String>, Vector<String>>> getLocalUpdateViewList() {
 		Vector<Tuple<Vector<String>, Vector<String>>> v = new Vector<Tuple<Vector<String>, Vector<String>>>();
-		for (Tuple<Vector<Pair>, Vector<Pair>> con : toUpdateLocally) {
-			Vector<String> row = new Vector<String>();
-			Vector<String> diff = new Vector<String>();
-			for (Pair p : con.getLeft()) {
-				row.add(p.getRight());
+		for (Tuple<Vector<Pair>, Vector<Pair>> input : toUpdateLocally) {
+			Vector<String> row1 = new Vector<String>();
+			Vector<String> row2 = new Vector<String>();
+			// fill both rows
+			for (Pair attr : input.getLeft()) {
+				if (attr.getRight() == null) attr.setRight("");
+				row1.add(attr.getRight());
+				row2.add(attr.getRight());
 			}
-			for (Pair p : con.getRight()) {
-				diff.add(p.getRight());
+			// change fields that differ
+			for (Pair diffs : input.getRight()) {
+				for (int i = 0; i < input.getLeft().size(); i++) {
+					Pair attr = input.getLeft().get(i);
+					if (attr.getLeft().equalsIgnoreCase(diffs.getLeft())) {
+						if (diffs.getRight() == null) diffs.setRight("");
+						row2.set(i, diffs.getRight());
+					}
+				}
 			}
-			v.add(new Tuple<Vector<String>, Vector<String>>(row, diff));
+			v.add(new Tuple<Vector<String>, Vector<String>>(row1, row2));
 		}
 		return v;
 	}
 
+	/**
+	 * calcs two rows from update diff lists
+	 * @return
+	 */
 	public Vector<Tuple<Vector<String>, Vector<String>>> getRemoteUpdateViewList() {
 		Vector<Tuple<Vector<String>, Vector<String>>> v = new Vector<Tuple<Vector<String>, Vector<String>>>();
-		for (Tuple<Vector<Pair>, Vector<Pair>> con : toUpdateRemotely) {
-			Vector<String> row = new Vector<String>();
-			Vector<String> diff = new Vector<String>();
-			for (Pair p : con.getLeft()) {
-				row.add(p.getRight());
+		for (Tuple<Vector<Pair>, Vector<Pair>> input : toUpdateRemotely) {
+			Vector<String> row1 = new Vector<String>();
+			Vector<String> row2 = new Vector<String>();
+			// fill both rows
+			for (Pair attr : input.getLeft()) {
+				if (attr.getRight() == null) attr.setRight("");
+				row1.add(attr.getRight());
+				row2.add(attr.getRight());
 			}
-			for (Pair p : con.getRight()) {
-				diff.add(p.getRight());
+			// change fields that differ
+			for (Pair diffs : input.getRight()) {
+				for (int i = 0; i < input.getLeft().size(); i++) {
+					Pair attr = input.getLeft().get(i);
+					if (attr.getLeft().equalsIgnoreCase(diffs.getLeft())) {
+						if (diffs.getRight() == null) diffs.setRight("");
+						row2.set(i, diffs.getRight());
+					}
+				}
 			}
-			v.add(new Tuple<Vector<String>, Vector<String>>(row, diff));
+			v.add(new Tuple<Vector<String>, Vector<String>>(row1, row2));
 		}
 		return v;
 	}
