@@ -30,7 +30,7 @@ public class FMDataAccess extends AbstractDatabase {
 		String result = "";
 		
 		try {
-			ResultSet r = cn.getMetaData().getColumns(null, "iDAIAbstractCeramalex", table, "PS%");
+			ResultSet r = cn.getMetaData().getColumns(null, serverDataSource, table, "PS%");
 			if (r.next())
 				result = r.getString("COLUMN_NAME");
 			while (r.next()) { // another PS_* column?
@@ -54,7 +54,7 @@ public class FMDataAccess extends AbstractDatabase {
 	@Override
 	public ResultSet getColumnMetaData(String table) throws SQLException {
 			DatabaseMetaData md = cn.getMetaData();
-			return md.getColumns(null, "iDAIAbstractCeramalex", table, "%");
+			return md.getColumns(null, serverDataSource, table, "%");
 	}
 	
 	//-------------------------------------------------------------------------------
@@ -83,7 +83,7 @@ public class FMDataAccess extends AbstractDatabase {
 	protected String getConnectionURL(String url, String user, String pwd,
 			String serverDataSource) {
 		
-		// Filemaker 10 trennt die Parameter mittels ";", Filemaker 11 verwendet "&"
+		// Filemaker 10 trennt die Parameter mittels ";", Filemaker 11+ verwendet "&"
 		String resultURL = url;
 		resultURL += "/"+ serverDataSource;
 		resultURL += "?user="+ user; 
