@@ -23,7 +23,9 @@ import org.apache.log4j.Logger;
 
 public abstract class AbstractDatabase {
 	
-	private String dbURL, user, pwd, serverDataSource;
+	private String dbURL, user, pwd;
+
+	protected String serverDataSource;
 
 	/** Logging-Instanz */
 	protected static Logger logger = Logger.getLogger(AbstractDatabase.class);

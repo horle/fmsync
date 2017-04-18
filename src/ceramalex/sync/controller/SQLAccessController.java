@@ -225,34 +225,42 @@ public class SQLAccessController {
 	 * fetch all fields (in all tables) with type "numeric" (i.e. double for FM)
 	 * from FM and MySQL
 	 * 
-	 * @param result
+	 * @param commonTables
 	 *            all common tables
 	 * @return set (without duplicates) of numeric fields
 	 * @throws SQLException
 	 * @throws IOException 
 	 */
-	public HashSet<String> fetchNumericFields(ArrayList<Pair> result)
+	public HashSet<String> fetchNumericFields(ArrayList<Pair> commonTables)
 			throws SQLException {
 		HashSet<String> list = new HashSet<String>();
+		ArrayList<String> fm = new ArrayList<String>();
+		String sqlCommonTables = "AND (";
+		
+		for (int i = 0; i < commonTables.size(); i++) {
+			list.add(commonTables.get(i).getLeft() + ".ArachneEntityID");
+			fm.addAll(getFMNumericFields(commonTables.get(i).getLeft()));
+			sqlCommonTables += "TABLE_NAME = '" + commonTables.get(i).getRight() + "'";
+			if (i < commonTables.size()-1) sqlCommonTables += " OR ";
+		}
+		sqlCommonTables += ") ";
+		
 		ResultSet mysql = this.mDataAccess
 				.doSQLQuery("SELECT COLUMN_NAME, TABLE_NAME "
 						+ "FROM information_schema.COLUMNS "
-						+ "WHERE TABLE_SCHEMA='ceramalex' "
-						+ "AND DATA_TYPE IN ('int','bigint','smallint','mediumint','tinyint','float','numeric') "
-						+ "GROUP BY COLUMN_NAME");
-		ArrayList<String> fm = new ArrayList<String>();
-
-		for (int i = 0; i < result.size(); i++) {
-			fm.addAll(this.getFMNumericFields(result.get(i).getLeft()));
-		}
-
+						+ "WHERE TABLE_SCHEMA='"+conf.getMySQLDB()+"' "
+						+ sqlCommonTables
+						+ "AND DATA_TYPE IN ('int','bigint','smallint','mediumint','tinyint','float','numeric')");
+		
 		// get common numeric fields
 		while (mysql.next()) {
+			String bla = (mysql.getString(2)+"."+mysql.getString(1));
 			for (int i = 0; i < fm.size(); i++) {
-				String bla = (mysql.getString(2)+"."+mysql.getString(1));
-				if (bla.equalsIgnoreCase(fm.get(i))) {
-					list.add(fm.get(i));
-					logger.debug("New common numeric field: "+fm.get(i));
+				String fmField = fm.get(i);
+				if (bla.equalsIgnoreCase(fmField)) {
+					list.add(fmField);
+					logger.debug("New common numeric field: "+fmField);
+					break;
 				}
 			}
 		}
@@ -274,31 +282,36 @@ public class SQLAccessController {
 	public HashSet<String> fetchTimestampFields(ArrayList<Pair> commonTables)
 			throws SQLException {
 		HashSet<String> list = new HashSet<String>();
+		ArrayList<String> fm = new ArrayList<String>();
+		String sqlCommonTables = "AND (";
+
+		for (int i = 0; i < commonTables.size(); i++) {
+			fm.addAll(getFMTimestampFields(commonTables.get(i).getLeft()));
+			sqlCommonTables += "TABLE_NAME = '" + commonTables.get(i).getRight() + "'";
+			if (i < commonTables.size()-1) sqlCommonTables += " OR ";
+		}
+		sqlCommonTables += ") ";
+		
 		ResultSet mysql = this.mDataAccess
 				.doSQLQuery("SELECT COLUMN_NAME, TABLE_NAME "
 						+ "FROM information_schema.COLUMNS "
-						+ "WHERE TABLE_SCHEMA='ceramalex' "
-						+ "AND DATA_TYPE IN ('timestamp','date','datetime') "
-						+ "GROUP BY COLUMN_NAME");
-		ArrayList<String> fm = new ArrayList<String>();
-
-		for (int i = 0; i < commonTables.size(); i++) {
-			fm.addAll(this.getFMTimestampFields(commonTables.get(i).getLeft()));
-		}
-
+						+ "WHERE TABLE_SCHEMA='"+conf.getMySQLDB()+"' "
+						+ sqlCommonTables
+						+ "AND DATA_TYPE IN ('timestamp','date','datetime')");
+		
 		// get common timestamp fields
 		while (mysql.next()) {
+			String bla = (mysql.getString(2)+"."+mysql.getString(1));
 			for (int i = 0; i < fm.size(); i++) {
-				String bla = (mysql.getString(2)+"."+mysql.getString(1));
-				if (bla.equalsIgnoreCase(fm.get(i))) {
-					list.add(fm.get(i));
-					logger.debug("New common timestamp field: "+fm.get(i));
+				String fmField = fm.get(i);
+				if (bla.equalsIgnoreCase(fmField)) {
+					list.add(fmField);
+					logger.debug("New common timestamp field: "+fmField);
+					break;
 				}
 			}
 		}
 		mysql.close();
-		list.add("lastModified");
-		logger.debug("New common timestamp field: *.lastModified");
 		conf.setTimestampFields(list);
 		return list;
 	}
