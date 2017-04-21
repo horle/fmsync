@@ -1,6 +1,7 @@
 package ceramalex.sync.model;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Vector;
 
 import org.apache.log4j.Logger;
@@ -29,9 +30,9 @@ public class TestClass {
 					 */
 					if (!result.getDownloadList().isEmpty()) {
 						System.out.println("printing DOWNLOAD list:");
-						for (Vector<String> r : result.getDownloadViewList()) {
-							for (String d : r) {
-								System.out.print(d + ", ");
+						for (HashMap<String, String> r : result.getDownloadList()) {
+							for (String key : r.keySet()) {
+								System.out.print(key + ":"+r.get(key)+", ");
 							}
 							System.out.println();
 						}
@@ -39,38 +40,38 @@ public class TestClass {
 					}
 					if (!result.getLocalUpdateList().isEmpty()) {
 						System.out.println("printing LOCAL UPDATE list:");
-						for (Tuple<Vector<String>, Vector<String>> r : result.getLocalUpdateViewList()) {
+						for (Tuple<HashMap<String, String>, HashMap<String, String>> r : result.getLocalUpdateList()) {
 							System.out.println("Row local:");
-							for (String d : r.getLeft()) {
-								System.out.print(d+ ", ");
+							for (String key : r.getLeft().keySet()) {
+								System.out.print(key+ ":"+r.getLeft().get(key)+", ");
 							}
 							System.out.println();
-							System.out.println("Row remote: ");
-							for (String d : r.getRight()) {
-								System.out.print(d+ ", ");
+							System.out.println("Row DIFFS: ");
+							for (String key : r.getRight().keySet()) {
+								System.out.print(key+ ":"+r.getRight().get(key)+", ");
 							}
 							System.out.println();
 						}
 					}
 					if (!result.getRemoteUpdateList().isEmpty()) {
 						System.out.println("printing REMOTE UPDATE list:");
-						for (Tuple<Vector<String>, Vector<String>> r : result.getRemoteUpdateViewList()) {
-							for (String d : r.getLeft()) {
-								System.out.print(d+ ", ");
+						for (Tuple<HashMap<String, String>, HashMap<String, String>> r : result.getRemoteUpdateList()) {
+							for (String key : r.getLeft().keySet()) {
+								System.out.print(key+ ":"+r.getLeft().get(key)+", ");
 							}
 							System.out.println();
 							System.out.println("changes in: ");
-							for (String d : r.getRight()) {
-								System.out.print(d+ ", ");
+							for (String key : r.getRight().keySet()) {
+								System.out.print(key+ ":"+r.getRight().get(key));
 							}
 							System.out.println();
 						}
 					}
 					if (!result.getUploadList().isEmpty()) {
 						System.out.println("printing UPLOAD list:");
-						for (Vector<Pair> r : result.getUploadList()) {
-							for (Pair d : r) {
-								System.out.print(d.getLeft() + ": " + d.getRight() + ", ");
+						for (HashMap<String, String> row : result.getUploadList()) {
+							for (String key : row.keySet()) {
+								System.out.print(key + ": " + row.get(key) + ", ");
 							}
 							System.out.println();
 						}
@@ -78,16 +79,16 @@ public class TestClass {
 					}
 					if (!result.getConflictList().isEmpty()) {
 						System.out.println("printing CONFLICT list:");
-						for (Tuple<Vector<Pair>, Vector<Pair>> r : result.getConflictList()) {
-							for (Pair d : r.getLeft()) {
-								System.out.print(d.getLeft() + ":"
-										+ d.getRight() + ", ");
+						for (Tuple<HashMap<String, String>, HashMap<String, String>> con : result.getConflictList()) {
+							for (String key : con.getLeft().keySet()) {
+								System.out.print(key + ":"
+										+ con.getLeft().get(key) + ", ");
 							}
 							System.out.println();
 							System.out.println("changes in: ");
-							for (Pair d : r.getRight()) {
-								System.out.print(d.getLeft() + ":"
-										+ d.getRight() + ", ");
+							for (String key : con.getRight().keySet()) {
+								System.out.print(key + ":"
+										+ con.getRight().get(key) + ", ");
 							}
 							System.out.println();
 						}

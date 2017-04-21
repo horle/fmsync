@@ -1,6 +1,10 @@
 package ceramalex.sync.model;
 
 import java.sql.ResultSet;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.Vector;
 
 /**
@@ -29,23 +33,23 @@ public class ComparisonResult {
 		this.msColumns = msColumns;
 	}
 
-	private Vector<Vector<Pair>> toDownload;
-	private Vector<Vector<Pair>> toUpload;
+	private Vector<HashMap<String, String>> toDownload;
+	private Vector<HashMap<String, String>> toUpload;
 	private Vector<Tuple<Integer,Integer>> toDelete;
-	private Vector<Tuple<Vector<Pair>, Vector<Pair>>> toUpdateLocally;
-	private Vector<Tuple<Vector<Pair>, Vector<Pair>>> toUpdateRemotely;
-	private Vector<Tuple<Vector<Pair>, Vector<Pair>>> conflict;
+	private Vector<Tuple<HashMap<String, String>, HashMap<String, String>>> toUpdateLocally;
+	private Vector<Tuple<HashMap<String, String>, HashMap<String, String>>> toUpdateRemotely;
+	private Vector<Tuple<HashMap<String, String>, HashMap<String, String>>> conflict;
 	
 	private Vector<Vector<String>> toDownloadView;
 	
 	public ComparisonResult(Pair table) {
 		currTab = table;
-		toDownload = new Vector<Vector<Pair>>();
-		toUpload = new Vector<Vector<Pair>>();
+		toDownload = new Vector<HashMap<String,String>>();
+		toUpload = new Vector<HashMap<String,String>>();
 		toDelete = new Vector<Tuple<Integer,Integer>>();
-		toUpdateLocally = new Vector<Tuple<Vector<Pair>, Vector<Pair>>>();
-		toUpdateRemotely = new Vector<Tuple<Vector<Pair>, Vector<Pair>>>();
-		conflict = new Vector<Tuple<Vector<Pair>, Vector<Pair>>>();
+		toUpdateLocally = new Vector<Tuple<HashMap<String,String>, HashMap<String,String>>>();
+		toUpdateRemotely = new Vector<Tuple<HashMap<String,String>, HashMap<String,String>>>();
+		conflict = new Vector<Tuple<HashMap<String,String>, HashMap<String,String>>>();
 		
 		toDownloadView = new Vector<Vector<String>>();
 	}
@@ -54,26 +58,21 @@ public class ComparisonResult {
 	 * Adds two lists of concurring rows to conflict list 
 	 * @param rowFM LOCAL row
 	 * @param rowMS REMOTE row
-	 * @return
+	 * @return local list with remote diff list
 	 */
-	public boolean addToConflictList(Vector<Pair> rowFM, Vector<Pair> rowMS) {
-		Vector<Pair> row = new Vector<Pair>();
-		Vector<Pair> diff = new Vector<Pair>();
+	public boolean addToConflictList(HashMap<String,String> rowFM, HashMap<String,String> rowMS) {
+		if (rowFM.size() != rowMS.size()) throw new IllegalArgumentException("tried to add rows with different size to conflict list");
 		
-		for (int i = 0; i < rowFM.size(); i++) {
-			Pair f = rowFM.get(i);
-			row.add(f);
-			for (int j = 0; j < rowMS.size(); j++) {
-				Pair m = rowMS.get(j);
-				if (!f.getRight().equals(m.getRight()))	// if diff between values
-					diff.add(
-							new Pair(
-									f.getLeft(), // name of fm field
-									m.getRight() ) // value of mysql field
-						);
+		HashMap<String,String> diff = new HashMap<String,String>();
+		
+		for (Entry<String,String> e : rowFM.entrySet()) {
+			String key = e.getKey();
+			String valFM = e.getValue();
+			if (!valFM.equals(rowMS.get(key))) {
+				diff.put(key, rowMS.get(key));
 			}
 		}
-		return conflict.add(new Tuple<Vector<Pair>, Vector<Pair>>(row, diff));
+		return conflict.add(new Tuple<HashMap<String,String>, HashMap<String,String>>(rowFM, diff));
 	}
 	
 	/**
@@ -82,8 +81,8 @@ public class ComparisonResult {
 	 * @param diffs diffs on REMOTE
 	 * @return
 	 */
-	public boolean addToConflictListDiff(Vector<Pair> row, Vector<Pair> diffs) {
-		return conflict.add(new Tuple<Vector<Pair>, Vector<Pair>>(row, diffs));
+	public boolean addToConflictListDiff(HashMap<String,String> row, HashMap<String,String> diffs) {
+		return conflict.add(new Tuple<HashMap<String,String>, HashMap<String,String>>(row, diffs));
 	}
 
 	/**
@@ -93,14 +92,14 @@ public class ComparisonResult {
 	 * @param local true, if local row shall be updated. false, if remote row shall be updated.
 	 * @return true, if successfully added
 	 */
-	public boolean addToUpdateList(Vector<Pair> whereList, Vector<Pair> setList, boolean local) {
+	public boolean addToUpdateList(HashMap<String,String> whereList, HashMap<String,String> setList, boolean local) {
 		if (local)
 			return toUpdateLocally.add(
-					new Tuple<Vector<Pair>,Vector<Pair>>
+					new Tuple<HashMap<String,String>,HashMap<String,String>>
 					(whereList, setList));
 		else
 			return toUpdateRemotely.add(
-					new Tuple<Vector<Pair>,Vector<Pair>>
+					new Tuple<HashMap<String,String>,HashMap<String,String>>
 					(whereList, setList));
 	}
 	
@@ -123,7 +122,7 @@ public class ComparisonResult {
 //		return toDownload.add(aauid);
 //	}
 
-	public void addRowToDownloadList(Vector<Pair> row) {
+	public void addRowToDownloadList(HashMap<String, String> row) {
 		toDownload.add(row);
 	}
 	
@@ -132,48 +131,48 @@ public class ComparisonResult {
 	 * @param row Vector of Pair values that represent key-value-Pairs of attributes in one row
 	 * @return true, if successfully added
 	 */
-	public boolean addRowToUploadList(Vector<Pair> row) {
+	public boolean addRowToUploadList(HashMap<String, String> row) {
 		return toUpload.add(row);
 	}
 	
-	public Vector<Vector<Pair>> getDownloadList() {
+	public Vector<HashMap<String,String>> getDownloadList() {
 		return toDownload;
 	}
-	public Vector<Vector<String>> getDownloadViewList() {
-		Vector<Vector<String>> v = new Vector<Vector<String>>();
-		for (Vector<Pair> u : toDownload) {
-			Vector<String> s = new Vector<String>();
-			for (Pair p : u) {
-				s.add(p.getRight());
-			}
-			v.add(s);
-		}
-		return v;
-	}
-	public Vector<Vector<Pair>> getUploadList() {
+//	public Vector<Vector<String>> getDownloadViewList() {
+//		Vector<Vector<String>> v = new Vector<Vector<String>>();
+//		for (Vector<Pair> u : toDownload) {
+//			Vector<String> s = new Vector<String>();
+//			for (Pair p : u) {
+//				s.add(p.getRight());
+//			}
+//			v.add(s);
+//		}
+//		return v;
+//	}
+	public Vector<HashMap<String, String>> getUploadList() {
 		return toUpload;
 	}
-	public Vector<Vector<String>> getUploadViewList() {
-		Vector<Vector<String>> v = new Vector<Vector<String>>();
-		for (Vector<Pair> u : toUpload) {
-			Vector<String> s = new Vector<String>();
-			for (Pair p : u) {
-				s.add(p.getRight());
-			}
-			v.add(s);
-		}
-		return v;
-	}
+//	public Vector<HashMap<String,String>> getUploadViewList() {
+//		Vector<Vector<String>> v = new Vector<Vector<String>>();
+//		for (HashMap<String, String> u : toUpload) {
+//			Vector<String> s = new Vector<String>();
+//			for (Pair p : u) {
+//				s.add(p.getRight());
+//			}
+//			v.add(s);
+//		}
+//		return v;
+//	}
 	public Vector<Tuple<Integer,Integer>> getDeleteList() {
 		return toDelete;
 	}
-	public Vector<Tuple<Vector<Pair>, Vector<Pair>>> getLocalUpdateList() {
+	public Vector<Tuple<HashMap<String, String>, HashMap<String, String>>> getLocalUpdateList() {
 		return toUpdateLocally;
 	}
-	public Vector<Tuple<Vector<Pair>, Vector<Pair>>> getRemoteUpdateList() {
+	public Vector<Tuple<HashMap<String, String>, HashMap<String, String>>> getRemoteUpdateList() {
 		return toUpdateRemotely;
 	}
-	public Vector<Tuple<Vector<Pair>, Vector<Pair>>> getConflictList() {
+	public Vector<Tuple<HashMap<String, String>, HashMap<String, String>>> getConflictList() {
 		return conflict;
 	}
 
@@ -181,75 +180,75 @@ public class ComparisonResult {
 		return currTab;
 	}
 
-	public Vector<Tuple<Vector<String>, Vector<String>>> getConflictViewList() {
-		Vector<Tuple<Vector<String>, Vector<String>>> v = new Vector<Tuple<Vector<String>, Vector<String>>>();
-		for (Tuple<Vector<Pair>, Vector<Pair>> con : conflict) {
-			Vector<String> row = new Vector<String>();
-			Vector<String> diff = new Vector<String>();
-			for (Pair p : con.getLeft()) {
-				row.add(p.getRight());
-			}
-			for (Pair p : con.getRight()) {
-				diff.add(p.getRight());
-			}
-			v.add(new Tuple<Vector<String>, Vector<String>>(row, diff));
-		}
-		return v;
-	}
+//	public Vector<Tuple<Vector<String>, Vector<String>>> getConflictViewList() {
+//		Vector<Tuple<Vector<String>, Vector<String>>> v = new Vector<Tuple<Vector<String>, Vector<String>>>();
+//		for (Tuple<Vector<Pair>, Vector<Pair>> con : conflict) {
+//			Vector<String> row = new Vector<String>();
+//			Vector<String> diff = new Vector<String>();
+//			for (Pair p : con.getLeft()) {
+//				row.add(p.getRight());
+//			}
+//			for (Pair p : con.getRight()) {
+//				diff.add(p.getRight());
+//			}
+//			v.add(new Tuple<Vector<String>, Vector<String>>(row, diff));
+//		}
+//		return v;
+//	}
 
-	public Vector<Tuple<Vector<String>, Vector<String>>> getLocalUpdateViewList() {
-		Vector<Tuple<Vector<String>, Vector<String>>> v = new Vector<Tuple<Vector<String>, Vector<String>>>();
-		for (Tuple<Vector<Pair>, Vector<Pair>> input : toUpdateLocally) {
-			Vector<String> row1 = new Vector<String>();
-			Vector<String> row2 = new Vector<String>();
-			// fill both rows
-			for (Pair attr : input.getLeft()) {
-				if (attr.getRight() == null) attr.setRight("");
-				row1.add(attr.getRight());
-				row2.add(attr.getRight());
-			}
-			// change fields that differ
-			for (Pair diffs : input.getRight()) {
-				for (int i = 0; i < input.getLeft().size(); i++) {
-					Pair attr = input.getLeft().get(i);
-					if (attr.getLeft().equalsIgnoreCase(diffs.getLeft())) {
-						if (diffs.getRight() == null) diffs.setRight("");
-						row2.set(i, diffs.getRight());
-					}
-				}
-			}
-			v.add(new Tuple<Vector<String>, Vector<String>>(row1, row2));
-		}
-		return v;
-	}
+//	public Vector<Tuple<Vector<String>, Vector<String>>> getLocalUpdateViewList() {
+//		Vector<Tuple<Vector<String>, Vector<String>>> v = new Vector<Tuple<Vector<String>, Vector<String>>>();
+//		for (Tuple<HashMap<String, String>, HashMap<String, String>> input : toUpdateLocally) {
+//			Vector<String> row1 = new Vector<String>();
+//			Vector<String> row2 = new Vector<String>();
+//			// fill both rows
+//			for (Pair attr : input.getLeft()) {
+//				if (attr.getRight() == null) attr.setRight("");
+//				row1.add(attr.getRight());
+//				row2.add(attr.getRight());
+//			}
+//			// change fields that differ
+//			for (Pair diffs : input.getRight()) {
+//				for (int i = 0; i < input.getLeft().size(); i++) {
+//					Pair attr = input.getLeft().get(i);
+//					if (attr.getLeft().equalsIgnoreCase(diffs.getLeft())) {
+//						if (diffs.getRight() == null) diffs.setRight("");
+//						row2.set(i, diffs.getRight());
+//					}
+//				}
+//			}
+//			v.add(new Tuple<Vector<String>, Vector<String>>(row1, row2));
+//		}
+//		return v;
+//	}
 
 	/**
 	 * calcs two rows from update diff lists
 	 * @return
 	 */
-	public Vector<Tuple<Vector<String>, Vector<String>>> getRemoteUpdateViewList() {
-		Vector<Tuple<Vector<String>, Vector<String>>> v = new Vector<Tuple<Vector<String>, Vector<String>>>();
-		for (Tuple<Vector<Pair>, Vector<Pair>> input : toUpdateRemotely) {
-			Vector<String> row1 = new Vector<String>();
-			Vector<String> row2 = new Vector<String>();
-			// fill both rows
-			for (Pair attr : input.getLeft()) {
-				if (attr.getRight() == null) attr.setRight("");
-				row1.add(attr.getRight());
-				row2.add(attr.getRight());
-			}
-			// change fields that differ
-			for (Pair diffs : input.getRight()) {
-				for (int i = 0; i < input.getLeft().size(); i++) {
-					Pair attr = input.getLeft().get(i);
-					if (attr.getLeft().equalsIgnoreCase(diffs.getLeft())) {
-						if (diffs.getRight() == null) diffs.setRight("");
-						row2.set(i, diffs.getRight());
-					}
-				}
-			}
-			v.add(new Tuple<Vector<String>, Vector<String>>(row1, row2));
-		}
-		return v;
-	}
+//	public Vector<Tuple<Vector<String>, Vector<String>>> getRemoteUpdateViewList() {
+//		Vector<Tuple<Vector<String>, Vector<String>>> v = new Vector<Tuple<Vector<String>, Vector<String>>>();
+//		for (Tuple<Vector<Pair>, Vector<Pair>> input : toUpdateRemotely) {
+//			Vector<String> row1 = new Vector<String>();
+//			Vector<String> row2 = new Vector<String>();
+//			// fill both rows
+//			for (Pair attr : input.getLeft()) {
+//				if (attr.getRight() == null) attr.setRight("");
+//				row1.add(attr.getRight());
+//				row2.add(attr.getRight());
+//			}
+//			// change fields that differ
+//			for (Pair diffs : input.getRight()) {
+//				for (int i = 0; i < input.getLeft().size(); i++) {
+//					Pair attr = input.getLeft().get(i);
+//					if (attr.getLeft().equalsIgnoreCase(diffs.getLeft())) {
+//						if (diffs.getRight() == null) diffs.setRight("");
+//						row2.set(i, diffs.getRight());
+//					}
+//				}
+//			}
+//			v.add(new Tuple<Vector<String>, Vector<String>>(row1, row2));
+//		}
+//		return v;
+//	}
 }
