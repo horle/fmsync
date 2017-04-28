@@ -14,6 +14,10 @@ import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.TreeMap;
 import java.util.Vector;
 
 import javax.swing.ButtonGroup;
@@ -31,6 +35,7 @@ import javax.swing.JToggleButton;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
+import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumn;
@@ -229,28 +234,18 @@ public class ComparisonFrame extends JFrame {
 		for (int i = 0; i < comps.size(); i++) {
 			ComparisonResult comp = comps.get(i);
 			Pair p = comp.getTableName();
-			ArrayList<String> commonFields = null;
-			try {
-				commonFields = data.getCommonFields(p, comp.getFmColumns(), comp.getMsColumns());
-			} catch (SQLException e) {
-				JOptionPane
-						.showMessageDialog(
-								this,
-								"I was unable to fetch common fields from the databases.",
-								"Unable to fetch fields",
-								JOptionPane.ERROR_MESSAGE);
-				dispose();
-			}
+			Vector<String> commonFields = comp.getCommonFields();
+			commonFields.sort(null);
 
-			Vector<Tuple<Vector<String>, Vector<String>>> conflict = comp
-					.getConflictViewList();
-			Vector<Tuple<Vector<String>, Vector<String>>> updateLocally = comp
-					.getLocalUpdateViewList();
-			Vector<Tuple<Vector<String>, Vector<String>>> updateRemotely = comp
-					.getRemoteUpdateViewList();
+			Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> conflict = comp
+					.getConflictList();
+			Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> updateLocally = comp
+					.getLocalUpdateList();
+			Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> updateRemotely = comp
+					.getRemoteUpdateList();
 			Vector<Tuple<Integer, Integer>> delete = comp.getDeleteList();
-			Vector<Vector<String>> download = comp.getDownloadViewList();
-			Vector<Vector<String>> upload = comp.getUploadViewList();
+			Vector<TreeMap<String, String>> download = comp.getDownloadList();
+			Vector<TreeMap<String, String>> upload = comp.getUploadList();
 
 			JTable table1 = new JResizeTable();
 			JTable table2 = new JResizeTable();
@@ -278,10 +273,6 @@ public class ComparisonFrame extends JFrame {
 
 			outerScroll.add(innerLeftScroll);
 			outerScroll.add(innerRightScroll);
-			Vector<String> header = new Vector<String>();
-			for (int j = 0; j < commonFields.size(); j++) {
-				header.add(commonFields.get(j));
-			}
 
 			m1 = new DefaultTableModel() {
 				@Override
@@ -296,41 +287,62 @@ public class ComparisonFrame extends JFrame {
 				}
 			};
 
-			m1.setColumnIdentifiers(header);
-			m2.setColumnIdentifiers(header);
+			m1.setColumnIdentifiers(commonFields);
+			m2.setColumnIdentifiers(commonFields);
 			
 			boolean notEmpty = false;
+			
+			ArrayList<Tuple<Integer,Integer>> redList = new ArrayList<Tuple<Integer,Integer>>();
 			
 			if (btnUnequal.isSelected()) {
 				if (btnPairs.isSelected()) {
 					for (int j = 0; j < conflict.size(); j++) {
 						notEmpty = true;
-						m1.addRow(conflict.get(j).getLeft());
-						m2.addRow(conflict.get(j).getRight());
+						m1.addRow(conflict.get(j).getLeft().values().toArray());
+						m2.addRow(conflict.get(j).getRight().values().toArray());
 					}
 					for (int j = 0; j < updateLocally.size(); j++) {
 						notEmpty = true;
-						m1.addRow(updateLocally.get(j).getLeft());
-						m2.addRow(updateLocally.get(j).getRight());
+						TreeMap<String,String> rowL = updateLocally.get(j).getLeft();
+						TreeMap<String,String> rowR = updateLocally.get(j).getRight();
+						m1.addRow(new String[0]);
+						m2.addRow(new String[0]);
+						for (String key : commonFields) {
+							// filling rows on both sides
+							if (rowL.containsKey(key)) {
+								m1.setValueAt(rowL.get(key), m1.getRowCount()-1, m1.findColumn(key));
+								m2.setValueAt(rowL.get(key), m2.getRowCount()-1, m2.findColumn(key));
+							} else {
+								m1.setValueAt(null, m1.getRowCount()-1, m1.findColumn(key));
+								m2.setValueAt(null, m2.getRowCount()-1, m2.findColumn(key));
+							}
+							// overwrite diffs on right side
+							if (rowR.containsKey(key)) {
+								int row = m2.getRowCount()-1;
+								int col = m2.findColumn(key);
+								m2.setValueAt(rowR.get(key), row, col);
+								redList.add(new Tuple<Integer,Integer>(row,col));
+							}
+						}
 					}
 					for (int j = 0; j < updateRemotely.size(); j++) {
 						notEmpty = true;
-						m1.addRow(updateRemotely.get(j).getLeft());
-						m2.addRow(updateRemotely.get(j).getRight());
+						m1.addRow(updateRemotely.get(j).getLeft().values().toArray());
+						m2.addRow(updateRemotely.get(j).getRight().values().toArray());
 					}
 				}
 				if (btnIndividuals.isSelected()) {
 					if (btnUpload.isSelected()) {
 						for (int j = 0; j < upload.size(); j++) {
 							notEmpty = true;
-							m1.addRow(upload.get(j));
+							m1.addRow(upload.get(j).values().toArray());
 							m2.addRow(new String[] {});
 						}
 					}
 					if (btnDownload.isSelected()) {
 						for (int j = 0; j < download.size(); j++) {
 							notEmpty = true;
-							m2.addRow(download.get(j));
+							m2.addRow(download.get(j).values().toArray());
 							m1.addRow(new String[] {});
 						}
 					}
@@ -339,9 +351,14 @@ public class ComparisonFrame extends JFrame {
 
 			table1.setModel(m1);
 			table2.setModel(m2);
-
+			
 			if (notEmpty)
 				tabs.addTab(p.getLeft(), null, outerScroll, p.toString());
+			
+			for (Tuple<Integer,Integer> t : redList) {
+				DefaultTableCellRenderer ren = (DefaultTableCellRenderer) table2.getCellRenderer(t.getLeft(), t.getRight());
+				ren.setForeground(Color.RED);
+			}
 		}
 	}
 
