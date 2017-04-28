@@ -1,7 +1,7 @@
 package ceramalex.sync.model;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.TreeMap;
 import java.util.Vector;
 
 import org.apache.log4j.Logger;
@@ -30,7 +30,7 @@ public class TestClass {
 					 */
 					if (!result.getDownloadList().isEmpty()) {
 						System.out.println("printing DOWNLOAD list:");
-						for (HashMap<String, String> r : result.getDownloadList()) {
+						for (TreeMap<String, String> r : result.getDownloadList()) {
 							for (String key : r.keySet()) {
 								System.out.print(key + ":"+r.get(key)+", ");
 							}
@@ -40,7 +40,7 @@ public class TestClass {
 					}
 					if (!result.getLocalUpdateList().isEmpty()) {
 						System.out.println("printing LOCAL UPDATE list:");
-						for (Tuple<HashMap<String, String>, HashMap<String, String>> r : result.getLocalUpdateList()) {
+						for (Tuple<TreeMap<String, String>, TreeMap<String, String>> r : result.getLocalUpdateList()) {
 							System.out.println("Row local:");
 							for (String key : r.getLeft().keySet()) {
 								System.out.print(key+ ":"+r.getLeft().get(key)+", ");
@@ -55,7 +55,7 @@ public class TestClass {
 					}
 					if (!result.getRemoteUpdateList().isEmpty()) {
 						System.out.println("printing REMOTE UPDATE list:");
-						for (Tuple<HashMap<String, String>, HashMap<String, String>> r : result.getRemoteUpdateList()) {
+						for (Tuple<TreeMap<String, String>, TreeMap<String, String>> r : result.getRemoteUpdateList()) {
 							for (String key : r.getLeft().keySet()) {
 								System.out.print(key+ ":"+r.getLeft().get(key)+", ");
 							}
@@ -69,7 +69,7 @@ public class TestClass {
 					}
 					if (!result.getUploadList().isEmpty()) {
 						System.out.println("printing UPLOAD list:");
-						for (HashMap<String, String> row : result.getUploadList()) {
+						for (TreeMap<String, String> row : result.getUploadList()) {
 							for (String key : row.keySet()) {
 								System.out.print(key + ": " + row.get(key) + ", ");
 							}
@@ -79,7 +79,7 @@ public class TestClass {
 					}
 					if (!result.getConflictList().isEmpty()) {
 						System.out.println("printing CONFLICT list:");
-						for (Tuple<HashMap<String, String>, HashMap<String, String>> con : result.getConflictList()) {
+						for (Tuple<TreeMap<String, String>, TreeMap<String, String>> con : result.getConflictList()) {
 							for (String key : con.getLeft().keySet()) {
 								System.out.print(key + ":"
 										+ con.getLeft().get(key) + ", ");

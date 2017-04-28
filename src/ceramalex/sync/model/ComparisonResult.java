@@ -1,7 +1,8 @@
 package ceramalex.sync.model;
 
 import java.sql.ResultSet;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.TreeMap;
 import java.util.Iterator;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -33,25 +34,22 @@ public class ComparisonResult {
 		this.msColumns = msColumns;
 	}
 
-	private Vector<HashMap<String, String>> toDownload;
-	private Vector<HashMap<String, String>> toUpload;
+	private Vector<TreeMap<String, String>> toDownload;
+	private Vector<TreeMap<String, String>> toUpload;
 	private Vector<Tuple<Integer,Integer>> toDelete;
-	private Vector<Tuple<HashMap<String, String>, HashMap<String, String>>> toUpdateLocally;
-	private Vector<Tuple<HashMap<String, String>, HashMap<String, String>>> toUpdateRemotely;
-	private Vector<Tuple<HashMap<String, String>, HashMap<String, String>>> conflict;
-	
-	private Vector<Vector<String>> toDownloadView;
+	private Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> toUpdateLocally;
+	private Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> toUpdateRemotely;
+	private Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> conflict;
+	private Vector<String> commonFields;
 	
 	public ComparisonResult(Pair table) {
 		currTab = table;
-		toDownload = new Vector<HashMap<String,String>>();
-		toUpload = new Vector<HashMap<String,String>>();
+		toDownload = new Vector<TreeMap<String,String>>();
+		toUpload = new Vector<TreeMap<String,String>>();
 		toDelete = new Vector<Tuple<Integer,Integer>>();
-		toUpdateLocally = new Vector<Tuple<HashMap<String,String>, HashMap<String,String>>>();
-		toUpdateRemotely = new Vector<Tuple<HashMap<String,String>, HashMap<String,String>>>();
-		conflict = new Vector<Tuple<HashMap<String,String>, HashMap<String,String>>>();
-		
-		toDownloadView = new Vector<Vector<String>>();
+		toUpdateLocally = new Vector<Tuple<TreeMap<String,String>, TreeMap<String,String>>>();
+		toUpdateRemotely = new Vector<Tuple<TreeMap<String,String>, TreeMap<String,String>>>();
+		conflict = new Vector<Tuple<TreeMap<String,String>, TreeMap<String,String>>>();
 	}
 	
 	/**
@@ -60,10 +58,10 @@ public class ComparisonResult {
 	 * @param rowMS REMOTE row
 	 * @return local list with remote diff list
 	 */
-	public boolean addToConflictList(HashMap<String,String> rowFM, HashMap<String,String> rowMS) {
+	public boolean addToConflictList(TreeMap<String,String> rowFM, TreeMap<String,String> rowMS) {
 		if (rowFM.size() != rowMS.size()) throw new IllegalArgumentException("tried to add rows with different size to conflict list");
 		
-		HashMap<String,String> diff = new HashMap<String,String>();
+		TreeMap<String,String> diff = new TreeMap<String,String>();
 		
 		for (Entry<String,String> e : rowFM.entrySet()) {
 			String key = e.getKey();
@@ -72,7 +70,7 @@ public class ComparisonResult {
 				diff.put(key, rowMS.get(key));
 			}
 		}
-		return conflict.add(new Tuple<HashMap<String,String>, HashMap<String,String>>(rowFM, diff));
+		return conflict.add(new Tuple<TreeMap<String,String>, TreeMap<String,String>>(rowFM, diff));
 	}
 	
 	/**
@@ -81,8 +79,8 @@ public class ComparisonResult {
 	 * @param diffs diffs on REMOTE
 	 * @return
 	 */
-	public boolean addToConflictListDiff(HashMap<String,String> row, HashMap<String,String> diffs) {
-		return conflict.add(new Tuple<HashMap<String,String>, HashMap<String,String>>(row, diffs));
+	public boolean addToConflictListDiff(TreeMap<String,String> row, TreeMap<String,String> diffs) {
+		return conflict.add(new Tuple<TreeMap<String,String>, TreeMap<String,String>>(row, diffs));
 	}
 
 	/**
@@ -92,14 +90,14 @@ public class ComparisonResult {
 	 * @param local true, if local row shall be updated. false, if remote row shall be updated.
 	 * @return true, if successfully added
 	 */
-	public boolean addToUpdateList(HashMap<String,String> whereList, HashMap<String,String> setList, boolean local) {
+	public boolean addToUpdateList(TreeMap<String,String> whereList, TreeMap<String,String> setList, boolean local) {
 		if (local)
 			return toUpdateLocally.add(
-					new Tuple<HashMap<String,String>,HashMap<String,String>>
+					new Tuple<TreeMap<String,String>,TreeMap<String,String>>
 					(whereList, setList));
 		else
 			return toUpdateRemotely.add(
-					new Tuple<HashMap<String,String>,HashMap<String,String>>
+					new Tuple<TreeMap<String,String>,TreeMap<String,String>>
 					(whereList, setList));
 	}
 	
@@ -122,7 +120,7 @@ public class ComparisonResult {
 //		return toDownload.add(aauid);
 //	}
 
-	public void addRowToDownloadList(HashMap<String, String> row) {
+	public void addRowToDownloadList(TreeMap<String, String> row) {
 		toDownload.add(row);
 	}
 	
@@ -131,11 +129,11 @@ public class ComparisonResult {
 	 * @param row Vector of Pair values that represent key-value-Pairs of attributes in one row
 	 * @return true, if successfully added
 	 */
-	public boolean addRowToUploadList(HashMap<String, String> row) {
+	public boolean addRowToUploadList(TreeMap<String, String> row) {
 		return toUpload.add(row);
 	}
 	
-	public Vector<HashMap<String,String>> getDownloadList() {
+	public Vector<TreeMap<String,String>> getDownloadList() {
 		return toDownload;
 	}
 //	public Vector<Vector<String>> getDownloadViewList() {
@@ -149,12 +147,12 @@ public class ComparisonResult {
 //		}
 //		return v;
 //	}
-	public Vector<HashMap<String, String>> getUploadList() {
+	public Vector<TreeMap<String, String>> getUploadList() {
 		return toUpload;
 	}
-//	public Vector<HashMap<String,String>> getUploadViewList() {
+//	public Vector<TreeMap<String,String>> getUploadViewList() {
 //		Vector<Vector<String>> v = new Vector<Vector<String>>();
-//		for (HashMap<String, String> u : toUpload) {
+//		for (TreeMap<String, String> u : toUpload) {
 //			Vector<String> s = new Vector<String>();
 //			for (Pair p : u) {
 //				s.add(p.getRight());
@@ -166,18 +164,26 @@ public class ComparisonResult {
 	public Vector<Tuple<Integer,Integer>> getDeleteList() {
 		return toDelete;
 	}
-	public Vector<Tuple<HashMap<String, String>, HashMap<String, String>>> getLocalUpdateList() {
+	public Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> getLocalUpdateList() {
 		return toUpdateLocally;
 	}
-	public Vector<Tuple<HashMap<String, String>, HashMap<String, String>>> getRemoteUpdateList() {
+	public Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> getRemoteUpdateList() {
 		return toUpdateRemotely;
 	}
-	public Vector<Tuple<HashMap<String, String>, HashMap<String, String>>> getConflictList() {
+	public Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> getConflictList() {
 		return conflict;
 	}
 
 	public Pair getTableName() {
 		return currTab;
+	}
+
+	public Vector<String> getCommonFields() {
+		return commonFields;
+	}
+
+	public void setCommonFields(Vector<String> commonFields) {
+		this.commonFields = commonFields;
 	}
 
 //	public Vector<Tuple<Vector<String>, Vector<String>>> getConflictViewList() {
@@ -198,7 +204,7 @@ public class ComparisonResult {
 
 //	public Vector<Tuple<Vector<String>, Vector<String>>> getLocalUpdateViewList() {
 //		Vector<Tuple<Vector<String>, Vector<String>>> v = new Vector<Tuple<Vector<String>, Vector<String>>>();
-//		for (Tuple<HashMap<String, String>, HashMap<String, String>> input : toUpdateLocally) {
+//		for (Tuple<TreeMap<String, String>, TreeMap<String, String>> input : toUpdateLocally) {
 //			Vector<String> row1 = new Vector<String>();
 //			Vector<String> row2 = new Vector<String>();
 //			// fill both rows

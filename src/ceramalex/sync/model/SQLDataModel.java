@@ -14,7 +14,7 @@ import java.util.AbstractList;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.TreeMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Set;
@@ -224,7 +224,8 @@ public class SQLDataModel {
 			result.setFmColumns(fmColumnMeta);
 			result.setMsColumns(msColumnMeta);
 			
-			ArrayList<String> commonFields = getCommonFields(currTab, fmColumnMeta, msColumnMeta);
+			Vector<String> commonFields = getCommonFields(currTab, fmColumnMeta, msColumnMeta);
+			result.setCommonFields(commonFields);
 
 			// test, if fields are available in FM
 			if (!addAUIDField(currTab.getLeft())) {
@@ -310,7 +311,7 @@ public class SQLDataModel {
 						}
 						// local after remote, remote did not change: SAFE UPLOAD
 						if (currCTS.after(currATS) && currATS.equals(currLRTS)) {
-							HashMap<String, String> row = new HashMap<String,String>();
+							TreeMap<String, String> row = new TreeMap<String,String>();
 							for (int l = 0; l < commonFields.size(); l++) {
 								row.put(commonFields.get(l), fNotNull
 										.getString(commonFields.get(l)));
@@ -321,7 +322,7 @@ public class SQLDataModel {
 						// remote after local AND local <= last remote <= remote: DOWNLOAD
 						if (currCTS.before(currATS)
 								&& (currCTS.before(currLRTS) && currLRTS.before(currATS))) {
-							HashMap<String, String> row = new HashMap<String,String>();
+							TreeMap<String, String> row = new TreeMap<String,String>();
 							for (int l = 0; l < commonFields.size(); l++) {
 								row.put(commonFields.get(l), mNotNull
 										.getString(commonFields.get(l)));
@@ -332,8 +333,8 @@ public class SQLDataModel {
 						// local after last remote AND remote after last remote:
 						// CONFLICT
 						if (currCTS.after(currLRTS) && currLRTS.before(currATS)) {
-							HashMap<String,String> rowFM = new HashMap<String,String>();
-							HashMap<String,String> rowMS = new HashMap<String,String>();
+							TreeMap<String,String> rowFM = new TreeMap<String,String>();
+							TreeMap<String,String> rowMS = new TreeMap<String,String>();
 							for (int l = 0; l < commonFields.size(); l++) {
 								rowFM.put(commonFields.get(l),
 										fNotNull.getString(commonFields.get(l)));
@@ -364,8 +365,8 @@ public class SQLDataModel {
 				}
 				mNotNull.previous(); // neccessary because of next()
 				while (mNotNull.next()) {
-					HashMap<String,String> rowMS = new HashMap<String,String>();
-					HashMap<String,String> lookup = new HashMap<String,String>();
+					TreeMap<String,String> rowMS = new TreeMap<String,String>();
+					TreeMap<String,String> lookup = new TreeMap<String,String>();
 					String aauid = null, lmRemote = null;
 					
 					for (int l = 0; l < commonFields.size(); l++) {
@@ -380,15 +381,14 @@ public class SQLDataModel {
 						}
 						else aauid = val;
 					}
-					HashMap<String,String> local = isRowOnLocal(currTab, lookup);
+					TreeMap<String,String> local = isRowOnLocal(currTab, lookup);
 					// entry already in local db
 					if (!local.isEmpty()) {
-						Timestamp remoteTS = Timestamp.valueOf(lmRemote);
-						Timestamp localTS = Timestamp.valueOf(local.get("lastModified"));
+						String lmLocal = local.get("lastModified");
 						// just missing CAUID, TS equal?
 						// update locally ...
-						if (remoteTS.equals(localTS)) {
-							HashMap<String,String> set = new HashMap<String,String>();
+						if (Timestamp.valueOf(lmRemote).equals(Timestamp.valueOf(lmLocal))) {
+							TreeMap<String,String> set = new TreeMap<String,String>();
 							// no AAUID, but in remote DB?!
 							if (aauid == null || aauid.equals(""))
 								throw new EntityManagementException(
@@ -396,16 +396,28 @@ public class SQLDataModel {
 							// setting cauid = aauid via local update list
 							set.put("ArachneEntityID", aauid);
 							rowMS.remove("ArachneEntityID"); // remove to avoid wrong "where"
-							set.put("lastModified", lmRemote);
+							set.put("lastModified", lmRemote); // important due to FM change listener on this field
 							set.put("lastRemoteTS", lmRemote);
 							result.addToUpdateList(rowMS, set, true);
 						}
-						else { //TODO Conflict
+						else {
 							rowMS.remove("ArachneEntityID");
 							rowMS.remove("lastModified");
 							local.remove("lastModified");
+							
+							// compare each field, not all equal? -> CONFLICT
 							if (compareFields(rowMS, local, currTab) != 0)
 								result.addToConflictList(local, rowMS);
+							// if no changes but TS, then update local TS to remote value
+							// and update CAUID
+							else {
+								TreeMap<String,String> set = new TreeMap<String,String>();
+								set.put("lastModified", lmRemote);
+								set.put("lastRemoteTS", lmRemote);
+								set.put("ArachneEntityID", aauid);
+								rowMS.put("lastModified", lmLocal);
+								result.addToUpdateList(rowMS, set, true);
+							}
 						}
 						
 					}
@@ -418,8 +430,8 @@ public class SQLDataModel {
 				logger.error(e);
 				throw e;
 			}
-
-			if (upload) {
+//TODO
+			if (upload && false) {
 				try {
 					ResultSet fNull = sqlAccess.doFMQuery(fmSQL
 							+ (archerFMSkip == "" ? " WHERE " : " AND ")
@@ -427,18 +439,17 @@ public class SQLDataModel {
 
 					// CAUID == null
 					while (fNull.next()) {
-						System.out.println("\nNOW PRINTING fNull");
 						// add local row content to Vector, lookup remotely
-						HashMap<String,String> row = new HashMap<String,String>();
+						TreeMap<String,String> row = new TreeMap<String,String>();
 						for (int i = 0; i < commonFields.size(); i++) {
 							row.put(commonFields.get(i),
 									fNull.getString(commonFields.get(i)));
 						}
-						HashMap<String,String> remote = isRowOnRemote(currTab, row);
+						TreeMap<String,String> remote = isRowOnRemote(currTab, row);
 						// already uploaded, same content, just missing CAUID?
 						// update locally ...
 						if (!remote.isEmpty()) {
-							HashMap<String,String> set = new HashMap<String,String>();
+							TreeMap<String,String> set = new TreeMap<String,String>();
 							// get AAUID
 							String aauid = remote.get("ArachneEntityID");
 							String lastModified = remote.get("lastModified");
@@ -717,10 +728,10 @@ public class SQLDataModel {
 						String pk = sqlAccess.getFMTablePrimaryKey(currTab
 								.getLeft());
 						int first = 0, last = 0;
-						Vector<HashMap<String, String>> inserts = new Vector<HashMap<String,String>>();
+						Vector<TreeMap<String, String>> inserts = new Vector<TreeMap<String,String>>();
 						while (fNull.next()) {
-							HashMap<String,String> ins = new HashMap<String,String>();
-							ArrayList<String> names = getCommonFields(currTab, fmColumnMeta, msColumnMeta);
+							TreeMap<String,String> ins = new TreeMap<String,String>();
+							Vector<String> names = getCommonFields(currTab, fmColumnMeta, msColumnMeta);
 							if (first == 0)
 								first = fNull.getInt(pk);
 							last = fNull.getInt(pk);
@@ -762,7 +773,7 @@ public class SQLDataModel {
 	 * @throws SQLException
 	 * @throws IOException
 	 */
-	private HashMap<String, String> isRowOnRemote(Pair currTab, HashMap<String, String> row)
+	private TreeMap<String, String> isRowOnRemote(Pair currTab, TreeMap<String, String> row)
 			throws SQLException, IOException {
 		String archerMSSkip = "";
 		if (currTab.getLeft().equalsIgnoreCase("mainabstract")) {
@@ -806,7 +817,7 @@ public class SQLDataModel {
 						+ " = '" + val + "'";
 		}
 		ResultSet r = sqlAccess.doMySQLQuery(sql);
-		HashMap<String,String> result = new HashMap<String,String>();
+		TreeMap<String,String> result = new TreeMap<String,String>();
 		while (r.next()) {
 			result.put("ArachneEntityID", r.getString("ArachneEntityID")); // aauid
 			String t = r.getTimestamp("lastModified") == null ? null : r.getTimestamp("lastModified")
@@ -820,14 +831,13 @@ public class SQLDataModel {
 	/**
 	 * method checks, if row with common fields is already in local DB
 	 * 
-	 * @param currTab
-	 * @param rowMS
-	 * @return Vector<Tuple<Pair, Object>> with Pair of AAUID, TS, and PK, if
-	 *         row is already in remote db. empty list else.
+	 * @param currTab Pair with current table
+	 * @param rowMS TreeMap of remote row
+	 * @return row with AAUID, TS, and PK, if row is already in remote db. empty list else.
 	 * @throws SQLException
 	 * @throws IOException
 	 */
-	private HashMap<String,String> isRowOnLocal(Pair currTab, HashMap<String, String> rowMS)
+	private TreeMap<String,String> isRowOnLocal(Pair currTab, TreeMap<String, String> rowMS)
 			throws SQLException, IOException {
 		String archerMSSkip = "";
 		if (currTab.getLeft().equalsIgnoreCase("mainabstract")) {
@@ -838,8 +848,8 @@ public class SQLDataModel {
 		String select = "SELECT lastModified,";
 		String sql = " FROM " + currTab.getLeft()
 				+ " WHERE " + archerMSSkip
-				// if AAUID would not be null, the row would be in the
-				// not null query result and this fct not be invoked.
+				// if CAUID would not be null, this row would match a
+				// remote row and this fct would not be invoked.
 				+ " ArachneEntityID IS NULL";
 
 		Set<String> keys = rowMS.keySet();
@@ -867,7 +877,7 @@ public class SQLDataModel {
 			i++;
 		}
 		ResultSet r = sqlAccess.doFMQuery(select + sql);
-		HashMap<String,String> result = new HashMap<String,String>();
+		TreeMap<String,String> result = new TreeMap<String,String>();
 		ResultSetMetaData rmd = r.getMetaData();
 		while (r.next()) {
 			for (i = 1; i <= rmd.getColumnCount(); i++) {
@@ -888,7 +898,7 @@ public class SQLDataModel {
 	 * @throws IOException
 	 */
 	public Vector<Integer> prepareRowsAndDownload(Pair currTab,
-			Vector<HashMap<String, String>> vector, int packSize) throws SQLException,
+			Vector<TreeMap<String, String>> vector, int packSize) throws SQLException,
 			EntityManagementException, IOException {
 		int count = vector.size() / packSize;
 		int mod = vector.size() % packSize;
@@ -896,15 +906,15 @@ public class SQLDataModel {
 		for (int k = 0; k < count; k++) {
 			resultIDs.addAll(insertRowsIntoLocal(
 							currTab,
-							new Vector<HashMap<String,String>>(vector.subList(k * packSize,
+							new Vector<TreeMap<String,String>>(vector.subList(k * packSize,
 									(k + 1) * packSize))));
 		}
-		resultIDs.addAll(insertRowsIntoLocal(currTab, new Vector<HashMap<String,String>>(
+		resultIDs.addAll(insertRowsIntoLocal(currTab, new Vector<TreeMap<String,String>>(
 				vector.subList(count * packSize, count * packSize + mod))));
 		return resultIDs;
 	}
 	
-	private ArrayList<Integer> insertRowsIntoLocal(Pair currTab, Vector<HashMap<String, String>> vector) throws SQLException, IOException, EntityManagementException {
+	private ArrayList<Integer> insertRowsIntoLocal(Pair currTab, Vector<TreeMap<String, String>> vector) throws SQLException, IOException, EntityManagementException {
 		if (vector.size() == 0)
 			return null;
 		
@@ -912,7 +922,7 @@ public class SQLDataModel {
 		String vals = " VALUES (";
 		for (int i = 0; i <= vector.size(); i++) {
 			
-			HashMap<String,String> currRow = i != vector.size() ? vector.get(i) : null;
+			TreeMap<String,String> currRow = i != vector.size() ? vector.get(i) : null;
 			
 			Iterator<String> it = currRow.keySet().iterator();
 			// ( col1, col2, col3, ..)
@@ -964,7 +974,7 @@ public class SQLDataModel {
 	 * @throws EntityManagementException
 	 * @throws IOException
 	 */
-	public Vector<Integer> prepareRowsAndUpload(Pair currTab, Vector<HashMap<String, String>> rows, int packSize) throws SQLException,
+	public Vector<Integer> prepareRowsAndUpload(Pair currTab, Vector<TreeMap<String, String>> rows, int packSize) throws SQLException,
 			EntityManagementException, IOException {
 		int count = rows.size() / packSize;
 		int mod = rows.size() % packSize;
@@ -972,10 +982,10 @@ public class SQLDataModel {
 		for (int k = 0; k < count; k++) {
 			resultIDs.addAll(insertRowsIntoRemote(
 							currTab,
-							new Vector<HashMap<String,String>>(rows.subList(k * packSize,
+							new Vector<TreeMap<String,String>>(rows.subList(k * packSize,
 									(k + 1) * packSize))));
 		}
-		resultIDs.addAll(insertRowsIntoRemote(currTab, new Vector<HashMap<String,String>>(
+		resultIDs.addAll(insertRowsIntoRemote(currTab, new Vector<TreeMap<String,String>>(
 				rows.subList(count * packSize, count * packSize + mod))));
 		return resultIDs;
 	}
@@ -991,7 +1001,7 @@ public class SQLDataModel {
 	 * @throws IOException
 	 */
 	private ArrayList<Integer> insertRowsIntoRemote(Pair currTab,
-			Vector<HashMap<String, String>> vector) throws SQLException,
+			Vector<TreeMap<String, String>> vector) throws SQLException,
 			EntityManagementException, IOException {
 		
 		if (vector.size() == 0)
@@ -1003,7 +1013,7 @@ public class SQLDataModel {
 		
 		for (int i = 0; i <= vector.size(); i++) {
 			
-			HashMap<String,String> currRow = i != vector.size() ? vector.get(i) : null;
+			TreeMap<String,String> currRow = i != vector.size() ? vector.get(i) : null;
 			
 			Iterator<String> it = currRow.keySet().iterator();
 			// ( col1, col2, col3, ..)
@@ -1117,10 +1127,10 @@ public class SQLDataModel {
 	 * @throws SQLException
 	 * @throws IOException
 	 */
-	private int compareFields(HashMap<String, String> rowMS, HashMap<String, String> rowFM,
+	private int compareFields(TreeMap<String, String> rowMS, TreeMap<String, String> rowFM,
 			Pair currentTable) throws SQLException, IOException {
 
-		Vector<String> commonFields = new Vector<String>();
+		ArrayList<String> commonFields = new ArrayList<String>();
 		
 		if (rowMS.size() != rowFM.size()) return -1;
 		
@@ -1277,9 +1287,9 @@ public class SQLDataModel {
 	 * @return common field names as Pairs in ArrayList
 	 * @throws SQLException
 	 */
-	public ArrayList<String> getCommonFields(Pair currTab, ResultSet fmColumns, ResultSet msColumns) throws SQLException {
+	public Vector<String> getCommonFields(Pair currTab, ResultSet fmColumns, ResultSet msColumns) throws SQLException {
 
-		ArrayList<String> result = new ArrayList<String>();
+		Vector<String> result = new Vector<String>();
 
 		while (fmColumns.next()) {
 			msColumns.beforeFirst();
