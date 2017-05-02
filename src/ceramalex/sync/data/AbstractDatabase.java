@@ -151,7 +151,7 @@ public abstract class AbstractDatabase {
 	 * @throws SQLException 
 	 */
 	public ResultSet doSQLQuery(String sql) throws SQLException {
-
+		logger.debug(sql);
 		if (this.st == null || this.isConnected())
 			this.st = cn.createStatement();
 		return this.st.executeQuery(sql);
