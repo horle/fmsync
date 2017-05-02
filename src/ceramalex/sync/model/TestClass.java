@@ -36,7 +36,26 @@ public class TestClass {
 							}
 							System.out.println();
 						}
-						m.prepareRowsAndDownload(commonTables.get(i), result.getDownloadList(), 25);
+//						m.prepareRowsAndDownload(commonTables.get(i), result.getDownloadList(), 25);
+					}
+					if (!result.getUploadList().isEmpty()) {
+						System.out.println("printing UPLOAD list:");
+						for (TreeMap<String, String> row : result.getUploadList()) {
+							for (String key : row.keySet()) {
+								System.out.print(key + ": " + row.get(key) + ", ");
+							}
+							System.out.println();
+						}
+//						m.prepareRowsAndUpload(commonTables.get(i), result.getUploadList(), 25);
+					}
+					if (!result.getDeleteList().isEmpty()) {
+						System.out.println("printing DELETE list:");
+						for (Tuple<Integer, Integer> r : result.getDeleteList()) {
+							if (r.getLeft() == 0)
+								System.out.print("entry with remote UID "+r.getRight()+" will be deleted.");
+							else
+								System.out.print("entry with local UID "+r.getLeft()+" will be deleted.");
+						}
 					}
 					if (!result.getLocalUpdateList().isEmpty()) {
 						System.out.println("printing LOCAL UPDATE list:");
@@ -67,16 +86,7 @@ public class TestClass {
 							System.out.println();
 						}
 					}
-					if (!result.getUploadList().isEmpty()) {
-						System.out.println("printing UPLOAD list:");
-						for (TreeMap<String, String> row : result.getUploadList()) {
-							for (String key : row.keySet()) {
-								System.out.print(key + ": " + row.get(key) + ", ");
-							}
-							System.out.println();
-						}
-						m.prepareRowsAndUpload(commonTables.get(i), result.getUploadList(), 25);
-					}
+					
 					if (!result.getConflictList().isEmpty()) {
 						System.out.println("printing CONFLICT list:");
 						for (Tuple<TreeMap<String, String>, TreeMap<String, String>> con : result.getConflictList()) {
@@ -105,7 +115,7 @@ public class TestClass {
 					System.out.println("Error!");
 				}
 			}
-			System.out.println("\n Exit.");
+			System.out.println("\nExit.");
 		} catch (Exception e) {
 			System.err.println("ERROR: " + e);
 			logger.error(e);
