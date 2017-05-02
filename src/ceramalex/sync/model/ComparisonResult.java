@@ -40,7 +40,7 @@ public class ComparisonResult {
 	private Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> toUpdateLocally;
 	private Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> toUpdateRemotely;
 	private Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> conflict;
-	private Vector<String> commonFields;
+	private ArrayList<String> commonFields;
 	
 	public ComparisonResult(Pair table) {
 		currTab = table;
@@ -120,7 +120,7 @@ public class ComparisonResult {
 //		return toDownload.add(aauid);
 //	}
 
-	public void addRowToDownloadList(TreeMap<String, String> row) {
+	public void addToDownloadList(TreeMap<String, String> row) {
 		toDownload.add(row);
 	}
 	
@@ -129,7 +129,7 @@ public class ComparisonResult {
 	 * @param row Vector of Pair values that represent key-value-Pairs of attributes in one row
 	 * @return true, if successfully added
 	 */
-	public boolean addRowToUploadList(TreeMap<String, String> row) {
+	public boolean addToUploadList(TreeMap<String, String> row) {
 		return toUpload.add(row);
 	}
 	
@@ -178,83 +178,11 @@ public class ComparisonResult {
 		return currTab;
 	}
 
-	public Vector<String> getCommonFields() {
+	public ArrayList<String> getCommonFields() {
 		return commonFields;
 	}
 
-	public void setCommonFields(Vector<String> commonFields) {
+	public void setCommonFields(ArrayList<String> commonFields) {
 		this.commonFields = commonFields;
 	}
-
-//	public Vector<Tuple<Vector<String>, Vector<String>>> getConflictViewList() {
-//		Vector<Tuple<Vector<String>, Vector<String>>> v = new Vector<Tuple<Vector<String>, Vector<String>>>();
-//		for (Tuple<Vector<Pair>, Vector<Pair>> con : conflict) {
-//			Vector<String> row = new Vector<String>();
-//			Vector<String> diff = new Vector<String>();
-//			for (Pair p : con.getLeft()) {
-//				row.add(p.getRight());
-//			}
-//			for (Pair p : con.getRight()) {
-//				diff.add(p.getRight());
-//			}
-//			v.add(new Tuple<Vector<String>, Vector<String>>(row, diff));
-//		}
-//		return v;
-//	}
-
-//	public Vector<Tuple<Vector<String>, Vector<String>>> getLocalUpdateViewList() {
-//		Vector<Tuple<Vector<String>, Vector<String>>> v = new Vector<Tuple<Vector<String>, Vector<String>>>();
-//		for (Tuple<TreeMap<String, String>, TreeMap<String, String>> input : toUpdateLocally) {
-//			Vector<String> row1 = new Vector<String>();
-//			Vector<String> row2 = new Vector<String>();
-//			// fill both rows
-//			for (Pair attr : input.getLeft()) {
-//				if (attr.getRight() == null) attr.setRight("");
-//				row1.add(attr.getRight());
-//				row2.add(attr.getRight());
-//			}
-//			// change fields that differ
-//			for (Pair diffs : input.getRight()) {
-//				for (int i = 0; i < input.getLeft().size(); i++) {
-//					Pair attr = input.getLeft().get(i);
-//					if (attr.getLeft().equalsIgnoreCase(diffs.getLeft())) {
-//						if (diffs.getRight() == null) diffs.setRight("");
-//						row2.set(i, diffs.getRight());
-//					}
-//				}
-//			}
-//			v.add(new Tuple<Vector<String>, Vector<String>>(row1, row2));
-//		}
-//		return v;
-//	}
-
-	/**
-	 * calcs two rows from update diff lists
-	 * @return
-	 */
-//	public Vector<Tuple<Vector<String>, Vector<String>>> getRemoteUpdateViewList() {
-//		Vector<Tuple<Vector<String>, Vector<String>>> v = new Vector<Tuple<Vector<String>, Vector<String>>>();
-//		for (Tuple<Vector<Pair>, Vector<Pair>> input : toUpdateRemotely) {
-//			Vector<String> row1 = new Vector<String>();
-//			Vector<String> row2 = new Vector<String>();
-//			// fill both rows
-//			for (Pair attr : input.getLeft()) {
-//				if (attr.getRight() == null) attr.setRight("");
-//				row1.add(attr.getRight());
-//				row2.add(attr.getRight());
-//			}
-//			// change fields that differ
-//			for (Pair diffs : input.getRight()) {
-//				for (int i = 0; i < input.getLeft().size(); i++) {
-//					Pair attr = input.getLeft().get(i);
-//					if (attr.getLeft().equalsIgnoreCase(diffs.getLeft())) {
-//						if (diffs.getRight() == null) diffs.setRight("");
-//						row2.set(i, diffs.getRight());
-//					}
-//				}
-//			}
-//			v.add(new Tuple<Vector<String>, Vector<String>>(row1, row2));
-//		}
-//		return v;
-//	}
 }

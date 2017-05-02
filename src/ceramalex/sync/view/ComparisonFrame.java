@@ -20,9 +20,11 @@ import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.Vector;
 
+import javax.swing.AbstractButton;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -77,8 +79,16 @@ public class ComparisonFrame extends JFrame {
 	private ProgressWorker worker;
 	private DefaultTableModel m1;
 	private DefaultTableModel m2;
+	private AbstractButton btnDeleted;
 
 	private void initialize() {
+		ActionListener simpleReload = new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				simpleReloadTables();
+			}
+		};
+		
 		addWindowListener(new java.awt.event.WindowAdapter() {
 			@Override
 			public void windowClosing(java.awt.event.WindowEvent windowEvent) {
@@ -96,12 +106,13 @@ public class ComparisonFrame extends JFrame {
 		tabs = new JTabbedPane(JTabbedPane.TOP);
 		chkTimestamp = new JRadioButton("by Timestamp");
 		chkContent = new JRadioButton("by Content");
-		btnReload = new JButton("Reload tables");
+		btnReload = new JButton("Refetch tables");
 		btnPairs = new JToggleButton("Pairs");
 		btnDownload = new JToggleButton("<-");
 		btnUpload = new JToggleButton("->");
 		btnIndividuals = new JToggleButton("Individuals");
 		btnUnequal = new JToggleButton("!=");
+		btnDeleted = new JToggleButton("X");
 
 		JPanel pnlTop = new JPanel();
 		container.add(pnlTop, BorderLayout.NORTH);
@@ -112,39 +123,75 @@ public class ComparisonFrame extends JFrame {
 				207, 229)), "Filters", TitledBorder.LEADING, TitledBorder.TOP,
 				null, new Color(51, 51, 51)));
 		pnlTop.add(pnlFilters, BorderLayout.WEST);
-		pnlFilters.setLayout(new FormLayout(new ColumnSpec[] {
-				FormFactory.RELATED_GAP_COLSPEC,
-				ColumnSpec.decode("45px"),
-				FormFactory.RELATED_GAP_COLSPEC,
-				ColumnSpec.decode("45px"),
-				FormFactory.UNRELATED_GAP_COLSPEC,
-				new ColumnSpec(ColumnSpec.FILL, Sizes.bounded(Sizes.PREFERRED,
-						Sizes.constant("50dlu", true),
-						Sizes.constant("70dlu", true)), 0),
-				FormFactory.RELATED_GAP_COLSPEC, }, new RowSpec[] {
-				FormFactory.RELATED_GAP_ROWSPEC, RowSpec.decode("25px"),
-				FormFactory.RELATED_GAP_ROWSPEC, RowSpec.decode("25px"),
-				FormFactory.RELATED_GAP_ROWSPEC, }));
+		pnlFilters.setLayout(new FormLayout(
+				new ColumnSpec[] {
+					FormFactory.RELATED_GAP_COLSPEC,
+					ColumnSpec.decode("45px"),
+					FormFactory.RELATED_GAP_COLSPEC,
+					ColumnSpec.decode("45px"),
+					FormFactory.RELATED_GAP_COLSPEC,
+					ColumnSpec.decode("45px"),
+					FormFactory.UNRELATED_GAP_COLSPEC,
+					new ColumnSpec(ColumnSpec.FILL, Sizes.bounded(Sizes.PREFERRED,
+							Sizes.constant("50dlu", true),
+							Sizes.constant("70dlu", true)),
+							0),
+					FormFactory.RELATED_GAP_COLSPEC, 
+				},
+				new RowSpec[] {
+					FormFactory.RELATED_GAP_ROWSPEC, RowSpec.decode("25px"),
+					FormFactory.RELATED_GAP_ROWSPEC, RowSpec.decode("25px"),
+					FormFactory.RELATED_GAP_ROWSPEC,
+				}));
 
 		btnUnequal.setSelected(true);
 		btnUnequal.setFont(new Font("Dialog", Font.PLAIN, 12));
+		btnUnequal.addActionListener(simpleReload);
 		pnlFilters.add(btnUnequal, "2, 2, default, fill");
-
+		
+		btnDeleted.setSelected(true);
+		btnDeleted.setFont(new Font("Dialog", Font.PLAIN, 12));
+		btnDeleted.addActionListener(simpleReload);
+		pnlFilters.add(btnDeleted, "4, 2, default, fill");
+		
 		btnIndividuals.setSelected(true);
 		btnIndividuals.setFont(new Font("Dialog", Font.PLAIN, 12));
-		pnlFilters.add(btnIndividuals, "6, 2, default, center");
+		btnIndividuals.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if (btnUpload.isEnabled())
+					btnUpload.setEnabled(false);
+				else btnUpload.setEnabled(true);
+				if (btnDownload.isEnabled())
+					btnDownload.setEnabled(false);
+				else btnDownload.setEnabled(true);
+				simpleReloadTables();
+			}
+		});
+		pnlFilters.add(btnIndividuals, "8, 4, default, center");
 
 		btnUpload.setSelected(true);
 		btnUpload.setFont(new Font("Dialog", Font.PLAIN, 12));
+		btnUpload.addActionListener(simpleReload);
 		pnlFilters.add(btnUpload, "2, 4, default, fill");
 
 		btnDownload.setSelected(true);
 		btnDownload.setFont(new Font("Dialog", Font.PLAIN, 12));
+		btnDownload.addActionListener(simpleReload);
 		pnlFilters.add(btnDownload, "4, 4, default, fill");
 
 		btnPairs.setSelected(true);
 		btnPairs.setFont(new Font("Dialog", Font.PLAIN, 12));
-		pnlFilters.add(btnPairs, "6, 4, default, center");
+		btnPairs.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent e) {
+				if (btnUnequal.isEnabled())
+					btnUnequal.setEnabled(false);
+				else btnUnequal.setEnabled(true);
+				simpleReloadTables();
+			}
+		});
+		pnlFilters.add(btnPairs, "8, 2, default, center");
 
 		JPanel pnlOptions = new JPanel();
 		pnlOptions.setBorder(new TitledBorder(null, "Options",
@@ -166,7 +213,7 @@ public class ComparisonFrame extends JFrame {
 		btnReload.addActionListener(new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				loadTables();
+				refetchTables();
 			}
 		});
 		pnlOptions.add(btnReload, "2, 2");
@@ -216,11 +263,10 @@ public class ComparisonFrame extends JFrame {
 		container.add(tabs, BorderLayout.CENTER);
 
 		tabs.setFont(new Font("Dialog", Font.PLAIN, 12));
-		loadTables();
+		refetchTables();
 	}
-
-	private void loadTables() {
-		tabs.removeAll();
+	
+	private void refetchTables() {
 		try {
 			commonTables = data.fetchCommonTables();
 		} catch (SQLException e) {
@@ -229,12 +275,25 @@ public class ComparisonFrame extends JFrame {
 					"Unable to fetch tables", JOptionPane.ERROR_MESSAGE);
 			dispose();
 		}
+		simpleReloadTables(false);
+	}
+	
+	/**
+	 * Wrapper class to force remembering last tab
+	 */
+	private void simpleReloadTables() {
+		simpleReloadTables(true);
+	}
+	
+	private void simpleReloadTables(boolean rememberTab) {
+		
+		tabs.removeAll();
 		ArrayList<ComparisonResult> comps = data.getResults();
 
 		for (int i = 0; i < comps.size(); i++) {
 			ComparisonResult comp = comps.get(i);
 			Pair p = comp.getTableName();
-			Vector<String> commonFields = comp.getCommonFields();
+			ArrayList<String> commonFields = comp.getCommonFields();
 			commonFields.sort(null);
 
 			Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> conflict = comp
@@ -270,6 +329,8 @@ public class ComparisonFrame extends JFrame {
 					.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 			innerLeftScroll.getVerticalScrollBar().setModel(
 					innerRightScroll.getVerticalScrollBar().getModel());
+			
+			table2.setSelectionModel(table1.getSelectionModel());
 
 			outerScroll.add(innerLeftScroll);
 			outerScroll.add(innerRightScroll);
@@ -287,12 +348,35 @@ public class ComparisonFrame extends JFrame {
 				}
 			};
 
-			m1.setColumnIdentifiers(commonFields);
-			m2.setColumnIdentifiers(commonFields);
+			m1.setColumnIdentifiers(commonFields.toArray());
+			m2.setColumnIdentifiers(commonFields.toArray());
 			
 			boolean notEmpty = false;
 			
 			ArrayList<Tuple<Integer,Integer>> redList = new ArrayList<Tuple<Integer,Integer>>();
+			ArrayList<Tuple<Integer,Integer>> greenList = new ArrayList<Tuple<Integer,Integer>>();
+			ArrayList<Tuple<Integer,Integer>> blueList = new ArrayList<Tuple<Integer,Integer>>();
+			
+			if (btnDeleted.isSelected()) {
+				for (int j = 0; j < delete.size(); j++) {
+					notEmpty = true;
+					m1.addRow(new String[0]);
+					m2.addRow(new String[0]);
+
+					int col = m2.findColumn("ArachneEntityID");
+					for (String key : commonFields) {
+						if ("ArachneEntityID".equals(key)) {
+							m1.setValueAt(delete.get(j).getLeft(), m1.getRowCount()-1, col);
+							m2.setValueAt(delete.get(j).getRight(), m2.getRowCount()-1, col);
+						} else {
+							m1.setValueAt(null, m1.getRowCount()-1, m1.findColumn(key));
+							m2.setValueAt(null, m2.getRowCount()-1, m2.findColumn(key));
+						}
+					}
+					int row = m2.getRowCount()-1;
+					redList.add(new Tuple<Integer,Integer>(row,col));
+				}
+			}
 			
 			if (btnUnequal.isSelected()) {
 				if (btnPairs.isSelected()) {
@@ -321,29 +405,64 @@ public class ComparisonFrame extends JFrame {
 								int row = m2.getRowCount()-1;
 								int col = m2.findColumn(key);
 								m2.setValueAt(rowR.get(key), row, col);
-								redList.add(new Tuple<Integer,Integer>(row,col));
+								blueList.add(new Tuple<Integer,Integer>(row,col));
 							}
 						}
 					}
 					for (int j = 0; j < updateRemotely.size(); j++) {
 						notEmpty = true;
-						m1.addRow(updateRemotely.get(j).getLeft().values().toArray());
-						m2.addRow(updateRemotely.get(j).getRight().values().toArray());
+						TreeMap<String,String> rowL = updateRemotely.get(j).getLeft();
+						TreeMap<String,String> rowR = updateRemotely.get(j).getRight();
+						m1.addRow(new String[0]);
+						m2.addRow(new String[0]);
+						for (String key : commonFields) {
+							// filling rows on both sides. if val = null, fill with null.
+							if (rowR.containsKey(key)) {
+								m1.setValueAt(rowL.get(key), m1.getRowCount()-1, m1.findColumn(key));
+								m2.setValueAt(rowL.get(key), m2.getRowCount()-1, m2.findColumn(key));
+							} else {
+								m1.setValueAt(null, m1.getRowCount()-1, m1.findColumn(key));
+								m2.setValueAt(null, m2.getRowCount()-1, m2.findColumn(key));
+							}
+							// overwrite diffs on left side
+							if (rowL.containsKey(key)) {
+								int row = m1.getRowCount()-1;
+								int col = m1.findColumn(key);
+								m1.setValueAt(rowL.get(key), row, col);
+								greenList.add(new Tuple<Integer,Integer>(row,col));
+							}
+						}
 					}
 				}
 				if (btnIndividuals.isSelected()) {
 					if (btnUpload.isSelected()) {
 						for (int j = 0; j < upload.size(); j++) {
+							TreeMap<String,String> row = upload.get(j);
 							notEmpty = true;
-							m1.addRow(upload.get(j).values().toArray());
+							for (String key : commonFields) {
+								if (row.containsKey(key)) 
+									m1.setValueAt(row.get(key), m1.getRowCount()-1, m1.findColumn(key));
+								else
+									m1.setValueAt(null, m1.getRowCount()-1, m1.findColumn(key));
+							}
 							m2.addRow(new String[] {});
+							int r = m2.getRowCount()-1;
+							greenList.add(new Tuple<Integer,Integer>(r,0));
 						}
 					}
 					if (btnDownload.isSelected()) {
 						for (int j = 0; j < download.size(); j++) {
+							TreeMap<String,String> row = download.get(j);
 							notEmpty = true;
-							m2.addRow(download.get(j).values().toArray());
+							for (String key : commonFields) {
+								if (row.containsKey(key)) 
+									m2.setValueAt(row.get(key), m2.getRowCount()-1, m2.findColumn(key));
+								else
+									m2.setValueAt(null, m2.getRowCount()-1, m2.findColumn(key));
+							}
 							m1.addRow(new String[] {});
+							int r = m1.getRowCount()-1;
+							blueList.add(new Tuple<Integer,Integer>(r,0));
 						}
 					}
 				}
@@ -355,9 +474,15 @@ public class ComparisonFrame extends JFrame {
 			if (notEmpty)
 				tabs.addTab(p.getLeft(), null, outerScroll, p.toString());
 			
+			for (Tuple<Integer,Integer> t : greenList) {
+				((DefaultTableCellRenderer) table1.getCellRenderer(t.getLeft(), t.getRight())).setForeground(Color.GREEN);
+			}
+			for (Tuple<Integer,Integer> t : blueList) {
+				((DefaultTableCellRenderer) table2.getCellRenderer(t.getLeft(), t.getRight())).setForeground(Color.BLUE);
+			}
 			for (Tuple<Integer,Integer> t : redList) {
-				DefaultTableCellRenderer ren = (DefaultTableCellRenderer) table2.getCellRenderer(t.getLeft(), t.getRight());
-				ren.setForeground(Color.RED);
+				((DefaultTableCellRenderer) table1.getCellRenderer(t.getLeft(), t.getRight())).setForeground(Color.RED);
+				((DefaultTableCellRenderer) table2.getCellRenderer(t.getLeft(), t.getRight())).setForeground(Color.RED);
 			}
 		}
 	}
