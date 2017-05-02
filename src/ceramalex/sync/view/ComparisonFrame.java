@@ -38,6 +38,7 @@ import javax.swing.border.TitledBorder;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 
@@ -449,6 +450,20 @@ public class ComparisonFrame extends JFrame {
 	}
 
 	class JResizeTable extends JTable {
+		@Override
+		public Component prepareRenderer(TableCellRenderer renderer, int row, int col) {
+			Component comp = super.prepareRenderer(renderer, row, col);
+			Object value = getModel().getValueAt(row, col);
+			if (value.equals(false)) {
+				comp.setBackground(Color.red);
+			} else if (value.equals(true)) {
+				comp.setBackground(Color.green);
+			} else {
+				comp.setBackground(Color.white);
+			}
+			return comp;
+		}
+
 		@Override
 		public Point getToolTipLocation(MouseEvent event) {
 			return new Point(10, 10);
