@@ -10,6 +10,7 @@ import javax.swing.JTextArea;
 import javax.swing.ProgressMonitor;
 import javax.swing.SwingWorker;
 
+import ceramalex.sync.exception.EntityManagementException;
 import ceramalex.sync.model.Pair;
 import ceramalex.sync.model.SQLDataModel;
 
@@ -38,8 +39,8 @@ public class ProgressWorker extends SwingWorker<Void, String> {
 				setProgress(100*(i/commonTables.size()));
 				
 				try {
-					data.getDiffByUUID(p, true, true);
-				} catch ( Exception e) {
+					data.calcDiff(p, true, true);
+				} catch (EntityManagementException e) {
 					e.printStackTrace();
 				}
 			} else return null;

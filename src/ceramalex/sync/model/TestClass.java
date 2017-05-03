@@ -20,10 +20,11 @@ public class TestClass {
 			ArrayList<Pair> commonTables = m.fetchCommonTables();
 
 			for (int i = 0; i < commonTables.size(); i++) {
+				Pair currTab = commonTables.get(i);
 				try {
 					System.out.print("\nProcessing table "
 							+ commonTables.get(i) + " ... ");
-					ComparisonResult result = m.getDiffByUUID(
+					ComparisonResult result = m.calcDiff(
 							commonTables.get(i), true, true);
 					/**
 					 * BEGIN TESTING AREA
@@ -36,7 +37,7 @@ public class TestClass {
 							}
 							System.out.println();
 						}
-//						m.prepareRowsAndDownload(commonTables.get(i), result.getDownloadList(), 25);
+//						m.prepareRowsAndDownload(currTab, result.getDownloadList(), 25);
 					}
 					if (!result.getUploadList().isEmpty()) {
 						System.out.println("printing UPLOAD list:");
@@ -46,7 +47,7 @@ public class TestClass {
 							}
 							System.out.println();
 						}
-//						m.prepareRowsAndUpload(commonTables.get(i), result.getUploadList(), 25);
+//						m.prepareRowsAndUpload(currTab, result.getUploadList(), 25);
 					}
 					if (!result.getDeleteList().isEmpty()) {
 						System.out.println("printing DELETE list:");
@@ -71,6 +72,7 @@ public class TestClass {
 							}
 							System.out.println();
 						}
+//						m.updateRowsLocally(currTab, result.getLocalUpdateList());
 					}
 					if (!result.getRemoteUpdateList().isEmpty()) {
 						System.out.println("printing REMOTE UPDATE list:");
