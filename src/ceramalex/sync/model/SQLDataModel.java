@@ -44,6 +44,7 @@ public class SQLDataModel {
 	private SQLAccessController sqlAccess;
 	private DateTimeFormatter formatTS;
 	private ZoneId zoneBerlin;
+	private ZoneId zoneUTC;
 	private ArrayList<Pair> commonTables;
 	private ArrayList<ComparisonResult> results;
 	private ArrayList<Integer> handledAUIDs;
@@ -68,6 +69,7 @@ public class SQLDataModel {
 	private SQLDataModel() throws IOException, SQLException {
 		formatTS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 		zoneBerlin = ZoneId.of("Europe/Berlin");
+		zoneUTC = ZoneId.of("UTC");
 		sqlAccess = SQLAccessController.getInstance();
 		results = new ArrayList<ComparisonResult>();
 		handledAUIDs = new ArrayList<Integer>();
@@ -99,6 +101,7 @@ public class SQLDataModel {
 					if (msNames.get(i).toLowerCase()
 							.equals(fmNames.get(j).toLowerCase())) {
 						Pair t = new Pair(fmNames.get(j), msNames.get(i));
+//						sqlAccess.doFMUpdate("UPDATE "+fmNames.get(j) + " SET ArachneEntityID=null,lastModified=null,lastRemoteTS=null");
 						commonTables.add(t);
 					}
 					// IsolatedSherdMainAbstract maps to isolatedsherd
@@ -267,14 +270,14 @@ public class SQLDataModel {
 
 			String fmSQL = "SELECT " + sqlCommonFieldsFM + ", "+currTab.getLeft()+".lastRemoteTS FROM " + currTab.getLeft()
 					+ archerFMSkip;
-			String msSQL = "SELECT ceramalexEntityManagement.ArachneEntityID, "//arachneentityidentification.ArachneEntityID, arachneentityidentification.isDeleted, "
+			String msSQL = "SELECT arachneentityidentification.ArachneEntityID, arachneentityidentification.isDeleted, "
 					+ sqlCommonFields.replace("lastModified", "CONVERT_TZ(" + currTab.getRight() + ".`lastModified`, @@session.time_zone, '+00:00') as lastModified")
-					+ " FROM ceramalexEntityManagement"
+					+ " FROM arachneentityidentification"
 					// left join includes deleted or empty UIDs
 					+ " LEFT JOIN " + currTab.getRight()
-					+ " ON ceramalexEntityManagement.CeramalexForeignKey = "
+					+ " ON arachneentityidentification.ForeignKey = "
 					+ currTab.getRight() + "." + sqlAccess.getMySQLTablePrimaryKey(currTab.getRight())
-					+ " WHERE ceramalexEntityManagement.TableName=\""
+					+ " WHERE arachneentityidentification.TableName=\""
 					+ currTab.getRight() + "\"" + archerMSSkip;
 
 			// get only common fields from filemaker
@@ -400,7 +403,8 @@ public class SQLDataModel {
 						// local deletions cannot be recognized. GUI should ask in each case.
 						// idea: handle locally deleted like a conflict!
 						else {
-							result.addToConflictList(local, rowMS);
+							if (local.size() == rowMS.size())
+								result.addToConflictList(local, rowMS);
 						}
 						fNotNull.previous(); // INDEX SHIFT, trying local index again!
 					}	
@@ -585,8 +589,6 @@ public class SQLDataModel {
 				System.err.println("FEHLER: " + e);
 				e.printStackTrace();
 			}
-
-			System.out.println("done.");
 		}
 		results.add(result);
 		return result;
@@ -862,7 +864,7 @@ public class SQLDataModel {
 		String vals = " VALUES (";
 		String keyField = sqlAccess.getFMTablePrimaryKey(currTab.getLeft());
 		
-		for (int i = 0; i <= vector.size(); i++) {
+		for (int i = 0; i < vector.size(); i++) {
 			
 			TreeMap<String,String> currRow = i != vector.size() ? vector.get(i) : null;
 			
@@ -870,8 +872,7 @@ public class SQLDataModel {
 			// ( col1, col2, col3, ..)
 			while (it.hasNext()) {
 				String currFieldName = it.next();
-				if (currFieldName.equalsIgnoreCase(keyField)
-						|| currFieldName.equals("ArachneEntityID")) {
+				if (currFieldName.equals("ArachneEntityID")) {
 					continue;
 				}
 				sql += "`" + currFieldName + "`";
@@ -913,8 +914,7 @@ public class SQLDataModel {
 						+ localIDs.get(i) + ";");
 			if (id.next()) {
 				int RAUID = id.getInt("ArachneEntityID");
-				if (!updateLocalUIDAndTS(currTab, RAUID, id.getTimestamp("lastModified")
-						.toLocalDateTime(), keyField, localIDs.get(i)))
+				if (!updateLocalUIDAndTS(currTab, RAUID, id.getTimestamp("lastModified").toLocalDateTime(), keyField, localIDs.get(i)))
 					throw new EntityManagementException("Updating local AUID "
 							+ id.getInt(1) + " and timestamp in table " + currTab.getLeft()
 							+ " FAILED!");
@@ -978,7 +978,7 @@ public class SQLDataModel {
 	 * @throws SQLException
 	 * @throws IOException
 	 */
-	private int compareFields(ArrayList<String> commonFields, TreeMap<String, String> rowMS, TreeMap<String, String> rowFM,
+	private int compareFields(ArrayList<String> commonFields, TreeMap<String, String> rowFM, TreeMap<String, String> rowMS,
 			Pair currentTable) throws SQLException, IOException {
 		
 		if (rowMS.size() != rowFM.size()) return -1;
@@ -987,6 +987,8 @@ public class SQLDataModel {
 		boolean localAllNull = true; // empty local fields
 		boolean remoteAllNull = true; // empty remote fields
 		boolean allSame = true;
+		
+		int offset = 0;
 
 		for (int l = 0; l < commonFields.size(); l++) {
 
@@ -1026,12 +1028,14 @@ public class SQLDataModel {
 
 					int fID = Integer.parseInt(fmVal);
 					int mID = Integer.parseInt(myVal);
+					
+					offset = fID - mID;
 
 					// missing entry in remote db
-					if (fID < mID)
+					if (fID < mID) // offset < 0
 						return 5;
-					else
-						// missing entry in local db
+					// missing entry in local db
+					else // offset > 0
 						return 6;
 				}
 

@@ -457,13 +457,13 @@ public class MainFrame {
 					if (!timedOut) {
 						timedOut = true;
 						worker.cancel(true);
-						worker.pub(FrameStatus.closedError("Server did not answer."));
+						worker.pub(FrameStatus.closedError(msg));
 						SwingUtilities.invokeLater(new Runnable() {
 							@Override
 							public void run() {
 								JOptionPane.showMessageDialog(
 										frame,
-										"Establishing the connection failed: Server didddd not answer.",
+										"Establishing the connection failed: "+msg,
 										"Connection failure",
 										JOptionPane.WARNING_MESSAGE);
 							};

@@ -39,9 +39,11 @@ public class ProgressWorker extends SwingWorker<Void, String> {
 				
 				try {
 					data.getDiffByUUID(p, true, true);
-				} catch ( Exception e) {
+				} catch (Exception e) {
+					publish("ERROR!\n"+"Error Message: "+e);
 					e.printStackTrace();
 				}
+				publish(" done.\n");
 			} else return null;
 		}
 		return null;
@@ -51,7 +53,7 @@ public class ProgressWorker extends SwingWorker<Void, String> {
 	protected void process(List<String> listProgress) {
 		for (String arr : listProgress) {
 //			monitor.setText(arr[0]);
-			txtLog.append(arr + "\n");
+			txtLog.append(arr);
 		}
 		return;
 	}
