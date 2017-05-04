@@ -45,6 +45,7 @@ import javax.swing.table.TableColumnModel;
 
 import org.apache.log4j.Logger;
 
+import ceramalex.sync.exception.EntityManagementException;
 import ceramalex.sync.model.ComparisonResult;
 import ceramalex.sync.model.Pair;
 import ceramalex.sync.model.SQLDataModel;
@@ -61,7 +62,7 @@ public class ComparisonFrame extends JFrame {
 	private JPanel container;
 	private final ButtonGroup buttonGroup = new ButtonGroup();
 
-	private ArrayList<ComparisonResult> comp;
+	private ArrayList<ComparisonResult> comps;
 	private SQLDataModel data;
 	private ArrayList<Pair> commonTables;
 
@@ -82,6 +83,7 @@ public class ComparisonFrame extends JFrame {
 	private AbstractButton btnDeleted;
 
 	private void initialize() {
+		commonTables = new ArrayList<Pair>();
 		ActionListener simpleReload = new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -249,6 +251,20 @@ public class ComparisonFrame extends JFrame {
 
 		JButton btnStart = new JButton("Start!");
 		btnStart.setFont(new Font("Dialog", Font.BOLD, 12));
+		btnStart.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent arg0) {
+				for (ComparisonResult r : comps) {
+					try {
+						data.prepareRowsAndUpload(r.getTableName(), r.getUploadList(), 25);
+						data.prepareRowsAndDownload(r.getTableName(), r.getDownloadList(), 25);
+					} catch (SQLException | EntityManagementException | IOException e) {
+						e.printStackTrace();
+						logger.error(e);
+						JOptionPane.showMessageDialog(null, "Error!", "Error while up- or downloading: "+e, JOptionPane.ERROR_MESSAGE);
+					}
+				}
+			}
+		});
 		pnlActions.add(btnStart, "2, 2, fill, fill");
 
 		JButton btnCancel = new JButton("Cancel");
@@ -288,7 +304,7 @@ public class ComparisonFrame extends JFrame {
 	private void simpleReloadTables(boolean rememberTab) {
 		
 		tabs.removeAll();
-		ArrayList<ComparisonResult> comps = data.getResults();
+		comps = data.getResults();
 
 		for (int i = 0; i < comps.size(); i++) {
 			ComparisonResult comp = comps.get(i);
@@ -322,15 +338,17 @@ public class ComparisonFrame extends JFrame {
 			innerLeftScroll
 					.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 			innerLeftScroll
-					.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
+					.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 			innerRightScroll
 					.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 			innerRightScroll
-					.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+					.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
 			innerLeftScroll.getVerticalScrollBar().setModel(
 					innerRightScroll.getVerticalScrollBar().getModel());
+			innerLeftScroll.getHorizontalScrollBar().setModel(
+					innerRightScroll.getHorizontalScrollBar().getModel());
 			
-			table2.setSelectionModel(table1.getSelectionModel());
+			table1.setSelectionModel(table2.getSelectionModel());
 
 			outerScroll.add(innerLeftScroll);
 			outerScroll.add(innerRightScroll);
@@ -385,51 +403,55 @@ public class ComparisonFrame extends JFrame {
 						m1.addRow(conflict.get(j).getLeft().values().toArray());
 						m2.addRow(conflict.get(j).getRight().values().toArray());
 					}
-					for (int j = 0; j < updateLocally.size(); j++) {
-						notEmpty = true;
-						TreeMap<String,String> rowL = updateLocally.get(j).getLeft();
-						TreeMap<String,String> rowR = updateLocally.get(j).getRight();
-						m1.addRow(new String[0]);
-						m2.addRow(new String[0]);
-						for (String key : commonFields) {
-							// filling rows on both sides
-							if (rowL.containsKey(key)) {
-								m1.setValueAt(rowL.get(key), m1.getRowCount()-1, m1.findColumn(key));
-								m2.setValueAt(rowL.get(key), m2.getRowCount()-1, m2.findColumn(key));
-							} else {
-								m1.setValueAt(null, m1.getRowCount()-1, m1.findColumn(key));
-								m2.setValueAt(null, m2.getRowCount()-1, m2.findColumn(key));
-							}
-							// overwrite diffs on right side
-							if (rowR.containsKey(key)) {
-								int row = m2.getRowCount()-1;
-								int col = m2.findColumn(key);
-								m2.setValueAt(rowR.get(key), row, col);
-								blueList.add(new Tuple<Integer,Integer>(row,col));
+					if (btnDownload.isSelected()) {
+						for (int j = 0; j < updateLocally.size(); j++) {
+							notEmpty = true;
+							TreeMap<String,String> rowL = updateLocally.get(j).getLeft();
+							TreeMap<String,String> rowR = updateLocally.get(j).getRight();
+							m1.addRow(new String[0]);
+							m2.addRow(new String[0]);
+							for (String key : commonFields) {
+								// filling rows on both sides
+								if (rowL.containsKey(key)) {
+									m1.setValueAt(rowL.get(key), m1.getRowCount()-1, m1.findColumn(key));
+									m2.setValueAt(rowL.get(key), m2.getRowCount()-1, m2.findColumn(key));
+								} else {
+									m1.setValueAt(null, m1.getRowCount()-1, m1.findColumn(key));
+									m2.setValueAt(null, m2.getRowCount()-1, m2.findColumn(key));
+								}
+								// overwrite diffs on right side
+								if (rowR.containsKey(key)) {
+									int row = m2.getRowCount()-1;
+									int col = m2.findColumn(key);
+									m2.setValueAt(rowR.get(key), row, col);
+									blueList.add(new Tuple<Integer,Integer>(row,col));
+								}
 							}
 						}
 					}
-					for (int j = 0; j < updateRemotely.size(); j++) {
-						notEmpty = true;
-						TreeMap<String,String> rowL = updateRemotely.get(j).getLeft();
-						TreeMap<String,String> rowR = updateRemotely.get(j).getRight();
-						m1.addRow(new String[0]);
-						m2.addRow(new String[0]);
-						for (String key : commonFields) {
-							// filling rows on both sides. if val = null, fill with null.
-							if (rowR.containsKey(key)) {
-								m1.setValueAt(rowL.get(key), m1.getRowCount()-1, m1.findColumn(key));
-								m2.setValueAt(rowL.get(key), m2.getRowCount()-1, m2.findColumn(key));
-							} else {
-								m1.setValueAt(null, m1.getRowCount()-1, m1.findColumn(key));
-								m2.setValueAt(null, m2.getRowCount()-1, m2.findColumn(key));
-							}
-							// overwrite diffs on left side
-							if (rowL.containsKey(key)) {
-								int row = m1.getRowCount()-1;
-								int col = m1.findColumn(key);
-								m1.setValueAt(rowL.get(key), row, col);
-								greenList.add(new Tuple<Integer,Integer>(row,col));
+					if (btnUpload.isSelected()) {
+						for (int j = 0; j < updateRemotely.size(); j++) {
+							notEmpty = true;
+							TreeMap<String,String> rowL = updateRemotely.get(j).getLeft();
+							TreeMap<String,String> rowR = updateRemotely.get(j).getRight();
+							m1.addRow(new String[0]);
+							m2.addRow(new String[0]);
+							for (String key : commonFields) {
+								// filling rows on both sides. if val = null, fill with null.
+								if (rowR.containsKey(key)) {
+									m1.setValueAt(rowL.get(key), m1.getRowCount()-1, m1.findColumn(key));
+									m2.setValueAt(rowL.get(key), m2.getRowCount()-1, m2.findColumn(key));
+								} else {
+									m1.setValueAt(null, m1.getRowCount()-1, m1.findColumn(key));
+									m2.setValueAt(null, m2.getRowCount()-1, m2.findColumn(key));
+								}
+								// overwrite diffs on left side
+								if (rowL.containsKey(key)) {
+									int row = m1.getRowCount()-1;
+									int col = m1.findColumn(key);
+									m1.setValueAt(rowL.get(key), row, col);
+									greenList.add(new Tuple<Integer,Integer>(row,col));
+								}
 							}
 						}
 					}
@@ -439,6 +461,7 @@ public class ComparisonFrame extends JFrame {
 						for (int j = 0; j < upload.size(); j++) {
 							TreeMap<String,String> row = upload.get(j);
 							notEmpty = true;
+							m1.addRow(new String[0]);
 							for (String key : commonFields) {
 								if (row.containsKey(key)) 
 									m1.setValueAt(row.get(key), m1.getRowCount()-1, m1.findColumn(key));
@@ -454,6 +477,7 @@ public class ComparisonFrame extends JFrame {
 						for (int j = 0; j < download.size(); j++) {
 							TreeMap<String,String> row = download.get(j);
 							notEmpty = true;
+							m2.addRow(new String[0]);
 							for (String key : commonFields) {
 								if (row.containsKey(key)) 
 									m2.setValueAt(row.get(key), m2.getRowCount()-1, m2.findColumn(key));
@@ -475,10 +499,12 @@ public class ComparisonFrame extends JFrame {
 				tabs.addTab(p.getLeft(), null, outerScroll, p.toString());
 			
 			for (Tuple<Integer,Integer> t : greenList) {
-				((DefaultTableCellRenderer) table1.getCellRenderer(t.getLeft(), t.getRight())).setForeground(Color.GREEN);
+				DefaultTableCellRenderer ren = (DefaultTableCellRenderer) table1.getCellRenderer(t.getLeft(), t.getRight());
+				ren.setForeground(Color.GREEN);
 			}
 			for (Tuple<Integer,Integer> t : blueList) {
-				((DefaultTableCellRenderer) table2.getCellRenderer(t.getLeft(), t.getRight())).setForeground(Color.BLUE);
+				DefaultTableCellRenderer ren = (DefaultTableCellRenderer) table2.getCellRenderer(t.getLeft(), t.getRight());
+				ren.setForeground(Color.BLUE);
 			}
 			for (Tuple<Integer,Integer> t : redList) {
 				((DefaultTableCellRenderer) table1.getCellRenderer(t.getLeft(), t.getRight())).setForeground(Color.RED);
@@ -492,7 +518,7 @@ public class ComparisonFrame extends JFrame {
 				"Are you sure to cancel the operation? No changes will apply.",
 				"Really Closing?", JOptionPane.YES_NO_OPTION,
 				JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION) {
-			comp = null;
+			comps = null;
 			dispose();
 		}
 	}
@@ -551,13 +577,13 @@ public class ComparisonFrame extends JFrame {
 		});
 		worker.execute();
 
-		comp = new ArrayList<ComparisonResult>();
+		comps = new ArrayList<ComparisonResult>();
 	}
 
 	public ArrayList<ComparisonResult> showDialog(JFrame parent) {
 		this.pack();
 		ModalFrameUtil.showAsModal(this, parent);
-		return comp;
+		return comps;
 	}
 
 	public class TestCellRenderer extends DefaultTableCellRenderer {
