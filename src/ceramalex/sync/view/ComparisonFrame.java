@@ -8,6 +8,8 @@ import java.awt.GridLayout;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
@@ -15,6 +17,7 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.TreeSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
@@ -77,11 +80,13 @@ public class ComparisonFrame extends JFrame {
 	private JToggleButton btnUpload;
 	private JToggleButton btnIndividuals;
 	private JToggleButton btnUnequal;
+	private JTextArea txtLog;
 	// private ProgressMonitor monitor;
 	private ProgressWorker worker;
 	private DefaultTableModel m1;
 	private DefaultTableModel m2;
 	private AbstractButton btnDeleted;
+	private JCheckBox chkSyncAttr = new JCheckBox("Show sync relevant fields");
 
 	private void initialize() {
 		commonTables = new ArrayList<Pair>();
@@ -227,9 +232,15 @@ public class ComparisonFrame extends JFrame {
 		chkTimestamp.setFont(new Font("Dialog", Font.PLAIN, 12));
 		pnlOptions.add(chkTimestamp, "4, 2");
 
-		JCheckBox chckbxNewCheckBox_2 = new JCheckBox("New check box");
-		chckbxNewCheckBox_2.setFont(new Font("Dialog", Font.PLAIN, 12));
-		pnlOptions.add(chckbxNewCheckBox_2, "6, 2");
+		chkSyncAttr.setFont(new Font("Dialog", Font.PLAIN, 12));
+		chkSyncAttr.setSelected(true);
+		chkSyncAttr.addItemListener(new ItemListener(){
+			@Override
+			public void itemStateChanged(ItemEvent e) {
+				simpleReloadTables();
+			}
+		});
+		pnlOptions.add(chkSyncAttr, "6, 2");
 
 		buttonGroup.add(chkContent);
 		chkContent.setFont(new Font("Dialog", Font.PLAIN, 12));
@@ -254,16 +265,7 @@ public class ComparisonFrame extends JFrame {
 		btnStart.setFont(new Font("Dialog", Font.BOLD, 12));
 		btnStart.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				for (ComparisonResult r : comps) {
-					try {
-						data.prepareRowsAndUpload(r.getTableName(), r.getUploadList(), 25);
-						data.prepareRowsAndDownload(r.getTableName(), r.getDownloadList(), 25);
-					} catch (SQLException | EntityManagementException | IOException e) {
-						e.printStackTrace();
-						logger.error(e);
-						JOptionPane.showMessageDialog(null, "Error!", "Error while up- or downloading: "+e, JOptionPane.ERROR_MESSAGE);
-					}
-				}
+				handleStartBtn();
 			}
 		});
 		pnlActions.add(btnStart, "2, 2, fill, fill");
@@ -281,6 +283,44 @@ public class ComparisonFrame extends JFrame {
 
 		tabs.setFont(new Font("Dialog", Font.PLAIN, 12));
 		refetchTables();
+	}
+	
+	private void handleStartBtn() {
+		dispose();
+		ProgressMonitor monitor = ProgressUtil.createModalProgressMonitor(this, 100, false, 0); 
+
+		try {
+			worker = new ProgressWorker(txtLog, ProgressWorker.JOB_APPLY_CHANGES) {
+				@Override
+				protected void done() {
+					
+				}
+			};
+		} catch (IOException | SQLException e) {
+			JOptionPane.showMessageDialog(this,
+					"I couldn't create a new thread, consult the log.",
+					"Error", JOptionPane.ERROR_MESSAGE);
+			logger.error(e);
+		}
+		worker.addPropertyChangeListener(new PropertyChangeListener() {
+		
+			@Override
+			public void propertyChange(final PropertyChangeEvent event) {
+				if ("progress".equals(event.getPropertyName())) {
+					int progress = (Integer) event.getNewValue();
+					monitor.setCurrent(""+progress, 123);
+		
+					if (worker.isDone()) {
+						if (monitor.isCanceled()) {
+							worker.cancel(true);
+							txtLog.append("Comparing tables canceled.\n");
+						} else
+							txtLog.append("Comparing tables completed.\n");
+					}
+				}
+			}
+		});
+		worker.execute();
 	}
 	
 	private void refetchTables() {
@@ -310,8 +350,7 @@ public class ComparisonFrame extends JFrame {
 		for (int i = 0; i < comps.size(); i++) {
 			ComparisonResult comp = comps.get(i);
 			Pair p = comp.getTableName();
-			ArrayList<String> commonFields = comp.getCommonFields();
-			commonFields.sort(null);
+			TreeSet<String> commonFields = new TreeSet<String>(comp.getCommonFields());
 
 			Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> conflict = comp
 					.getConflictList();
@@ -343,7 +382,7 @@ public class ComparisonFrame extends JFrame {
 			innerRightScroll
 					.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 			innerRightScroll
-					.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_NEVER);
+					.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 			innerLeftScroll.getVerticalScrollBar().setModel(
 					innerRightScroll.getVerticalScrollBar().getModel());
 			innerLeftScroll.getHorizontalScrollBar().setModel(
@@ -367,6 +406,11 @@ public class ComparisonFrame extends JFrame {
 				}
 			};
 
+			if (!chkSyncAttr.isSelected()) {
+				commonFields.remove("ArachneEntityID");
+				commonFields.remove("lastModified");
+			}
+			
 			m1.setColumnIdentifiers(commonFields.toArray());
 			m2.setColumnIdentifiers(commonFields.toArray());
 			
@@ -530,6 +574,7 @@ public class ComparisonFrame extends JFrame {
 	 * @param txtLog
 	 */
 	public ComparisonFrame(JTextArea txtLog) {
+		this.txtLog = txtLog;
 		try {
 			data = SQLDataModel.getInstance();
 		} catch (IOException e) {
@@ -546,7 +591,7 @@ public class ComparisonFrame extends JFrame {
 //		monitor.start("Fetching ...");
 
 		try {
-			worker = new ProgressWorker(txtLog) {
+			worker = new ProgressWorker(txtLog, ProgressWorker.JOB_CALC_DIFF) {
 				@Override
 				protected void done() {
 					initialize();

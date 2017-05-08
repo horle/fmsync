@@ -46,7 +46,6 @@ public abstract class ConnectionWorker extends SwingWorker<Boolean, FrameStatus>
 	 */
 	@Override
 	protected void process(List<FrameStatus> statusList) {
-		System.out.println("processing");
 		for (FrameStatus status : statusList) {
 			txtLog.append(status.getLogMsg());
 			btnCancel.setEnabled(status.isBtnCancelEn());
