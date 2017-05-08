@@ -65,9 +65,10 @@ public class ComparisonResult {
 		
 		for (Entry<String,String> e : rowFM.entrySet()) {
 			String key = e.getKey();
-			String valFM = e.getValue();
-			if (!valFM.equals(rowMS.get(key))) {
-				diff.put(key, rowMS.get(key));
+			String valFM = e.getValue() == null? "" : e.getValue();
+			String valMS = rowMS.get(key) == null ? "" : rowMS.get(key);
+			if (!valFM.equals(valMS)) {
+				diff.put(key, valMS);
 			}
 		}
 		return conflict.add(new Tuple<TreeMap<String,String>, TreeMap<String,String>>(rowFM, diff));
