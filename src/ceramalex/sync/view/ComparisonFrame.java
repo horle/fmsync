@@ -40,6 +40,7 @@ import javax.swing.border.TitledBorder;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 
@@ -600,6 +601,7 @@ public class ComparisonFrame extends JFrame {
 	}
 
 	class JResizeTable extends JTable {
+
 		@Override
 		public Point getToolTipLocation(MouseEvent event) {
 			return new Point(10, 10);
