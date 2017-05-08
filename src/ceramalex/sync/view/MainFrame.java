@@ -342,7 +342,7 @@ public class MainFrame {
 
 			@Override
 			protected Void doInBackground() throws Exception {
-
+				
 				/**
 				 * SwingWorker to connect to DBs and update GUI
 				 * elements
@@ -357,6 +357,7 @@ public class MainFrame {
 					protected Boolean doInBackground()
 							throws InterruptedException, IOException {
 
+						data.resetResults();
 						publish(FrameStatus.connecting());
 
 						try {

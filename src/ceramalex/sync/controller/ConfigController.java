@@ -5,7 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.HashSet;
+import java.util.TreeSet;
 import java.util.Properties;
 
 import org.apache.log4j.Logger;
@@ -24,8 +24,8 @@ public class ConfigController {
 
 	private final String fmPort = "2399";
 
-	private HashSet<String> timestampFields;
-	private HashSet<String> numericFields;
+	private TreeSet<String> timestampFields;
+	private TreeSet<String> numericFields;
 
 	private String fileName = "sync.conf";
 
@@ -191,19 +191,19 @@ public class ConfigController {
 		propertyList.setProperty("MySQLPort", mySQLPort);
 	}
 
-	public HashSet<String> getNumericFields() {
+	public TreeSet<String> getNumericFields() {
 		return numericFields;
 	}
 
-	public void setNumericFields(HashSet<String> list) {
+	public void setNumericFields(TreeSet<String> list) {
 		this.numericFields = list;
 	}
 
-	public HashSet<String> getTimestampFields() {
+	public TreeSet<String> getTimestampFields() {
 		return timestampFields;
 	}
 
-	public void setTimestampFields(HashSet<String> timestampFields) {
+	public void setTimestampFields(TreeSet<String> timestampFields) {
 		this.timestampFields = timestampFields;
 	}
 

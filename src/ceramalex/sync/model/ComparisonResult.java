@@ -2,6 +2,7 @@ package ceramalex.sync.model;
 
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.TreeSet;
 import java.util.TreeMap;
 import java.util.Iterator;
 import java.util.Map.Entry;
@@ -40,7 +41,7 @@ public class ComparisonResult {
 	private Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> toUpdateLocally;
 	private Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> toUpdateRemotely;
 	private Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> conflict;
-	private ArrayList<String> commonFields;
+	private TreeSet<String> commonFields;
 	
 	public ComparisonResult(Pair table) {
 		currTab = table;
@@ -179,11 +180,11 @@ public class ComparisonResult {
 		return currTab;
 	}
 
-	public ArrayList<String> getCommonFields() {
+	public TreeSet<String> getCommonFields() {
 		return commonFields;
 	}
 
-	public void setCommonFields(ArrayList<String> commonFields) {
-		this.commonFields = commonFields;
+	public void setCommonFields(TreeSet<String> commonFields2) {
+		this.commonFields = commonFields2;
 	}
 }

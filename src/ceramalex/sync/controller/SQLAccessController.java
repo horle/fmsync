@@ -5,7 +5,7 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 
@@ -231,9 +231,9 @@ public class SQLAccessController {
 	 * @throws SQLException
 	 * @throws IOException 
 	 */
-	public HashSet<String> fetchNumericFields(ArrayList<Pair> commonTables)
+	public TreeSet<String> fetchNumericFields(ArrayList<Pair> commonTables)
 			throws SQLException {
-		HashSet<String> list = new HashSet<String>();
+		TreeSet<String> list = new TreeSet<String>();
 		ArrayList<String> fm = new ArrayList<String>();
 		String sqlCommonTables = "AND (";
 		
@@ -279,9 +279,9 @@ public class SQLAccessController {
 	 * @throws SQLException
 	 * @throws IOException 
 	 */
-	public HashSet<String> fetchTimestampFields(ArrayList<Pair> commonTables)
+	public TreeSet<String> fetchTimestampFields(ArrayList<Pair> commonTables)
 			throws SQLException {
-		HashSet<String> list = new HashSet<String>();
+		TreeSet<String> list = new TreeSet<String>();
 		ArrayList<String> fm = new ArrayList<String>();
 		String sqlCommonTables = "AND (";
 
@@ -324,9 +324,9 @@ public class SQLAccessController {
 	 * @return set of filemaker numeric fields in table
 	 * @throws SQLException
 	 */
-	private HashSet<String> getFMNumericFields(String table)
+	private TreeSet<String> getFMNumericFields(String table)
 			throws SQLException {
-		HashSet<String> list = new HashSet<String>();
+		TreeSet<String> list = new TreeSet<String>();
 		ResultSet s = this.fDataAccess.getColumnMetaData(table);
 		while (s.next()) {
 			if (s.getInt(5) == java.sql.Types.DOUBLE
@@ -344,9 +344,9 @@ public class SQLAccessController {
 	 * @return set of filemaker timestamp fields in table
 	 * @throws SQLException
 	 */
-	private HashSet<String> getFMTimestampFields(String table)
+	private TreeSet<String> getFMTimestampFields(String table)
 			throws SQLException {
-		HashSet<String> list = new HashSet<String>();
+		TreeSet<String> list = new TreeSet<String>();
 		ResultSet s = this.fDataAccess.getColumnMetaData(table);
 		while (s.next()) {
 			if (s.getInt(5) == java.sql.Types.TIMESTAMP
