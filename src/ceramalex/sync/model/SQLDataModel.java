@@ -101,7 +101,6 @@ public class SQLDataModel {
 					if (msNames.get(i).toLowerCase()
 							.equals(fmNames.get(j).toLowerCase())) {
 						Pair t = new Pair(fmNames.get(j), msNames.get(i));
-//						sqlAccess.doFMUpdate("UPDATE "+fmNames.get(j) + " SET ArachneEntityID=null,lastModified=null,lastRemoteTS=null");
 						commonTables.add(t);
 					}
 					// IsolatedSherdMainAbstract maps to isolatedsherd
@@ -250,6 +249,7 @@ public class SQLDataModel {
 			commonFields.add("ArachneEntityID");
 			commonFields.add("lastModified");
 			result.setCommonFields(commonFields);
+			sqlAccess.doFMUpdate("UPDATE "+currTab.getLeft() + " SET ArachneEntityID=null,lastModified=null,lastRemoteTS=null");
 
 			String sqlCommonFields = "";
 			String sqlCommonFieldsFM = "";
@@ -528,6 +528,7 @@ public class SQLDataModel {
 							result.addToDownloadList(rowRemote);
 							break;
 						default:
+							//TODO CONFLICT?!
 							throw new EntityManagementException("irgendein fehler");
 						}
 					}
@@ -834,10 +835,7 @@ public class SQLDataModel {
 		String select = "SELECT lastRemoteTS,";
 		String sql = " FROM " + currTab.getLeft()
 				+ " WHERE " + archerMSSkip
-				// if LAUID would not be null, this row would match a
-				// remote row and this fct would not be invoked.
-				+ " ArachneEntityID IS NULL"
-				+ " AND "+lookup.getLeft()+"="+lookup.getRight();
+				+ " "+lookup.getLeft()+"="+lookup.getRight();
 
 		Iterator<String> it = commonFields.iterator();
 		while (it.hasNext()) {
