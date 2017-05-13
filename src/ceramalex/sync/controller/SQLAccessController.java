@@ -157,6 +157,18 @@ public class SQLAccessController {
 	}
 	
 	/**
+	 * execute update query on MySQL
+	 * 
+	 * @param sql
+	 *            SQL-Update-String
+	 * @return true, if success. false else
+	 * @throws SQLException 
+	 */
+	public ArrayList<Integer> doMySQLUpdate(String sql) throws SQLException {
+		return mDataAccess.doSQLModify(sql);
+	}
+	
+	/**
 	 * execute update query on FM
 	 * 
 	 * @param sql
