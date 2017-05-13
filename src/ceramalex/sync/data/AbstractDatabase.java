@@ -171,8 +171,11 @@ public abstract class AbstractDatabase {
 	public ArrayList<Integer> doSQLModify(String sql) throws SQLException {
 
 		logger.debug(sql);
-		PreparedStatement statement = cn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+		PreparedStatement statement = null;
+		try {
+		statement = cn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
 		statement.executeUpdate();
+		} catch (Exception e) { e.printStackTrace();}
 		ResultSet r = statement.getGeneratedKeys();
 		
 		ArrayList<Integer> result = new ArrayList<Integer>();

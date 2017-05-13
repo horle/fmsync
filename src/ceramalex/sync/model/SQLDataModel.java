@@ -376,6 +376,7 @@ public class SQLDataModel {
 								rowMS.put(field, mNotNull.getString(field));
 							}
 							result.addToConflictList(rowFM, rowMS);
+							handledUIDs.add(currRAUID);
 							continue;
 						}
 					}
@@ -415,11 +416,15 @@ public class SQLDataModel {
 										if (compareFields(commonFields, local, rowMS, currTab) != 0) {
 											// no diffs? ignore. diffs? conflict!
 											result.addToConflictList(local, rowMS);
+											handledUIDs.add(RAUID);
 											fNotNull.previous(); // INDEX SHIFT, trying local index again!
 											continue;
 										}
 									}
 								}
+								// no last remote TS, then just check local and remote TS.
+								// equal? update last remote TS and continue.
+								// nequal? compare all fields ...
 								else if (!lmL.equals(currATS)) {
 									// check for changes!
 									local.remove("lastRemoteTS");
@@ -427,6 +432,7 @@ public class SQLDataModel {
 									if (compareFields(commonFields, local, rowMS, currTab) != 0) {
 										// no diffs? ignore. diffs? conflict!
 										result.addToConflictList(local, rowMS);
+										handledUIDs.add(RAUID);
 										fNotNull.previous(); // INDEX SHIFT, trying local index again!
 										continue;
 									}
@@ -456,6 +462,7 @@ public class SQLDataModel {
 						else {
 							local.remove("lastRemoteTS");
 							result.addToConflictList(local, rowMS);
+							handledUIDs.add(RAUID);
 						}
 						fNotNull.previous(); // INDEX SHIFT, trying local index again!
 					}	
@@ -573,6 +580,7 @@ public class SQLDataModel {
 									if (compareFields(commonFields, rowFM, remote, currTab) != 0) {
 										// no diffs? ignore. diffs? conflict!
 										result.addToConflictList(rowFM, remote);
+										handledUIDs.add(RAUID);
 										continue;
 									}
 								}
@@ -582,6 +590,7 @@ public class SQLDataModel {
 								if (compareFields(commonFields, rowFM, remote, currTab) != 0) {
 									// no diffs? ignore. diffs? conflict!
 									result.addToConflictList(rowFM, remote);
+									handledUIDs.add(RAUID);
 									continue;
 								}
 							}
@@ -590,6 +599,7 @@ public class SQLDataModel {
 						else if (compareFields(commonFields, rowFM, remote, currTab) != 0) {
 							// no diffs? ignore. diffs? conflict!
 							result.addToConflictList(rowFM, remote);
+							handledUIDs.add(RAUID);
 							continue;
 						}
 						// does not differ? then just update LAUID!
@@ -725,8 +735,12 @@ public class SQLDataModel {
 		}
 		
 		ResultSet r = sqlAccess.doMySQLQuery(select + sql);
+		ResultSetMetaData rmd = r.getMetaData();
 		TreeMap<String,String> result = new TreeMap<String,String>();
 		if (r.next()) {
+			for (int i = 1; i <= rmd.getColumnCount(); i++) {
+				result.put(rmd.getColumnLabel(i), r.getString(i));
+			}
 			result.put("ArachneEntityID", r.getString("ArachneEntityID")); // RAUID
 			String t = r.getTimestamp("lastModified") == null ? null : r.getTimestamp("lastModified")
 					.toLocalDateTime().format(formatTS);
@@ -1041,6 +1055,7 @@ public class SQLDataModel {
 		while (id.next()) {
 			proof++;
 			int RAUID = id.getInt("ArachneEntityID");
+			//TODO change to add to local update list ...
 			if (!updateLocalUIDAndTS(currTab, RAUID, id.getTimestamp("lastModified").toLocalDateTime(), keyField, id.getInt(keyField)))
 				throw new EntityManagementException("Updating local AUID "
 						+ id.getInt(1) + " and timestamp in table " + currTab.getLeft()
@@ -1181,9 +1196,9 @@ public class SQLDataModel {
 					}
 				}
 				allSame = false;
-				System.out.println(currField + " in " + currTab
-						+ " not equal: \"" + fmVal + "\" (FM) and \"" + myVal
-						+ "\" (MS)");
+//				System.out.println(currField + " in " + currTab
+//						+ " not equal: \"" + fmVal + "\" (FM) and \"" + myVal
+//						+ "\" (MS)");
 				return 1;
 			}
 		}
@@ -1312,13 +1327,13 @@ public class SQLDataModel {
 					&& !isTimestampField(longName)
 					&& !currFieldName.equals("lastRemoteTS")
 					&& currFieldVal != null) {
-				currFieldVal = "'" + escapeChars(currFieldVal) + "'";
+				sql += currFieldName + "='" + escapeChars(currFieldVal) + "'";
 			}
 			else if ((isTimestampField(longName) || currFieldName.equals("lastRemoteTS")) && currFieldVal != null) {
-				sql += longName + "=" + "TIMESTAMP '" + currFieldVal + "'";
+				sql += currFieldName + "={ts '" + currFieldVal + "'}";
 			}
 			else {
-				sql += longName + "=" + currFieldVal;
+				sql += currFieldName + "=" + currFieldVal;
 			}
 			if (it.hasNext()) sql += ",";
 		}
@@ -1334,13 +1349,13 @@ public class SQLDataModel {
 					&& !isTimestampField(longName)
 					&& !currFieldName.equals("lastRemoteTS")
 					&& currFieldVal != null) {
-				currFieldVal = "'" + escapeChars(currFieldVal) + "'";
+				sql += currFieldName + "='" + escapeChars(currFieldVal) + "'";
 			}
 			else if ((isTimestampField(longName) || currFieldName.equals("lastRemoteTS")) && currFieldVal != null) {
-				sql += longName + "=" + "'" + currFieldVal + "'";
+				sql += currFieldName + "=TIMESTAMP '" + currFieldVal + "'";
 			}
 			else {
-				sql += longName + "=" + currFieldVal;
+				sql += currFieldName + "=" + currFieldVal;
 			}
 			if (it.hasNext()) sql += " AND ";
 		}
@@ -1349,5 +1364,74 @@ public class SQLDataModel {
 		return true;
 	}
 
+
+	public boolean updateRowsRemotely(Pair currTab,
+			Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> list) throws IOException, SQLException {
+		boolean res = true;
+		
+		for (Tuple<TreeMap<String, String>, TreeMap<String, String>> row : list) {
+			res = res && updateRowOnRemote(currTab, row);
+		}
+		return res;
+	}
+
+	private boolean updateRowOnRemote(Pair currTab, Tuple<TreeMap<String, String>, TreeMap<String, String>> tuple) throws IOException, SQLException {
+		if (tuple.getLeft().size() == 0 || tuple.getRight().size() == 0)
+			return false;
+		
+		String sql = "UPDATE " + currTab.getLeft() + " SET ";
+		
+		TreeMap<String, String> set = tuple.getRight();
+		TreeMap<String, String> where = new TreeMap<String,String>(tuple.getLeft());
+		Iterator<String> it = set.keySet().iterator();
+		
+		while (it.hasNext()) {
+			String currFieldName = it.next();
+			String longName = currTab.getLeft() + "." + currFieldName;
+			String currFieldVal = set.get(currFieldName);
+			
+			if (!isNumericalField(longName)
+					&& !isTimestampField(longName)
+					&& !currFieldName.equals("lastRemoteTS")
+					&& currFieldVal != null) {
+				sql += longName + "=" + "'" + escapeChars(currFieldVal) + "'";
+			}
+			else if ((isTimestampField(longName) || currFieldName.equals("lastRemoteTS")) && currFieldVal != null) {
+				sql += longName + "=" + "TIMESTAMP '" + currFieldVal + "'";
+			}
+			else {
+				sql += longName + "=" + currFieldVal;
+			}
+			if (it.hasNext()) sql += ",";
+		}
+		// ArachneEntityID is not in same table
+		where.remove("ArachneEntityID");
+		// lastModified: problem with timezone...
+		where.remove("lastModified");
+		it = where.keySet().iterator();
+		sql += " WHERE ";
+		while (it.hasNext()) {
+			String currFieldName = it.next();
+			String longName = currTab.getLeft() + "." + currFieldName;
+			String currFieldVal = where.get(currFieldName);
+			
+			if (!isNumericalField(longName)
+					&& !isTimestampField(longName)
+					&& !currFieldName.equals("lastRemoteTS")
+					&& currFieldVal != null) {
+				sql += longName + "=" + "'" + escapeChars(currFieldVal) + "'";
+			}
+			else if (isTimestampField(longName) && currFieldVal != null) {
+				sql += longName + "=TIMESTAMP '" + currFieldVal + "'";
+			}
+			else {
+				sql += longName + "=" + currFieldVal;
+			}
+			if (it.hasNext()) sql += " AND ";
+		}
+		
+		sqlAccess.doMySQLUpdate(sql);
+		return true;
+	}
 	
 }

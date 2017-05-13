@@ -327,10 +327,13 @@ public class MainFrame {
 		comp.setLocationRelativeTo(frame);
 		currComp = comp.showDialog(frame);
 		
+		sqlAccess.close();
+		connected = false;
+		
 		if (currComp == null) {
-			sqlAccess.close();
-			connected = false;
 			applyStatus(FrameStatus.closed("Sync aborted, connection closed. No changes were made."));
+		} else {
+			applyStatus(FrameStatus.closed("Changes applied without errors."));
 		}
 	}
 
