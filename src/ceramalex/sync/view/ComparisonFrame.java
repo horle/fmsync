@@ -88,7 +88,7 @@ public class ComparisonFrame extends JFrame {
 	private ColourTableModel m1;
 	private ColourTableModel m2;
 	private AbstractButton btnDeleted;
-	private JCheckBox chkSyncAttr = new JCheckBox("Show sync relevant fields");
+	private JCheckBox chkSyncAttr;
 
 	private void initialize() {
 		commonTables = new ArrayList<Pair>();
@@ -123,6 +123,7 @@ public class ComparisonFrame extends JFrame {
 		btnIndividuals = new JToggleButton("Individuals");
 		btnUnequal = new JToggleButton("!=");
 		btnDeleted = new JToggleButton("X");
+		chkSyncAttr = new JCheckBox("Show sync relevant fields");
 
 		JPanel pnlTop = new JPanel();
 		container.add(pnlTop, BorderLayout.NORTH);
