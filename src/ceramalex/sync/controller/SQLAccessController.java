@@ -266,7 +266,12 @@ public class SQLAccessController {
 		
 		// get common numeric fields
 		while (mysql.next()) {
-			String bla = (mysql.getString(2)+"."+mysql.getString(1));
+			String table = mysql.getString("TABLE_NAME");
+			String bla = (table +"."+mysql.getString("COLUMN_NAME"));
+			// avoid mapping problems
+			if (table.equals("isolatedsherd")) {
+				bla = bla.replaceFirst("isolatedsherd", "IsolatedSherdMainAbstract");
+			}
 			for (int i = 0; i < fm.size(); i++) {
 				String fmField = fm.get(i);
 				if (bla.equalsIgnoreCase(fmField)) {

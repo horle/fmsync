@@ -36,70 +36,74 @@ public class ProgressWorker extends SwingWorker<Void, String> {
 
 		switch (job) {
 		case JOB_CALC_DIFF:
-			for (int i = 0; i < commonTables.size(); i++) {
-				if (!isCancelled()) {
-					Pair p = commonTables.get(i);
-					String out = "Preparing table " + p.getLeft() +" ...";
-					
-					publish(out);
-					setProgress(100*(i/commonTables.size()));
-					
-					try {
-						data.calcDiff(p, true, true);
-					} catch (EntityManagementException e) {
-						e.printStackTrace();
-					}
-					publish(" done.\n");
-				} else return null;
+			try {
+				for (int i = 0; i < commonTables.size(); i++) {
+					if (!isCancelled()) {
+						Pair p = commonTables.get(i);
+						String out = "Preparing table " + p.getLeft() +" ...";
+						
+						publish(out);
+						setProgress(100*(i/commonTables.size()));
+						
+						try {
+							data.calcDiff(p, true, true);
+						} catch (EntityManagementException e) {
+							e.printStackTrace();
+						}
+						publish(" done.\n");
+					} else return null;
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
 			return null;
 		case JOB_APPLY_CHANGES:
-			ArrayList<ComparisonResult> results = data.getResults();
-			publish("\n%%%%%%%%%%%%%% APPLYING CHANGES %%%%%%%%%%%%%%\n");
-			for (int i = 0; i < results.size(); i++) {
-				setProgress(0);
-				if (!isCancelled()) {
-					ComparisonResult c = results.get(i);
-					int total = c.getDeleteList().size()
-							+ c.getConflictList().size() 
-							+ c.getDownloadList().size() 
-							+ c.getUploadList().size() 
-							+ c.getLocalUpdateList().size()
-							+ c.getRemoteUpdateList().size();
-					
-					if (total > 0) {
-						publish("Applying changes to table " + c.getTableName().getLeft() +":");
+			try {
+				ArrayList<ComparisonResult> results = data.getResults();
+				publish("\n%%%%%%%%%%%%%% APPLYING CHANGES %%%%%%%%%%%%%%\n");
+				for (int i = 0; i < results.size(); i++) {
+					setProgress(0);
+					if (!isCancelled()) {
+						ComparisonResult c = results.get(i);
+						int total = c.getDeleteList().size()
+								+ c.getConflictList().size() 
+								+ c.getDownloadList().size() 
+								+ c.getUploadList().size() 
+								+ c.getLocalUpdateList().size()
+								+ c.getRemoteUpdateList().size();
 						
-						if (!c.getDownloadList().isEmpty()) {
-							publish("\nDownloading " + c.getDownloadList().size() +" entries ... ");
-							data.prepareRowsAndDownload(c.getTableName(), c.getDownloadList(), 25);
-							setProgress(100*(i/results.size()) + total/4*(100/results.size()));
-							publish("done.\n");
+						if (total > 0) {
+							publish("Applying changes to table " + c.getTableName().getLeft() +":\n");
+							
+							if (!c.getDownloadList().isEmpty()) {
+								publish("Downloading " + c.getDownloadList().size() +" entries ... ");
+								data.prepareRowsAndDownload(c.getTableName(), c.getDownloadList(), 25);
+								publish("done.\n");
+							}
+							if (!c.getUploadList().isEmpty()) {
+								publish("Uploading " + c.getUploadList().size() +" entries ... ");
+								data.prepareRowsAndUpload(c.getTableName(), c.getUploadList(), 25);
+								publish("done.\n");
+							}
+							if (!c.getLocalUpdateList().isEmpty()) {
+								publish("Updating " + c.getLocalUpdateList().size() +" entries in local database ... ");
+								data.updateRowsLocally(c.getTableName(), c.getLocalUpdateList());
+								publish("done.\n");
+							}
+							if (!c.getRemoteUpdateList().isEmpty()) {
+								publish("Updating " + c.getRemoteUpdateList().size() +" entries in remote database ... ");
+								data.updateRowsRemotely(c.getTableName(), c.getRemoteUpdateList());
+								publish("done.\n");
+							}
+							setProgress(100*(i/results.size()));
+							publish("Table "+c.getTableName().getLeft()+" done.\n");
 						}
-						if (!c.getUploadList().isEmpty()) {
-							publish("\nUploading " + c.getUploadList().size() +" entries ... ");
-							data.prepareRowsAndUpload(c.getTableName(), c.getUploadList(), 25);
-							setProgress(100*(i/results.size()) + total/2*(100/results.size()));
-							publish("done.\n");
-						}
-						if (!c.getLocalUpdateList().isEmpty()) {
-							publish("\nUpdating " + c.getLocalUpdateList().size() +" entries in local database ... ");
-							data.updateRowsLocally(c.getTableName(), c.getLocalUpdateList());
-							setProgress(100*(i/results.size()) + 3*total/4*(100/results.size()));
-							publish("done.\n");
-						}
-						if (!c.getRemoteUpdateList().isEmpty()) {
-							publish("\nUpdating " + c.getRemoteUpdateList().size() +" entries in remote database ... ");
-							data.updateRowsRemotely(c.getTableName(), c.getRemoteUpdateList());
-							setProgress(100*(i/results.size()) + 3*total/4*(100/results.size()));
-							publish("done.\n");
-						}
-						setProgress(100*(i/results.size()));
-						publish(" done.\n");
-					}
-				} else return null;
+					} else return null;
+				}
+				publish("%%%%%%%%%%%%%%%%%%%% DONE %%%%%%%%%%%%%%%%%%%%\n");
+			} catch (Exception e) {
+				e.printStackTrace();
 			}
-			publish("%%%%%%%%%%%%%%%%%%%% DONE %%%%%%%%%%%%%%%%%%%%\n");
 			return null;
 		
 		default:

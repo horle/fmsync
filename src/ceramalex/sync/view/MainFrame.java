@@ -297,7 +297,8 @@ public class MainFrame {
 			public void actionPerformed(ActionEvent arg0) {
 				if (confirmClose()) {
 					invokeDisconnectWorker();
-					comp.dispose();
+					if (comp != null)
+						comp.dispose();
 				}
 			}
 		});
