@@ -37,7 +37,7 @@ public class ComparisonResult {
 
 	private Vector<TreeMap<String, String>> toDownload;
 	private Vector<TreeMap<String, String>> toUpload;
-	private Vector<Tuple<Integer,Integer>> toDelete;
+	private Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> toDelete;
 	private Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> toUpdateLocally;
 	private Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> toUpdateRemotely;
 	private Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> conflict;
@@ -47,7 +47,7 @@ public class ComparisonResult {
 		currTab = table;
 		toDownload = new Vector<TreeMap<String,String>>();
 		toUpload = new Vector<TreeMap<String,String>>();
-		toDelete = new Vector<Tuple<Integer,Integer>>();
+		toDelete = new Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>>();
 		toUpdateLocally = new Vector<Tuple<TreeMap<String,String>, TreeMap<String,String>>>();
 		toUpdateRemotely = new Vector<Tuple<TreeMap<String,String>, TreeMap<String,String>>>();
 		conflict = new Vector<Tuple<TreeMap<String,String>, TreeMap<String,String>>>();
@@ -109,8 +109,8 @@ public class ComparisonResult {
 	 * @param currAAUID int value of remote AUID, may be 0 for no delete
 	 * @return true, if successfully added
 	 */
-	public boolean addToDeleteList(int currCAUID, int currAAUID) {
-		return toDelete.add(new Tuple<Integer,Integer>(currCAUID, currAAUID));
+	public boolean addToDeleteList(TreeMap<String,String> rowFM, TreeMap<String,String> rowMS) {
+		return toDelete.add(new Tuple<TreeMap<String,String>,TreeMap<String,String>>(rowFM, rowMS));
 	}
 	
 	/**
@@ -138,32 +138,10 @@ public class ComparisonResult {
 	public Vector<TreeMap<String,String>> getDownloadList() {
 		return toDownload;
 	}
-//	public Vector<Vector<String>> getDownloadViewList() {
-//		Vector<Vector<String>> v = new Vector<Vector<String>>();
-//		for (Vector<Pair> u : toDownload) {
-//			Vector<String> s = new Vector<String>();
-//			for (Pair p : u) {
-//				s.add(p.getRight());
-//			}
-//			v.add(s);
-//		}
-//		return v;
-//	}
 	public Vector<TreeMap<String, String>> getUploadList() {
 		return toUpload;
 	}
-//	public Vector<TreeMap<String,String>> getUploadViewList() {
-//		Vector<Vector<String>> v = new Vector<Vector<String>>();
-//		for (TreeMap<String, String> u : toUpload) {
-//			Vector<String> s = new Vector<String>();
-//			for (Pair p : u) {
-//				s.add(p.getRight());
-//			}
-//			v.add(s);
-//		}
-//		return v;
-//	}
-	public Vector<Tuple<Integer,Integer>> getDeleteList() {
+	public Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> getDeleteList() {
 		return toDelete;
 	}
 	public Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> getLocalUpdateList() {

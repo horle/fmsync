@@ -47,15 +47,27 @@ public class TestClass {
 							}
 							System.out.println();
 						}
-//						m.prepareRowsAndUpload(currTab, result.getUploadList(), 25);
+						m.prepareRowsAndUpload(currTab, result.getUploadList(), 25);
 					}
 					if (!result.getDeleteList().isEmpty()) {
-						System.out.println("printing DELETE list:");
-						for (Tuple<Integer, Integer> r : result.getDeleteList()) {
-							if (r.getLeft() == 0)
-								System.out.print("entry with remote UID "+r.getRight()+" will be deleted.");
-							else
-								System.out.print("entry with local UID "+r.getLeft()+" will be deleted.");
+						System.out.println("\nprinting LOCAL DELETE list:");
+						for (Tuple<TreeMap<String, String>, TreeMap<String, String>> con : result.getDeleteList()) {
+							if (con.getLeft() != null) {
+								System.out.println("delete LOCAL entry");
+								for (String key : con.getLeft().keySet()) {
+									System.out.print(key + ":"
+											+ con.getLeft().get(key) + ", ");
+								}
+								System.out.println();
+							}
+							if (con.getRight() != null) {
+								System.out.println("delete REMOTE entry");
+								for (String key : con.getRight().keySet()) {
+									System.out.print(key + ":"
+											+ con.getRight().get(key) + ", ");
+								}
+								System.out.println();
+							}
 						}
 					}
 					if (!result.getLocalUpdateList().isEmpty()) {
@@ -83,7 +95,7 @@ public class TestClass {
 							System.out.println();
 							System.out.println("changes in: ");
 							for (String key : r.getRight().keySet()) {
-								System.out.print(key+ ":"+r.getRight().get(key));
+								System.out.print(key+ ":"+r.getRight().get(key)+", ");
 							}
 							System.out.println();
 						}
