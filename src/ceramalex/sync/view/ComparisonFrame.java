@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.Vector;
+import java.util.concurrent.ExecutionException;
 
 import javax.swing.AbstractButton;
 import javax.swing.ButtonGroup;
@@ -91,6 +92,8 @@ public class ComparisonFrame extends JFrame {
 	private ColourTableModel m2;
 	private AbstractButton btnDeleted;
 	private JCheckBox chkSyncAttr;
+	
+	private String lastTab;
 
 	private void initialize() {
 		commonTables = new ArrayList<Pair>();
@@ -328,6 +331,12 @@ public class ComparisonFrame extends JFrame {
 			}
 		});
 		worker.execute();
+		try {
+			worker.get();
+		} catch (InterruptedException | ExecutionException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	
 	private void refetchTables() {
@@ -350,7 +359,8 @@ public class ComparisonFrame extends JFrame {
 	}
 	
 	private void simpleReloadTables(boolean rememberTab) {
-		
+		if (rememberTab && tabs.getTabCount() != 0)
+			lastTab = tabs.getTitleAt(tabs.getSelectedIndex());
 		tabs.removeAll();
 		comps = data.getResults();
 
@@ -552,19 +562,19 @@ public class ComparisonFrame extends JFrame {
 							TreeMap<String,String> row = upload.get(j);
 							notEmpty = true;
 							m1.addRow(new String[0]);
-							int k = 0;
+							int r = m1.getRowCount()-1;
 							for (String key : commonFields) {
+								int c = m1.findColumn(key);
 								if (row.containsKey(key)) 
-									m1.setValueAt(row.get(key), m1.getRowCount()-1, m1.findColumn(key));
+									m1.setValueAt(row.get(key), r, c);
 								else
-									m1.setValueAt(null, m1.getRowCount()-1, m1.findColumn(key));
-
-								int r = m1.getRowCount()-1;
-								m1.setCellColour(r, k, DARK_GREEN);
-								k++;
+									m1.setValueAt(null, r, c);
+								
+								m1.setCellColour(r, c, DARK_GREEN);
 							}
 							m2.addRow(new String[] {});// update action label
-							m1.setValueAt("UL", m1.getRowCount()-1, 0); 
+							m1.setValueAt("UL", r, 0);
+							m1.setCellColour(r, 0, DARK_GREEN);
 						}
 					}
 					if (btnDownload.isSelected()) {
@@ -572,19 +582,19 @@ public class ComparisonFrame extends JFrame {
 							TreeMap<String,String> row = download.get(j);
 							notEmpty = true;
 							m2.addRow(new String[0]);
-							int k = 0;
+							int r = m2.getRowCount()-1;
 							for (String key : commonFields) {
+								int c = m2.findColumn(key);
 								if (row.containsKey(key)) 
-									m2.setValueAt(row.get(key), m2.getRowCount()-1, m2.findColumn(key));
+									m2.setValueAt(row.get(key), r, c);
 								else
-									m2.setValueAt(null, m2.getRowCount()-1, m2.findColumn(key));
+									m2.setValueAt(null, r, c);
 								
-								int r = m2.getRowCount()-1;
-								m2.setCellColour(r, k, Color.BLUE);
-								k++;
+								m2.setCellColour(r, c, Color.BLUE);
 							}
 							m1.addRow(new String[] {});
-							m2.setValueAt("DL", m1.getRowCount()-1, 0);
+							m2.setValueAt("DL", r, 0);
+							m2.setCellColour(r, 0, Color.BLUE);
 						}
 					}
 				}
@@ -598,6 +608,10 @@ public class ComparisonFrame extends JFrame {
 			
 			if (notEmpty)
 				tabs.addTab(p.getLeft(), null, outerScroll, p.toString());
+		}
+		for (int i = 0; i < tabs.getTabCount(); i++) {
+			if (tabs.getTitleAt(i).equals(lastTab))
+				tabs.setSelectedIndex(i);
 		}
 	}
 
@@ -675,6 +689,12 @@ public class ComparisonFrame extends JFrame {
 		});
 		worker.execute();
 
+		try {
+			worker.get();
+		} catch (InterruptedException | ExecutionException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		comps = new ArrayList<ComparisonResult>();
 	}
 
