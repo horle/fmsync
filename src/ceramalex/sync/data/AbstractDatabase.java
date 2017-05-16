@@ -307,9 +307,11 @@ public abstract class AbstractDatabase {
 	@Override
 	public void finalize() {
 		try {
-			this.st.close();
+			if (!st.isClosed())
+				this.st.close();
 			this.st = null;
-			this.cn.close();
+			if (!cn.isClosed())
+				this.cn.close();
 			this.cn = null;
 		} catch (SQLException e) {
 			e.printStackTrace();
