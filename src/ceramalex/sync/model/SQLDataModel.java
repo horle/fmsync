@@ -227,6 +227,48 @@ public class SQLDataModel {
 		return true;
 	}
 	
+	private boolean performLocalTest() {
+		return true; //TODO
+	}
+	
+	/**
+	 * method to examine the correlation between local and remote timestamps. timestamps may be null.
+	 * @param rts remote timestamp
+	 * @param lts local timestamp
+	 * @param lrts last remote timestamp, saved locally
+	 * @return 0, if all equal. 1: update to remote. 2: update to local. 3: conflict. 4: no local timestamp. -1 else.
+	 */
+	private int examineTimestamps (Timestamp rts, Timestamp lts, Timestamp lrts) {
+		// must not be null.
+		if (rts != null) {
+			// can be null, e.g. for new and unmodified local entries.
+			if (lts != null) {
+				if (lrts != null) {
+					// all same, skip.
+					if (rts.equals(lts) && lts.equals(lrts)) return 0;
+					// local after remote and lrts, update to remote.
+					if (lts.after(rts) && rts.equals(lrts)) return 1;
+					// remote after local and lrts >= local and remote >= lrts, update to local.
+					if (rts.after(lts) &&
+							( (lts.before(lrts) || lts.equals(lrts)) // local <= last remote
+									&& (lrts.before(rts) || lrts.equals(rts)) ) ) return 2; // last remote <= remote
+					// local after lrts and remote after lrts, changes on both sides, conflict.
+					if (lts.after(lrts) && rts.after(lrts)) return 3;
+				}
+				// no last remote TS, then just check local and remote TS.
+				else {
+					if (rts.equals(lts)) return 0;
+					else return 3;
+				}
+			}
+			// no local timestamp.
+			else {
+				return 4;
+			}
+		}
+		return -1;
+	}
+	
 	public ComparisonResult calcDiff (Pair currTab, boolean upload,
 			boolean download) throws SQLException, FilemakerIsCrapException,
 			SyncException, EntityManagementException, IOException {
@@ -341,33 +383,26 @@ public class SQLDataModel {
 						handledUIDs.add(currRAUID);
 						continue;
 					}
-					
-					if (currLRTS == null) currLRTS = currLTS;
-					
-					if (currRAUID == 0 || currLAUID == 0) {
-						throw new EntityManagementException(
-								"Something went wrong: NULL value in NOT NULL query");
-					}
 
 					if (currRAUID == currLAUID) {
 						// missing entry in regular table, but entry in entity
 						// management! bug in db!
-						// TODO: delete entry in arachne entity management
 						if (currRTS == null) {
 							throw new EntityManagementException(
 									"Missing entry in LOCAL Arachne entity management! Table "
 											+ currTab.getLeft()
 											+ ", remote entry: " + currRAUID);
 						}
-						
+						int timestampResult = examineTimestamps(currRTS, currLTS, currLRTS);
 						// timestamps all equal: SKIP
-						if (currRTS.equals(currLTS) && currLTS.equals(currLRTS)) {
-							continue;
-						}
+						if (timestampResult == 0) continue;
+						
+						TreeMap<String, String> row = new TreeMap<String,String>();
+						TreeMap<String, String> diffs = new TreeMap<String,String>();
+						
+						switch (timestampResult) {
 						// local after remote, remote did not change: UPDATE REMOTELY
-						if (currLTS.after(currRTS) && currRTS.equals(currLRTS)) {
-							TreeMap<String, String> row = new TreeMap<String,String>();
-							TreeMap<String, String> diffs = new TreeMap<String,String>();
+						case 1:
 							for (String field : commonFields) {
 								String rVal = mNotNull.getString(field);
 								String lVal = fNotNull.getString(field);
@@ -377,14 +412,10 @@ public class SQLDataModel {
 								}
 							}
 							result.addToUpdateList(row, diffs, false);
+							handledUIDs.add(currRAUID);
 							continue;
-						}
 						// remote after local AND (local <= last remote <= remote): UPDATE LOCALLY
-						if (currRTS.after(currLTS)
-								&& ( (currLTS.before(currLRTS) || currLTS.equals(currLRTS)) // local <= last remote
-										&& (currLRTS.before(currRTS) || currLRTS.equals(currRTS)) ) ) { // last remote <= remote
-							TreeMap<String, String> row = new TreeMap<String,String>();
-							TreeMap<String, String> diffs = new TreeMap<String,String>();
+						case 2:
 							for (String field : commonFields) {
 								String rVal = mNotNull.getString(field);
 								String lVal = fNotNull.getString(field);
@@ -394,18 +425,19 @@ public class SQLDataModel {
 								}
 							}
 							result.addToUpdateList(row, diffs, true);
+							handledUIDs.add(currRAUID);
 							continue;
-						}
-						// local after last remote AND remote after last remote:
-						// CONFLICT
-						if (currLTS.after(currLRTS) && currLRTS.before(currRTS)) {
-							TreeMap<String,String> rowFM = new TreeMap<String,String>();
-							TreeMap<String,String> rowMS = new TreeMap<String,String>();
+						// local after last remote AND remote after last remote: CONFLICT
+						case 3: case 4:
+							TreeMap<String, String> rowLocal = new TreeMap<String,String>();
+							TreeMap<String, String> rowRemote = new TreeMap<String,String>();
 							for (String field : commonFields) {
-								rowFM.put(field, fNotNull.getString(field));
-								rowMS.put(field, mNotNull.getString(field));
+								rowLocal.put(field, fNotNull.getString(field));
+								rowRemote.put(field, mNotNull.getString(field));
 							}
-							result.addToConflictList(rowFM, rowMS);
+							if (compareFields(commonFields, rowLocal, rowRemote, currTab) != 0) {
+								result.addToConflictList(rowLocal, rowRemote);
+							}
 							handledUIDs.add(currRAUID);
 							continue;
 						}
