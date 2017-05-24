@@ -269,6 +269,21 @@ public class SQLDataModel {
 		return -1;
 	}
 	
+	/**
+	 * method to examine the correlation between local and remote timestamps. timestamps may be null.
+	 * @param rTS remote timestamp string
+	 * @param lTS local timestamp string
+	 * @param lrTS last remote timestamp string, saved locally
+	 * @return 0, if all equal. 1: update to remote. 2: update to local. 3: conflict. 4: no local timestamp. -1 else.
+	 */
+	private int examineTimestamps(String rTS, String lTS, String lrTS) {
+		Timestamp rts = rTS == null ? null : Timestamp.valueOf(rTS);
+		Timestamp lts = lTS == null ? null : Timestamp.valueOf(lTS);
+		Timestamp lrts = lrTS == null ? null : Timestamp.valueOf(lrTS);
+		
+		return examineTimestamps(rts, lts, lrts);
+	}
+	
 	public ComparisonResult calcDiff (Pair currTab, boolean upload,
 			boolean download) throws SQLException, FilemakerIsCrapException,
 			SyncException, EntityManagementException, IOException {
@@ -289,8 +304,8 @@ public class SQLDataModel {
 			result.setFmColumns(fmColumnMeta);
 			result.setMsColumns(msColumnMeta);
 			
-			ArrayList<Integer> handledUIDs = new ArrayList<Integer>();
-			ArrayList<Integer> handledLocalIDs = new ArrayList<Integer>();
+			TreeSet<Integer> handledUIDs = new TreeSet<Integer>();
+			TreeSet<Integer> handledLocalIDs = new TreeSet<Integer>();
 			TreeSet<String> commonFields = getCommonFields(currTab, fmColumnMeta, msColumnMeta);
 
 			// test, if fields are available in FM
@@ -438,104 +453,129 @@ public class SQLDataModel {
 							if (compareFields(commonFields, rowLocal, rowRemote, currTab) != 0) {
 								result.addToConflictList(rowLocal, rowRemote);
 							}
+							else {
+								diffs.put("lastModified", currRTS.toLocalDateTime().format(formatTS));
+								diffs.put("lastRemoteTS", currRTS.toLocalDateTime().format(formatTS));
+								result.addToUpdateList(rowLocal, diffs, true);
+							}
 							handledUIDs.add(currRAUID);
 							continue;
 						}
 					}
-					// only cases: not updated local AUID, deleted local entry, or bug.
+					// missing local entry!
 					// anyway: the single side has to be handled somehow!
 					else if (currLAUID > currRAUID) {
-						TreeMap<String,String> rowMS = new TreeMap<String,String>();
-						TreeMap<String,String> rowFM = new TreeMap<String,String>();
-						Integer RAUID = 0;
+						// deleted on remote? skip this entry.
+						if (isDeletedRemotely) continue;
 						
-						String pkMySQL = sqlAccess.getMySQLTablePrimaryKey(currTab.getRight());
-						Pair lookup;
-						if (!isDeletedRemotely)
-							lookup = new Pair(pkMySQL, mNotNull.getString(pkMySQL));
-						else
-							lookup = new Pair(pkMySQL, mNotNull.getString("ForeignKey"));
+						TreeMap<String,String> rowMS = new TreeMap<String,String>();
+						Integer rUID = 0;
+						
+						// lookup remote ID on local
+						Pair lookup = new Pair(fmpk, mNotNull.getString(mspk));
 						
 						for (String field : commonFields) {
-							String val = mNotNull.getString(field);
-							
-							if (field.equals("ArachneEntityID")) RAUID = mNotNull.getInt(field);
-							
-							rowMS.put(field, val);
-							rowFM.put(field, fNotNull.getString(field));
+							if (field.equals("ArachneEntityID")) rUID = mNotNull.getInt(field);
+							rowMS.put(field, mNotNull.getString(field));
 						}
 						
 						TreeMap<String,String> local = isRowOnLocal(currTab, lookup, commonFields);
 						// entry already in local db, just missing LAUID? check TS first
 						if (!local.isEmpty()) {
+							// prevent double handling in fNull section
+							handledLocalIDs.add(Integer.parseInt(local.get(fmpk)));
 							
-							if (isDeletedRemotely) {
-								rowMS.put(lookup.getLeft(), lookup.getRight());
-								result.addToDeleteList(local, rowMS);
-								handledLocalIDs.add(Integer.parseInt(local.get(pkMySQL)));
-								handledUIDs.add(RAUID);
-								fNotNull.previous();
-								continue;
-							}
-							
-							String LAUID = local.get("ArachneEntityID");
-							if (LAUID != null && !LAUID.isEmpty() && !LAUID.equals(RAUID)) {
-								System.out.println("weird case "+LAUID);
-							}
-							
-							String lmLocal = local.get("lastModified");
+							String lUID = local.get("ArachneEntityID");
+							String lTS = local.get("lastModified");
 							String lrts = local.get("lastRemoteTS");
-							// timestamp differs?!
-							if (lmLocal != null && !lmLocal.isEmpty() ) {
-								Timestamp lmL = Timestamp.valueOf(lmLocal);
-								
-								if (lrts != null && !lrts.isEmpty() ) {
-									Timestamp lrTS = Timestamp.valueOf(lrts);
-									// local after last remote AND remote after last remote => CONFLICT?!
-									if (lmL.after(lrTS) && currRTS.after(lrTS)) {
-										// check for changes!
-										local.remove("lastRemoteTS");
-										// conflict avoidance ...
-										if (compareFields(commonFields, local, rowMS, currTab) != 0) {
-											// no diffs? ignore. diffs? conflict!
-											result.addToConflictList(local, rowMS);
-											handledUIDs.add(RAUID);
-											fNotNull.previous(); // INDEX SHIFT, trying local index again!
-											continue;
-										}
-									}
-								}
-								// no last remote TS, then just check local and remote TS.
-								// equal? update last remote TS and continue.
-								// nequal? compare all fields ...
-								else if (!lmL.equals(currRTS)) {
-									// check for changes!
+							String rTS = mNotNull.getString("lastModified");
+							if (lUID != null && !lUID.isEmpty() && lUID.equals(rUID)) {
+								handledUIDs.add(rUID);
+								local.remove("lastRemoteTS");
+								if (lTS != null && !lTS.isEmpty()) {
+									int timestampResult = examineTimestamps(rTS, lTS, lrts);
+									if (timestampResult == 0) continue;
+									
+									TreeMap<String,String> row = new TreeMap<String,String>();
+									TreeMap<String,String> diffs = new TreeMap<String,String>();
 									local.remove("lastRemoteTS");
-									// conflict avoidance ...
-									if (compareFields(commonFields, local, rowMS, currTab) != 0) {
-										// no diffs? ignore. diffs? conflict!
-										result.addToConflictList(rowFM, rowMS);
-										handledUIDs.add(RAUID);
-										fNotNull.previous(); // INDEX SHIFT, trying local index again!
+									
+									switch (timestampResult){
+									// update on remote
+									case 1:
+										for (String field : commonFields) {
+											String rVal = mNotNull.getString(field);
+											String lVal = fNotNull.getString(field);
+											row.put(field, rVal);
+											if (!rVal.equals(lVal)) {
+												diffs.put(field, lVal);
+											}
+										}
+										result.addToUpdateList(row, diffs, false);
+										continue;
+									// update on local
+									case 2:
+										for (String field : commonFields) {
+											String rVal = mNotNull.getString(field);
+											String lVal = fNotNull.getString(field);
+											row.put(field, lVal);
+											if (!rVal.equals(lVal)) {
+												diffs.put(field, rVal);
+											}
+										}
+										result.addToUpdateList(row, diffs, true);
+										continue;
+									case 3: case 4:
+										// all fields equal? no conflict. just update TS to remote values
+										if (compareFields(commonFields, local, rowMS, currTab) != 0) {
+											result.addToConflictList(local, rowMS);
+										}
+										else {
+											diffs.put("lastModified", rTS);
+											diffs.put("lastRemoteTS", rTS);
+											result.addToUpdateList(row, diffs, true);
+										}
 										continue;
 									}
 								}
+								else {
+									// all fields equal? no conflict. just update TS to remote values
+									if (compareFields(commonFields, local, rowMS, currTab) != 0) {
+										result.addToConflictList(local, rowMS);
+									}
+									else {
+										TreeMap<String,String> row = new TreeMap<String,String>();
+										TreeMap<String,String> set = new TreeMap<String,String>();
+										set.put("lastModified", rTS);
+										set.put("lastRemoteTS", rTS);
+										result.addToUpdateList(row, set, true);
+									}
+									continue;
+								}
+							}
+							else {
+								local.remove("lastRemoteTS");
+								// all fields equal? no conflict. just update TS to remote values
+								if (compareFields(commonFields, local, rowMS, currTab) != 0) {
+									result.addToConflictList(local, rowMS);
+								}
+								else {
+									TreeMap<String,String> row = new TreeMap<String,String>();
+									TreeMap<String,String> set = new TreeMap<String,String>();
+									set.put("lastModified", rTS);
+									set.put("lastRemoteTS", rTS);
+									result.addToUpdateList(row, set, true);
+								}
+								continue;
 							}
 						}
 						// nothing in local db. maybe deleted?
 						// local deletions cannot be recognized. GUI should ask in each case.
 						// idea: handle locally deleted entries like a conflict!
 						else {
-							// local db has more entries, the entry cannot be a new one and was deleted.
-							// delete on remote!
-							if (isDeletedRemotely) {
-								result.addToDeleteList(null, rowMS);
-								handledUIDs.add(RAUID);
-							}
-							else {
-								result.addToDeleteList(null, rowMS);
-								handledUIDs.add(RAUID);
-							}
+							// deleted on remote anyway!
+							result.addToDeleteList(null, rowMS);
+							handledUIDs.add(rUID);
 						}
 						fNotNull.previous(); // INDEX SHIFT, trying local index again!
 					}	
@@ -827,7 +867,6 @@ public class SQLDataModel {
 		return result;
 	}
 
-	
 	private TreeMap<Integer, TreeMap<String, String>> getRemoteSyncInfo(Pair currTab, String mspk) throws SQLException {
 		TreeMap<Integer, TreeMap<String, String>> list = new TreeMap<Integer, TreeMap<String, String>>();
 		String tab = currTab.getRight();
@@ -1285,7 +1324,7 @@ public class SQLDataModel {
 	private int compareFields(TreeSet<String> commonFields, TreeMap<String, String> rowFM, TreeMap<String, String> rowMS,
 			Pair currTab) throws SQLException, IOException {
 		
-		if (rowMS.size() != rowFM.size()) return -1;
+		if (rowMS.size() != rowFM.size()) throw new IllegalArgumentException("trying to compare rows with different field count");
 		
 		if (!rowMS.keySet().equals(rowFM.keySet())) return -1;
 		
