@@ -1,8 +1,8 @@
 package ceramalex.sync.model;
 
 public class Tuple<T,S> {
-	private T left;
-	private S right;
+	protected T left;
+	protected S right;
 
 	public Tuple(T f, S m) {
 		this.left = f;
