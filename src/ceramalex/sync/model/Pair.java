@@ -14,4 +14,20 @@ public class Pair extends Tuple<String,String> {
 	public Pair(String f, String m) {
 		super(f, m);
 	}
+	
+	public String getFMString() {
+		return this.left;
+	}
+	
+	public String getMySQLString() {
+		return this.right;
+	}
+	
+	public void setFMString(String f) {
+		this.left = f;
+	}
+	
+	public void setMySQLString(String m) {
+		this.right = m;
+	}
 }
