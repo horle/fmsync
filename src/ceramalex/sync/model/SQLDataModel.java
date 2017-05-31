@@ -390,13 +390,17 @@ public class SQLDataModel {
 					row.put(field, mysql.getString(field));
 				}
 				row.put("isDeleted", mysql.getString("isDeleted"));
-				row.put("ForeignKey", mysql.getString(mspk));
+				row.put("ForeignKey", mysql.getString("ForeignKey"));
 				
-				remote.put(mysql.getInt("ArachneEntityID"), mysql.getInt(mspk), row);
+				remote.put(mysql.getInt("ArachneEntityID"), mysql.getInt("ForeignKey"), row);
 			}
 		}
 		
-		for (Cell<Integer, Integer, TreeMap<String, String>> cell : remote.cellSet()) {
+		Iterator<Cell<Integer, Integer, TreeMap<String, String>>> it = remote.cellSet().iterator();
+		
+		while (it.hasNext()) {
+			Cell<Integer, Integer, TreeMap<String, String>> cell = it.next();
+			
 			int uid = cell.getRowKey();
 			int rID = cell.getColumnKey();
 			TreeMap<String, String> remoteRow = cell.getValue();
@@ -408,6 +412,17 @@ public class SQLDataModel {
 			if (local.containsRow(uid)) {
 				TreeMap<String, String> localRow = local.get(uid, rID);
 				int lID = Integer.parseInt(localRow.get(fmpk));
+				
+				if (isDeletedRemotely) {
+					localRow.remove("lastRemoteTS");
+					remoteRow.remove("ForeignKey");
+					remoteRow.remove("isDeleted");
+					remoteRow.put(mspk, rID+"");
+					result.addToDeleteList(localRow, remoteRow);
+					it.remove();
+					local.remove(uid, lID);
+					continue;
+				}
 			
 				String currRTS = remoteRow.get("lastModified"); // current arachne timestamp
 				String currLTS = localRow.get("lastModified"); // current fm timestamp
@@ -421,7 +436,8 @@ public class SQLDataModel {
 				// timestamps all equal: remote and SKIP
 				if (timestampResult == 0) {
 					local.remove(uid, lID);
-					remote.remove(uid, rID);
+					it.remove();
+					continue;
 				}
 				
 				TreeMap<String, String> diffs = new TreeMap<String,String>();
@@ -430,41 +446,48 @@ public class SQLDataModel {
 				// local after remote, remote did not change: UPDATE REMOTELY
 				case 1:
 					for (String field : commonFields) {
+						if (field.equals("lastModified")) continue;
 						String rVal = remoteRow.get(field);
 						String lVal = localRow.get(field);
-						if (!rVal.equals(lVal)) {
+						if (rVal != null && lVal != null && !rVal.equals(lVal))
 							diffs.put(field, lVal);
-						}
+						else if (rVal == null && lVal != null || lVal == null && rVal != null)
+							diffs.put(field, lVal);
 					}
+					diffs.put("lastModified", currLTS);
 					result.addToUpdateList(remoteRow, diffs, false);
-					remote.remove(uid, rID);
+					it.remove();
 					local.remove(uid, lID);
 					continue;
 				// remote after local AND (local <= last remote <= remote): UPDATE LOCALLY
 				case 2:
 					for (String field : commonFields) {
+						if (field.equals("lastModified")) continue;
 						String rVal = remoteRow.get(field);
 						String lVal = localRow.get(field);
-						if (!rVal.equals(lVal)) {
+						if (rVal != null && lVal != null && !rVal.equals(lVal))
 							diffs.put(field, rVal);
-						}
+						else if (rVal == null && lVal != null || lVal == null && rVal != null)
+							diffs.put(field, rVal);
 					}
+					diffs.put("lastModified", currRTS);
+					diffs.put("lastRemoteTS", currRTS);
 					result.addToUpdateList(localRow, diffs, true);
-					remote.remove(uid, rID);
+					it.remove();
 					local.remove(uid, lID);
 					continue;
 				// local after last remote AND remote after last remote: CONFLICT
 				case 3: case 4:
 					if (compareFields(commonFields, localRow, remoteRow, currTab) != 0) {
 						result.addToConflictList(localRow, remoteRow);
-						remote.remove(uid, rID);
+						it.remove();
 						local.remove(uid, lID);
 					}
 					else {
 						diffs.put("lastModified", currRTS);
 						diffs.put("lastRemoteTS", currRTS);
 						result.addToUpdateList(localRow, diffs, true);
-						remote.remove(uid, rID);
+						it.remove();
 						local.remove(uid, lID);
 					}
 					continue;
@@ -474,30 +497,29 @@ public class SQLDataModel {
 			/**
 			 * LUID == NULL and RID == LID
 			 */
-			else if (local.contains(null, rID)) {
-				TreeMap<String, String> localRow = local.get(null, rID);
-				
-				if (localRow.size() > 1) throw new EntityManagementException("Multiple entries in FM for one PK!");
+			else if (local.contains(0, rID)) {
+				TreeMap<String, String> localRow = local.get(0, rID);
 				
 				String currRTS = remoteRow.get("lastModified"); // current arachne timestamp
 				String currLTS = localRow.get("lastModified"); // current fm timestamp
 				String currLRTS = localRow.get("lastRemoteTS"); // last remote timestamp saved in fm
 				
-				TreeMap<String, String> diffs = new TreeMap<String,String>();
-								
-				int timestampResult = examineTimestamps(currRTS, currLTS, currLRTS);
+				localRow.remove("lastRemoteTS");
+				remoteRow.remove("ForeignKey");
+				remoteRow.remove("isDeleted");
 				
-				// timestamps all equal: UPDATE and SKIP
-				if (timestampResult == 0) {
-					diffs.put("lastModified", currRTS);
-					diffs.put("lastRemoteTS", currRTS);
-					diffs.put("ArachneEntityID", ""+uid);
-					result.addToUpdateList(localRow, diffs, true);
+				if (isDeletedRemotely) {
+					remoteRow.put(mspk, rID+"");
+					result.addToDeleteList(localRow, remoteRow);
+					it.remove();
+					local.remove(0, rID);
 					continue;
 				}
-				else {
-					
-				}
+				
+				TreeMap<String, String> remoteDiffs = new TreeMap<String,String>();
+				TreeMap<String, String> localDiffs = new TreeMap<String,String>();
+								
+				int timestampResult = examineTimestamps(currRTS, currLTS, currLRTS);
 				
 				switch (timestampResult) {
 				// local after remote, remote did not change: UPDATE REMOTELY
@@ -505,41 +527,81 @@ public class SQLDataModel {
 					for (String field : commonFields) {
 						String rVal = remoteRow.get(field);
 						String lVal = localRow.get(field);
-						if (!rVal.equals(lVal)) {
-							diffs.put(field, lVal);
-						}
+						if (rVal != null && lVal != null && !rVal.equals(lVal))
+							remoteDiffs.put(field, lVal);
+						else if (rVal == null && lVal != null || lVal == null && rVal != null)
+							remoteDiffs.put(field, lVal);
 					}
-					result.addToUpdateList(remoteRow, diffs, false);
-					continue;
+					result.addToUpdateList(remoteRow, remoteDiffs, false);
+					break;
 				// remote after local AND (local <= last remote <= remote): UPDATE LOCALLY
 				case 2:
 					for (String field : commonFields) {
 						String rVal = remoteRow.get(field);
 						String lVal = localRow.get(field);
-						if (!rVal.equals(lVal)) {
-							diffs.put(field, rVal);
-						}
+						if (rVal != null && lVal != null && !rVal.equals(lVal))
+							localDiffs.put(field, rVal);
+						else if (rVal == null && lVal != null || lVal == null && rVal != null)
+							localDiffs.put(field, rVal);
 					}
-					result.addToUpdateList(localRow, diffs, true);
-					continue;
+					break;
 				// local after last remote AND remote after last remote: CONFLICT
 				case 3: case 4:
-					if (compareFields(commonFields, localRow, remoteRow, currTab) != 0) {
+					if (compareFields(commonFields, localRow, remoteRow, currTab) != 0)
 						result.addToConflictList(localRow, remoteRow);
-					}
-					else {
-						diffs.put("lastModified", currRTS);
-						diffs.put("lastRemoteTS", currRTS);
-						result.addToUpdateList(localRow, diffs, true);
-					}
-					continue;
+					break;
 				}
+				// in each case update local info
+				localDiffs.put("lastModified", currRTS);
+				localDiffs.put("lastRemoteTS", currRTS);
+				localDiffs.put("ArachneEntityID", ""+uid);
+				result.addToUpdateList(localRow, localDiffs, true);
 				
-				
+				it.remove();
+				local.remove(0, rID);
+				continue;
 			}
-			
+			/**
+			 * LID == NULL and RID != NULL
+			 */
+			else if (!local.containsColumn(rID)) {
+				String currRTS = remoteRow.get("lastModified"); // current arachne timestamp
+				TreeMap<String, String> localRow = new TreeMap<String,String>();
+				for (String field : commonFields)
+					localRow.put(field, null);
+				
+				if (!isDeletedRemotely) {
+					remoteRow.remove("ForeignKey");
+					remoteRow.remove("isDeleted");
+					result.addToConflictList(localRow, remoteRow);
+				}
+				it.remove();
+				continue;
+			}
 		}
 		
+		it = local.cellSet().iterator();
+		
+		while (it.hasNext()) {
+			Cell<Integer, Integer, TreeMap<String, String>> cell = it.next();
+
+			int uid = cell.getRowKey();
+			int lID = cell.getColumnKey();
+			TreeMap<String, String> localRow = cell.getValue();
+			
+			/**
+			 *  RUID == LUID
+			 */
+			if (!remote.containsColumn(lID)) {
+				//TODO vllt ts, uid updaten?!
+				localRow.remove("lastRemoteTS");
+				result.addToUploadList(localRow);
+				it.remove();
+				continue;
+			}
+		}
+		
+		results.add(result);
 		return result;
 	}
 	
@@ -1709,8 +1771,6 @@ public class SQLDataModel {
 		boolean localAllNull = true; // empty local fields
 		boolean remoteAllNull = true; // empty remote fields
 		boolean allSame = true;
-		
-		int offset = 0;
 
 		for (String currField : commonFields) {
 
@@ -1748,8 +1808,6 @@ public class SQLDataModel {
 
 					int fID = Integer.parseInt(fmVal);
 					int mID = Integer.parseInt(myVal);
-					
-					offset = fID - mID;
 
 					// missing entry in remote db
 					if (fID < mID) // offset < 0
