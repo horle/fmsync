@@ -573,7 +573,7 @@ public class SQLDataModel {
 				if (!isDeletedRemotely) {
 					remoteRow.remove("ForeignKey");
 					remoteRow.remove("isDeleted");
-					result.addToConflictList(localRow, remoteRow);
+					result.addToDeleteOrDownloadList(localRow, remoteRow);
 				}
 				it.remove();
 				continue;
