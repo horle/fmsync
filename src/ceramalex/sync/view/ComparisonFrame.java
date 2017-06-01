@@ -11,6 +11,8 @@ import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.MouseEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.IOException;
@@ -94,9 +96,12 @@ public class ComparisonFrame extends JFrame {
 	private JCheckBox chkSyncAttr;
 	
 	private String lastTab;
+	
+	private ArrayList<Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>>> unsafeRows;
 
 	private void initialize() {
 		commonTables = new ArrayList<Pair>();
+		unsafeRows = new ArrayList<Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>>>();
 		ActionListener simpleReload = new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -104,9 +109,9 @@ public class ComparisonFrame extends JFrame {
 			}
 		};
 		
-		addWindowListener(new java.awt.event.WindowAdapter() {
+		addWindowListener(new WindowAdapter() {
 			@Override
-			public void windowClosing(java.awt.event.WindowEvent windowEvent) {
+			public void windowClosing(WindowEvent windowEvent) {
 				abortMission();
 			}
 		});
@@ -274,7 +279,25 @@ public class ComparisonFrame extends JFrame {
 		btnStart.setFont(new Font("Dialog", Font.BOLD, 12));
 		btnStart.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				if (startMission())
+				boolean ready = true;
+				for (Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> rowsPerTable : unsafeRows) {
+					if (!rowsPerTable.isEmpty()) ready = false;
+				}
+				if (!ready) {
+					int dialogConfirm = JOptionPane.showConfirmDialog(null,
+							"There are still unsafe conflicts to clear up. Would you like to resolve them now?",
+							"Now resolving conflicts?", JOptionPane.YES_NO_CANCEL_OPTION,
+							JOptionPane.QUESTION_MESSAGE);
+					if (dialogConfirm == JOptionPane.YES_OPTION) {
+						comps = null;
+						dispose();
+					}
+					else if (dialogConfirm == JOptionPane.NO_OPTION) {
+						if (startMission())
+							handleStartBtn();
+					}
+				}
+				else if (startMission())
 					handleStartBtn();
 			}
 		});
@@ -363,6 +386,8 @@ public class ComparisonFrame extends JFrame {
 			lastTab = tabs.getTitleAt(tabs.getSelectedIndex());
 		tabs.removeAll();
 		comps = data.getResults();
+		
+		unsafeRows.clear();
 
 		for (int i = 0; i < comps.size(); i++) {
 			ComparisonResult comp = comps.get(i);
@@ -371,6 +396,10 @@ public class ComparisonFrame extends JFrame {
 
 			Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> conflict = comp
 					.getConflictList();
+			Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> deleteOrDownload = comp
+					.getDeleteOrDownloadList();
+			this.unsafeRows.add(deleteOrDownload);
+			this.unsafeRows.add(conflict);
 			Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> updateLocally = comp
 					.getLocalUpdateList();
 			Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> updateRemotely = comp
@@ -491,6 +520,38 @@ public class ComparisonFrame extends JFrame {
 								m2.setCellColour(row, col, DARK_ORANGE);
 							}
 						}
+					}
+					for (int j = 0; j < deleteOrDownload.size(); j++) {
+						notEmpty = true;
+						TreeMap<String,String> rowL = deleteOrDownload.get(j).getLeft();
+						TreeMap<String,String> diffs = deleteOrDownload.get(j).getRight();
+						m1.addRow(new String[0]);
+						m2.addRow(new String[0]);
+						int row = m2.getRowCount()-1;
+						// update action label 
+						m1.setValueAt("??", row, 0);
+						m1.setCellColour(row, 0, Color.RED);
+						m2.setValueAt("??", row, 0);
+						m2.setCellColour(row, 0, Color.RED);
+						
+						for (String key : commonFields) {
+							// filling rows on both sides
+							if (rowL.containsKey(key)) {
+								m1.setValueAt(rowL.get(key), m1.getRowCount()-1, m1.findColumn(key));
+								m2.setValueAt(rowL.get(key), m2.getRowCount()-1, m2.findColumn(key));
+							} else {
+								m1.setValueAt(null, m1.getRowCount()-1, m1.findColumn(key));
+								m2.setValueAt(null, m2.getRowCount()-1, m2.findColumn(key));
+							}
+							// overwrite diffs on right side
+							if (diffs.containsKey(key)) {
+								int col = m2.findColumn(key);
+								m2.setValueAt(diffs.get(key), row, col);
+								m1.setCellColour(row, col, Color.RED);
+								m2.setCellColour(row, col, Color.RED);
+							}
+						}
+						
 					}
 					if (btnDownload.isSelected()) {
 						for (int j = 0; j < updateLocally.size(); j++) {
@@ -710,8 +771,24 @@ public class ComparisonFrame extends JFrame {
 		public Component getTableCellRendererComponent(JTable table,
 				Object value, boolean isSelected, boolean hasFocus, int row,
 				int column) {
-			setToolTipText(table.getColumnName(column) + ": " + value);
+			
 			ColourTableModel model = (ColourTableModel) table.getModel();
+			String toolTip;
+			if (column == 0 && model.getColumnName(column).equals("A"))
+				switch (model.getValueAt(row, column) == null ? "" : model.getValueAt(row, column).toString()) {
+				case "U": toolTip = "U: This row will be updated on this side."; break;
+				case "C": toolTip = "C: This row differs on both sides. Conflict! Has to be resolved."; break;
+				case "DL": toolTip = "DL: This row will be downloaded."; break;
+				case "UL": toolTip = "UL: This row will be uploaded."; break;
+				case "??": toolTip = "??: It is not determinable if this row shall be downloaded or deleted. Conflict! Has to be resolved."; break;
+				case "D": toolTip = "D: This row will be deleted on both sides."; break;
+				default: toolTip = ""; break;
+				}
+			else {
+				toolTip = table.getColumnName(column) + ": " + value;
+			}
+			setToolTipText(toolTip);
+			
 			Component c = super.getTableCellRendererComponent(table, value,
 					isSelected, hasFocus, row, column);
 			Color color = model.getCellColour(row, column);

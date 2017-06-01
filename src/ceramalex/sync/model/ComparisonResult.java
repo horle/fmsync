@@ -41,6 +41,7 @@ public class ComparisonResult {
 	private Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> toUpdateLocally;
 	private Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> toUpdateRemotely;
 	private Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> conflict;
+	private Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> deleteOrDownload;
 	private TreeSet<String> commonFields;
 	
 	public ComparisonResult(Pair table) {
@@ -51,6 +52,7 @@ public class ComparisonResult {
 		toUpdateLocally = new Vector<Tuple<TreeMap<String,String>, TreeMap<String,String>>>();
 		toUpdateRemotely = new Vector<Tuple<TreeMap<String,String>, TreeMap<String,String>>>();
 		conflict = new Vector<Tuple<TreeMap<String,String>, TreeMap<String,String>>>();
+		deleteOrDownload = new Vector<Tuple<TreeMap<String,String>, TreeMap<String,String>>>();
 	}
 	
 	/**
@@ -164,5 +166,13 @@ public class ComparisonResult {
 
 	public void setCommonFields(TreeSet<String> commonFields2) {
 		this.commonFields = commonFields2;
+	}
+
+	public Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> getDeleteOrDownloadList() {
+		return deleteOrDownload;
+	}
+
+	public void addToDeleteOrDownloadList(TreeMap<String, String> local, TreeMap<String, String> remote) {
+		this.deleteOrDownload.addElement(new Tuple<TreeMap<String, String>, TreeMap<String, String>>(local, remote));
 	}
 }
