@@ -3,7 +3,9 @@ package ceramalex.sync.view;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.TreeMap;
 
 import javax.swing.JLabel;
 import javax.swing.JTextArea;
@@ -59,12 +61,12 @@ public class ProgressWorker extends SwingWorker<Void, String> {
 			return null;
 		case JOB_APPLY_CHANGES:
 			try {
-				ArrayList<ComparisonResult> results = data.getResults();
+				Collection<ComparisonResult> results = data.getResults().values();
 				publish("\n%%%%%%%%%%%%%% APPLYING CHANGES %%%%%%%%%%%%%%\n");
-				for (int i = 0; i < results.size(); i++) {
+				int i = 0;
+				for (ComparisonResult c : results) {
 					setProgress(0);
 					if (!isCancelled()) {
-						ComparisonResult c = results.get(i);
 						int total = c.getDeleteList().size()
 								+ c.getConflictList().size() 
 								+ c.getDownloadList().size() 
@@ -99,6 +101,7 @@ public class ProgressWorker extends SwingWorker<Void, String> {
 							publish("Table "+c.getTableName().getLeft()+" done.\n");
 						}
 					} else return null;
+					i++;
 				}
 				publish("%%%%%%%%%%%%%%%%%%%% DONE %%%%%%%%%%%%%%%%%%%%\n");
 			} catch (Exception e) {
