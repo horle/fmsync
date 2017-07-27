@@ -3,6 +3,7 @@ package ceramalex.sync.view;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.Container;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.Point;
@@ -10,7 +11,9 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.beans.PropertyChangeEvent;
@@ -18,13 +21,8 @@ import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.TreeSet;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.Vector;
 import java.util.concurrent.ExecutionException;
 
@@ -32,10 +30,11 @@ import javax.swing.AbstractButton;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
-import javax.swing.JComponent;
 import javax.swing.JFrame;
+import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
@@ -45,16 +44,13 @@ import javax.swing.JToggleButton;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
-import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
-import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 
 import org.apache.log4j.Logger;
 
-import ceramalex.sync.exception.EntityManagementException;
 import ceramalex.sync.model.ComparisonResult;
 import ceramalex.sync.model.Pair;
 import ceramalex.sync.model.SQLDataModel;
@@ -73,7 +69,7 @@ public class ComparisonFrame extends JFrame {
 	private JPanel container;
 	private final ButtonGroup buttonGroup = new ButtonGroup();
 
-	private ArrayList<ComparisonResult> comps;
+	private TreeMap<Pair, ComparisonResult> comps;
 	private SQLDataModel data;
 	private ArrayList<Pair> commonTables;
 
@@ -94,13 +90,17 @@ public class ComparisonFrame extends JFrame {
 	private ColourTableModel m2;
 	private AbstractButton btnDeleted;
 	private JCheckBox chkSyncAttr;
-	
+
+	private JPopupMenu popup;
+	private TreeMap<Integer, JTable[]> tables;
+
 	private String lastTab;
-	
+
 	private ArrayList<Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>>> unsafeRows;
 
 	private void initialize() {
 		commonTables = new ArrayList<Pair>();
+		tables = new TreeMap<Integer, JTable[]>();
 		unsafeRows = new ArrayList<Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>>>();
 		ActionListener simpleReload = new ActionListener() {
 			@Override
@@ -108,7 +108,7 @@ public class ComparisonFrame extends JFrame {
 				simpleReloadTables();
 			}
 		};
-		
+
 		addWindowListener(new WindowAdapter() {
 			@Override
 			public void windowClosing(WindowEvent windowEvent) {
@@ -146,34 +146,34 @@ public class ComparisonFrame extends JFrame {
 		pnlTop.add(pnlFilters, BorderLayout.WEST);
 		pnlFilters.setLayout(new FormLayout(
 				new ColumnSpec[] {
-					FormFactory.RELATED_GAP_COLSPEC,
-					ColumnSpec.decode("50px"),
-					FormFactory.RELATED_GAP_COLSPEC,
-					ColumnSpec.decode("50px"),
-					FormFactory.UNRELATED_GAP_COLSPEC,
-					new ColumnSpec(ColumnSpec.FILL, Sizes.bounded(Sizes.PREFERRED,
-							Sizes.constant("50dlu", true),
-							Sizes.constant("70dlu", true)),
-							0),
-					FormFactory.RELATED_GAP_COLSPEC, 
+						FormFactory.RELATED_GAP_COLSPEC,
+						ColumnSpec.decode("50px"),
+						FormFactory.RELATED_GAP_COLSPEC,
+						ColumnSpec.decode("50px"),
+						FormFactory.UNRELATED_GAP_COLSPEC,
+						new ColumnSpec(ColumnSpec.FILL, Sizes.bounded(Sizes.PREFERRED,
+								Sizes.constant("50dlu", true),
+								Sizes.constant("70dlu", true)),
+								0),
+								FormFactory.RELATED_GAP_COLSPEC, 
 				},
 				new RowSpec[] {
-					FormFactory.RELATED_GAP_ROWSPEC, RowSpec.decode("25px"),
-					FormFactory.RELATED_GAP_ROWSPEC, RowSpec.decode("25px"),
-					FormFactory.RELATED_GAP_ROWSPEC,
+						FormFactory.RELATED_GAP_ROWSPEC, RowSpec.decode("25px"),
+						FormFactory.RELATED_GAP_ROWSPEC, RowSpec.decode("25px"),
+						FormFactory.RELATED_GAP_ROWSPEC,
 				}));
 
 		btnUnequal.setSelected(true);
 		btnUnequal.setFont(new Font("monospaced", Font.BOLD, 12));
 		btnUnequal.addActionListener(simpleReload);
 		pnlFilters.add(btnUnequal, "2, 2, default, fill");
-		
+
 		btnDeleted.setSelected(true);
 		btnDeleted.setFont(new Font("monospaced", Font.BOLD, 12));
 		btnDeleted.setForeground(Color.RED);
 		btnDeleted.addActionListener(simpleReload);
 		pnlFilters.add(btnDeleted, "4, 2, default, fill");
-		
+
 		btnIndividuals.setSelected(true);
 		btnIndividuals.setFont(new Font("Dialog", Font.PLAIN, 12));
 		btnIndividuals.addActionListener(new ActionListener() {
@@ -317,7 +317,7 @@ public class ComparisonFrame extends JFrame {
 		tabs.setFont(new Font("Dialog", Font.PLAIN, 12));
 		refetchTables();
 	}
-	
+
 	private void handleStartBtn() {
 		dispose();
 		ProgressMonitor monitor = ProgressUtil.createModalProgressMonitor(this, 100, false, 0); 
@@ -336,13 +336,13 @@ public class ComparisonFrame extends JFrame {
 			logger.error(e);
 		}
 		worker.addPropertyChangeListener(new PropertyChangeListener() {
-		
+
 			@Override
 			public void propertyChange(final PropertyChangeEvent event) {
 				if ("progress".equals(event.getPropertyName())) {
 					int progress = (Integer) event.getNewValue();
 					monitor.setCurrent(""+progress, 123);
-		
+
 					if (worker.isDone()) {
 						if (monitor.isCanceled()) {
 							worker.cancel(true);
@@ -361,7 +361,7 @@ public class ComparisonFrame extends JFrame {
 			e.printStackTrace();
 		}
 	}
-	
+
 	private void refetchTables() {
 		try {
 			commonTables = data.fetchCommonTables();
@@ -373,24 +373,23 @@ public class ComparisonFrame extends JFrame {
 		}
 		simpleReloadTables(false);
 	}
-	
+
 	/**
 	 * Wrapper class to force remembering last tab
 	 */
 	private void simpleReloadTables() {
 		simpleReloadTables(true);
 	}
-	
+
 	private void simpleReloadTables(boolean rememberTab) {
 		if (rememberTab && tabs.getTabCount() != 0)
 			lastTab = tabs.getTitleAt(tabs.getSelectedIndex());
 		tabs.removeAll();
 		comps = data.getResults();
-		
+
 		unsafeRows.clear();
 
-		for (int i = 0; i < comps.size(); i++) {
-			ComparisonResult comp = comps.get(i);
+		for (ComparisonResult comp : comps.values()) {
 			Pair p = comp.getTableName();
 			TreeSet<String> commonFields = new TreeSet<String>(comp.getCommonFields());
 
@@ -413,6 +412,12 @@ public class ComparisonFrame extends JFrame {
 			table1.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 			table2.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 
+			popup = new JPopupMenu();
+
+			MouseListener pListener = new PopupListener();
+			table1.addMouseListener(pListener);
+			table2.addMouseListener(pListener);
+
 			JScrollPane innerLeftScroll = new JScrollPane(table1);
 			JScrollPane innerRightScroll = new JScrollPane(table2);
 			JPanel outerScroll = new JPanel();
@@ -420,18 +425,18 @@ public class ComparisonFrame extends JFrame {
 
 			// setting policies
 			innerLeftScroll
-					.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+			.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 			innerLeftScroll
-					.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+			.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 			innerRightScroll
-					.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+			.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 			innerRightScroll
-					.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+			.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
 			innerLeftScroll.getVerticalScrollBar().setModel(
 					innerRightScroll.getVerticalScrollBar().getModel());
 			innerLeftScroll.getHorizontalScrollBar().setModel(
 					innerRightScroll.getHorizontalScrollBar().getModel());
-			
+
 			table1.setSelectionModel(table2.getSelectionModel());
 
 			outerScroll.add(innerLeftScroll);
@@ -445,14 +450,14 @@ public class ComparisonFrame extends JFrame {
 
 			m1 = new ColourTableModel(commonFields.toArray(), 0);
 			m2 = new ColourTableModel(commonFields.toArray(), 0);
-			
+
 			commonFields.remove("A");
-			
+
 			table1.setDefaultRenderer(Object.class, new ColourCellRenderer());
 			table2.setDefaultRenderer(Object.class, new ColourCellRenderer());
-			
+
 			boolean notEmpty = false;
-			
+
 			if (btnDeleted.isSelected()) {
 				for (int j = 0; j < delete.size(); j++) {
 					notEmpty = true;
@@ -467,7 +472,7 @@ public class ComparisonFrame extends JFrame {
 					m1.setCellColour(row, 0, Color.RED);
 					m2.setValueAt("D", row, 0);
 					m2.setCellColour(row, 0, Color.RED);
-					
+
 					for (String key : commonFields) {
 						// filling rows on both sides
 						if (rowL != null && rowL.containsKey(key)) {
@@ -487,7 +492,7 @@ public class ComparisonFrame extends JFrame {
 					}
 				}
 			}
-			
+
 			if (btnUnequal.isSelected()) {
 				if (btnPairs.isSelected()) {
 					for (int j = 0; j < conflict.size(); j++) {
@@ -502,7 +507,7 @@ public class ComparisonFrame extends JFrame {
 						m1.setCellColour(row, 0, DARK_ORANGE);
 						m2.setValueAt("C", row, 0);
 						m2.setCellColour(row, 0, DARK_ORANGE);
-						
+
 						for (String key : commonFields) {
 							// filling rows on both sides
 							if (rowL.containsKey(key)) {
@@ -533,7 +538,7 @@ public class ComparisonFrame extends JFrame {
 						m1.setCellColour(row, 0, Color.RED);
 						m2.setValueAt("??", row, 0);
 						m2.setCellColour(row, 0, Color.RED);
-						
+
 						for (String key : commonFields) {
 							// filling rows on both sides
 							if (rowL.containsKey(key)) {
@@ -551,7 +556,7 @@ public class ComparisonFrame extends JFrame {
 								m2.setCellColour(row, col, Color.RED);
 							}
 						}
-						
+
 					}
 					if (btnDownload.isSelected()) {
 						for (int j = 0; j < updateLocally.size(); j++) {
@@ -560,7 +565,7 @@ public class ComparisonFrame extends JFrame {
 							TreeMap<String,String> diffs = updateLocally.get(j).getRight();
 							m1.addRow(new String[0]);
 							m2.addRow(new String[0]);
-							
+
 							int row = m1.getRowCount()-1;
 							// update action label 
 							m1.setValueAt("U", row, m1.findColumn("A"));
@@ -591,12 +596,12 @@ public class ComparisonFrame extends JFrame {
 							TreeMap<String,String> diffs = updateRemotely.get(j).getRight();
 							m1.addRow(new String[0]);
 							m2.addRow(new String[0]);
-							
+
 							int row = m2.getRowCount()-1;
 							// update action label 
 							m2.setValueAt("U", row, m1.findColumn("A"));
 							m2.setCellColour(row, 0, DARK_GREEN);
-							
+
 							for (String key : commonFields) {
 								// filling rows on both sides. if val = null, fill with null.
 								if (rowL.containsKey(key)) {
@@ -630,7 +635,7 @@ public class ComparisonFrame extends JFrame {
 									m1.setValueAt(row.get(key), r, c);
 								else
 									m1.setValueAt(null, r, c);
-								
+
 								m1.setCellColour(r, c, DARK_GREEN);
 							}
 							m2.addRow(new String[] {});// update action label
@@ -650,7 +655,7 @@ public class ComparisonFrame extends JFrame {
 									m2.setValueAt(row.get(key), r, c);
 								else
 									m2.setValueAt(null, r, c);
-								
+
 								m2.setCellColour(r, c, Color.BLUE);
 							}
 							m1.addRow(new String[] {});
@@ -666,9 +671,12 @@ public class ComparisonFrame extends JFrame {
 
 			table1.getColumnModel().getColumn(0).setMaxWidth(25);
 			table2.getColumnModel().getColumn(0).setMaxWidth(25);
-			
+
 			if (notEmpty)
 				tabs.addTab(p.getLeft(), null, outerScroll, p.toString());
+
+			JTable[] tableList = new JTable[] {table1, table2};
+			tables.put(tabs.getTabCount()-1, tableList);
 		}
 		for (int i = 0; i < tabs.getTabCount(); i++) {
 			if (tabs.getTitleAt(i).equals(lastTab))
@@ -713,9 +721,9 @@ public class ComparisonFrame extends JFrame {
 		}
 
 		ProgressMonitor monitor = ProgressUtil.createModalProgressMonitor(this, 100, false, 0); 
-				//new ProgressMonitor(null,
-				//"Comparing tables ...", "Current table: ", 0, 100);
-//		monitor.start("Fetching ...");
+		//new ProgressMonitor(null,
+		//"Comparing tables ...", "Current table: ", 0, 100);
+		//		monitor.start("Fetching ...");
 
 		try {
 			worker = new ProgressWorker(txtLog, ProgressWorker.JOB_CALC_DIFF) {
@@ -756,10 +764,39 @@ public class ComparisonFrame extends JFrame {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
-		comps = new ArrayList<ComparisonResult>();
+		comps = new TreeMap<Pair, ComparisonResult>();
 	}
 
-	public ArrayList<ComparisonResult> showDialog(JFrame parent) {
+	/**
+	 * method to determine the actual row in the db table from the given row no. in JTable
+	 * @param currTab current table name
+	 * @param row row number in current JTable
+	 * @return complete row of db
+	 */
+	private TreeMap<String, String> getTupleToMatchingRow(JTable tab, Vector<TreeMap<String, String>> vector, int row) {
+		TreeMap<String,String> resultRow = new TreeMap<String,String>();
+		boolean res = false;
+//		if (vector.size() == 1) return vector.firstElement();
+		
+		for (TreeMap<String, String> t : vector) {
+			for (int c = 1; c < tab.getColumnCount(); c++) {
+				// jtable value eq. db value?
+				if (!(tab.getValueAt(row, c)+"").equals(t.get(c))) {
+					res = false;
+					break;
+				} else res = true;
+			}
+			if (res) {
+				for (int c = 1; c < tab.getColumnCount(); c++) {
+					resultRow.put(tab.getColumnName(c), (String)tab.getValueAt(row, c));
+				}
+			}
+		}
+
+		return resultRow;
+	}
+
+	public TreeMap<Pair, ComparisonResult> showDialog(JFrame parent) {
 		this.pack();
 		ModalFrameUtil.showAsModal(this, parent);
 		return comps;
@@ -771,7 +808,7 @@ public class ComparisonFrame extends JFrame {
 		public Component getTableCellRendererComponent(JTable table,
 				Object value, boolean isSelected, boolean hasFocus, int row,
 				int column) {
-			
+
 			ColourTableModel model = (ColourTableModel) table.getModel();
 			String toolTip;
 			if (column == 0 && model.getColumnName(column).equals("A"))
@@ -788,7 +825,7 @@ public class ComparisonFrame extends JFrame {
 				toolTip = table.getColumnName(column) + ": " + value;
 			}
 			setToolTipText(toolTip);
-			
+
 			Component c = super.getTableCellRendererComponent(table, value,
 					isSelected, hasFocus, row, column);
 			Color color = model.getCellColour(row, column);
@@ -838,7 +875,93 @@ public class ComparisonFrame extends JFrame {
 			return false;
 		}
 	}
-	
+
+	class PopupListener extends MouseAdapter {
+		public void mousePressed(MouseEvent e) {
+			maybeShowPopup(e);
+		}
+
+		public void mouseReleased(MouseEvent e) {
+			maybeShowPopup(e);
+		}
+
+		private void maybeShowPopup(MouseEvent e) {
+			if (e.isPopupTrigger()) {
+				JTable source = (JTable)e.getSource();
+				JTable[] currTables = tables.get(tabs.getSelectedIndex());
+
+				String label = "";
+				int row = source.rowAtPoint( e.getPoint() );
+				int column = source.columnAtPoint( e.getPoint() );
+
+				if (!source.isRowSelected(row))
+					source.changeSelection(row, column, false, false);
+
+				// empty label? try other table! (rhymes, lol)
+				if (source.getValueAt(row, 0) == null) {
+					System.out.println(tabs.getTitleAt(tabs.getSelectedIndex()));
+					if (source.equals(currTables[0])) source = currTables[1];
+					else source = currTables[0];
+				}
+
+				label = (String)source.getValueAt(row, 0);
+
+				popup.removeAll();
+				JMenuItem menuItem = null;
+				// delete or download?
+				if (label.equals("??")) {
+					menuItem = new JMenuItem("Download from remote");
+					menuItem.addActionListener(new ActionListener(){
+						// click on menu item
+						@Override
+						public void actionPerformed(ActionEvent arg0) {
+							ComparisonResult c;
+							String tab = tabs.getTitleAt(tabs.getSelectedIndex());
+							// get current tab
+							for (Pair pa : commonTables) {
+								if (pa.getFMString().equals(tab)) {
+									// get lists for current tab
+									c = comps.get(pa);
+									int indToDel = -1;
+									Vector<TreeMap<String,String>> righties = new Vector<TreeMap<String, String>>();
+									for (Tuple<TreeMap<String, String>, TreeMap<String, String>> t : c.getDeleteOrDownloadList()){
+										righties.add(t.getRight());
+									}
+
+									TreeMap<String, String> tuple = getTupleToMatchingRow(currTables[1], righties, row);
+//									c.addToDownloadList(c.getDeleteOrDownloadList().remove(index).removeObject(tuple));
+									break;
+								}
+							}
+						}
+					});
+					popup.add(menuItem);
+					menuItem = new JMenuItem("Delete on both sides");
+					menuItem.addActionListener(new ActionListener(){
+						@Override
+						public void actionPerformed(ActionEvent e) {
+							// TODO Auto-generated method stub
+
+						}
+					});
+					popup.add(menuItem);
+					menuItem = new JMenuItem("Skip this entry");
+					menuItem.addActionListener(new ActionListener(){
+						@Override
+						public void actionPerformed(ActionEvent e) {
+							// TODO Auto-generated method stub
+
+						}
+					});
+					popup.add(menuItem);
+				}
+
+				if (popup.getComponentCount() != 0)
+					popup.show(e.getComponent(),e.getX(), e.getY());
+			}
+		}
+	}
+
 	class JResizeTable extends JTable {
 
 		@Override

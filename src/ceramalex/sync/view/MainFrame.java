@@ -11,6 +11,7 @@ import java.net.URL;
 import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.TreeMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -40,6 +41,7 @@ import org.apache.log4j.xml.DOMConfigurator;
 import ceramalex.sync.controller.ConfigController;
 import ceramalex.sync.controller.SQLAccessController;
 import ceramalex.sync.model.ComparisonResult;
+import ceramalex.sync.model.Pair;
 import ceramalex.sync.model.SQLDataModel;
 
 import com.mysql.jdbc.exceptions.jdbc4.CommunicationsException;
@@ -102,7 +104,7 @@ public class MainFrame {
 	private boolean connected;
 	private boolean inProgress;
 
-	private ArrayList<ComparisonResult> currComp;
+	private TreeMap<Pair, ComparisonResult> currComp;
 	private ConnectionWorker worker;
 	private SQLAccessController sqlAccess;
 	

@@ -9,7 +9,7 @@ package ceramalex.sync.model;
  * @param <S>
  *
  */
-public class Pair extends Tuple<String,String> {
+public class Pair extends Tuple<String,String> implements Comparable<Pair> {
 
 	public Pair(String f, String m) {
 		super(f, m);
@@ -29,5 +29,10 @@ public class Pair extends Tuple<String,String> {
 	
 	public void setMySQLString(String m) {
 		this.right = m;
+	}
+
+	@Override
+	public int compareTo(Pair other) {
+		return this.left.compareTo(other.left);
 	}
 }

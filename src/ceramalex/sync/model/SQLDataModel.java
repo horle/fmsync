@@ -48,15 +48,15 @@ public class SQLDataModel {
 	private ZoneId zoneBerlin;
 	private ZoneId zoneUTC;
 	private ArrayList<Pair> commonTables;
-	private ArrayList<ComparisonResult> results;
+	private TreeMap<Pair,ComparisonResult> results;
 	private ConfigController conf;
 
-	public ArrayList<ComparisonResult> getResults() {
+	public TreeMap<Pair,ComparisonResult> getResults() {
 		return results;
 	}
 
 	public void addResult(ComparisonResult result) {
-		this.results.add(result);
+		this.results.put(result.getTableName(), result);
 	}
 
 	private static Logger logger = Logger.getLogger(SQLDataModel.class);
@@ -74,7 +74,7 @@ public class SQLDataModel {
 		zoneUTC = ZoneId.of("UTC");
 		sqlAccess = SQLAccessController.getInstance();
 		conf = ConfigController.getInstance();
-		results = new ArrayList<ComparisonResult>();
+		results = new TreeMap<Pair, ComparisonResult>();
 	}
 
 	private Timestamp normaliseTS(Timestamp t) {
@@ -290,18 +290,15 @@ public class SQLDataModel {
 			boolean download) throws SQLException, FilemakerIsCrapException,
 			SyncException, EntityManagementException, IOException {
 		
-		for (ComparisonResult c : results) {
-			if (c.getTableName().equals(currTab)) {
-				results.remove(c);
-				break;
-			}
-		}
+		results.remove(currTab);
+		
 		ComparisonResult result = new ComparisonResult(currTab);
 		TreeSet<String> commonFields = new TreeSet<String>();
 		
 		String fmpk = "";
 		String mspk = "";
 		
+		// table with uuid and ID
 		TreeBasedTable<Integer,Integer,TreeMap<String,String>> local = TreeBasedTable.create();
 		TreeBasedTable<Integer,Integer,TreeMap<String,String>> remote = TreeBasedTable.create();		
 		
@@ -601,7 +598,7 @@ public class SQLDataModel {
 			}
 		}
 		
-		results.add(result);
+		results.put(currTab, result);
 		return result;
 	}
 	
@@ -609,12 +606,8 @@ public class SQLDataModel {
 			boolean download) throws SQLException, FilemakerIsCrapException,
 			SyncException, EntityManagementException, IOException {
 
-		for (ComparisonResult c : results) {
-			if (c.getTableName().equals(currTab)) {
-				results.remove(c);
-				break;
-			}
-		}
+		results.remove(currTab);
+		
 		ComparisonResult result = new ComparisonResult(currTab);
 
 		// both connected?
@@ -1302,7 +1295,7 @@ public class SQLDataModel {
 				e.printStackTrace();
 			}
 		}
-		results.add(result);
+		results.put(currTab, result);
 		return result;
 	}
 
