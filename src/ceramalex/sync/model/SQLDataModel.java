@@ -333,14 +333,15 @@ public class SQLDataModel {
 			Iterator<String> it = commonFields.iterator();
 			while (it.hasNext()) {
 				String next = it.next();
+				if (next.equals("ArachneEntityID")) continue;
 				if (!it.hasNext()) {
-					if (!next.equals("ArachneEntityID") && !next.equals("lastModified"))
+					if (!next.equals("lastModified"))
 						sqlCommonFields += currTab.getRight()+".";
 					sqlCommonFields += next;
 					sqlCommonFieldsFM += currTab.getLeft()+"."+next;
 				}
 				else{
-					if (!next.equals("ArachneEntityID") && !next.equals("lastModified"))
+					if (!next.equals("lastModified"))
 						sqlCommonFields += currTab.getRight()+".";
 					sqlCommonFields += next + ",";
 					sqlCommonFieldsFM += currTab.getLeft()+"."+next + ",";
@@ -349,13 +350,13 @@ public class SQLDataModel {
 			// Skipping Martin Archer's entries => excel
 			String archerMSSkip = "", archerFMSkip = "";
 			if (currTab.getLeft().equalsIgnoreCase("mainabstract")) {
-				archerMSSkip = " WHERE " + currTab.getRight()
+				archerMSSkip = " AND " + currTab.getRight()
 						+ ".ImportSource!='Comprehensive Table'";
 				archerFMSkip = " WHERE " + currTab.getLeft()
 						+ ".ImportSource!='Comprehensive Table'";
 			}
 
-			String fmSQL = "SELECT " + sqlCommonFieldsFM + ", "+currTab.getLeft()+".lastRemoteTS FROM " + currTab.getLeft()
+			String fmSQL = "SELECT ArachneEntityID, " + sqlCommonFieldsFM + ", "+currTab.getLeft()+".lastRemoteTS FROM " + currTab.getLeft()
 					+ archerFMSkip;
 			String msSQL = "SELECT arachneentityidentification.ArachneEntityID, arachneentityidentification.isDeleted, arachneentityidentification.ForeignKey,arachneentityidentification.lastModified AS deletedTS,"
 					+ sqlCommonFields.replace("lastModified", "DATE_FORMAT(CONVERT_TZ(" + currTab.getRight() + ".`lastModified`, @@session.time_zone, '+00:00'),'%Y-%m-%d %H:%i:%s') as lastModified")
@@ -530,6 +531,10 @@ public class SQLDataModel {
 							remoteDiffs.put(field, lVal);
 					}
 					result.addToUpdateList(remoteRow, remoteDiffs, false);
+					localDiffs.put("lastModified", currRTS);
+					localDiffs.put("lastRemoteTS", currRTS);
+					localDiffs.put("ArachneEntityID", ""+uid);
+					result.addToUpdateList(localRow, localDiffs, true);
 					break;
 				// remote after local AND (local <= last remote <= remote): UPDATE LOCALLY
 				case 2:
@@ -541,6 +546,10 @@ public class SQLDataModel {
 						else if (rVal == null && lVal != null || lVal == null && rVal != null)
 							localDiffs.put(field, rVal);
 					}
+					localDiffs.put("lastModified", currRTS);
+					localDiffs.put("lastRemoteTS", currRTS);
+					localDiffs.put("ArachneEntityID", ""+uid);
+					result.addToUpdateList(localRow, localDiffs, true);
 					break;
 				// local after last remote AND remote after last remote: CONFLICT
 				case 3: case 4:
@@ -548,11 +557,6 @@ public class SQLDataModel {
 						result.addToConflictList(localRow, remoteRow);
 					break;
 				}
-				// in each case update local info
-				localDiffs.put("lastModified", currRTS);
-				localDiffs.put("lastRemoteTS", currRTS);
-				localDiffs.put("ArachneEntityID", ""+uid);
-				result.addToUpdateList(localRow, localDiffs, true);
 				
 				it.remove();
 				local.remove(0, rID);
@@ -2078,6 +2082,36 @@ public class SQLDataModel {
 		}
 		
 		sqlAccess.doMySQLUpdate(sql);
+		return true;
+	}
+
+	public boolean deleteRows(Pair currTab, boolean local, Vector<TreeMap<String, String>> delList, int packSize) throws SQLException, IOException {
+		if (delList.size() == 0)
+			return false;
+		
+		String pk = local ? sqlAccess.getFMTablePrimaryKey(currTab.getFMString()) : sqlAccess.getMySQLTablePrimaryKey(currTab.getMySQLString());
+		String sql = "DELETE FROM " + currTab.getLeft() + " WHERE " + pk + "=";
+		
+		Iterator<TreeMap<String, String>> it = delList.iterator();
+		
+		while (it.hasNext()) {
+			TreeMap<String, String> map = it.next();
+			if (map.containsKey(pk)) {
+				sql += map.get(pk);
+				if (it.hasNext()) {
+					sql += " OR " + pk + "=";
+				}
+			}
+			else
+				throw new SQLException("Primary key "+pk+ " in table "+currTab+" not found!");
+		}
+		
+		if (!sql.endsWith("=")) {
+			if (local)
+				sqlAccess.doFMUpdate(sql);
+			else
+				sqlAccess.doMySQLUpdate(sql);
+		}
 		return true;
 	}
 	

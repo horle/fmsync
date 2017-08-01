@@ -5,6 +5,9 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Font;
+import java.awt.GradientPaint;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
@@ -41,13 +44,18 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JToggleButton;
+import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.border.TitledBorder;
+import javax.swing.plaf.ButtonUI;
+import javax.swing.plaf.metal.MetalToggleButtonUI;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
+import javax.swing.table.TableModel;
 
 import org.apache.log4j.Logger;
 
@@ -66,6 +74,11 @@ public class ComparisonFrame extends JFrame {
 
 	private final Color DARK_GREEN = new Color(0,153,0);
 	private final Color DARK_ORANGE = new Color(249,141,0);
+	private final Color LIGHT_GREEN = new Color(152,251,152);
+	private final Color LIGHT_RED = new Color(240,128,128);
+	private final Color LIGHT_ORANGE = new Color(254, 216, 177);
+	private final Color LIGHT_BLUE = new Color(173,216,230);
+	
 	private JPanel container;
 	private final ButtonGroup buttonGroup = new ButtonGroup();
 
@@ -79,16 +92,14 @@ public class ComparisonFrame extends JFrame {
 	private JRadioButton chkContent;
 	private JButton btnReload;
 	private JToggleButton btnPairs;
-	private JToggleButton btnDownload;
-	private JToggleButton btnUpload;
+	private JGradientButton btnDownload;
+	private JGradientButton btnUpload;
 	private JToggleButton btnIndividuals;
-	private JToggleButton btnUnequal;
+	private JGradientButton btnDeleted;
+	private JGradientButton btnUnequal;
 	private JTextArea txtLog;
 	// private ProgressMonitor monitor;
 	private ProgressWorker worker;
-	private ColourTableModel m1;
-	private ColourTableModel m2;
-	private AbstractButton btnDeleted;
 	private JCheckBox chkSyncAttr;
 
 	private JPopupMenu popup;
@@ -128,11 +139,11 @@ public class ComparisonFrame extends JFrame {
 		chkContent = new JRadioButton("by Content");
 		btnReload = new JButton("Refetch tables");
 		btnPairs = new JToggleButton("Pairs");
-		btnDownload = new JToggleButton("<-");
-		btnUpload = new JToggleButton("->");
+		btnDownload = new JGradientButton("<-");
+		btnUpload = new JGradientButton("->");
 		btnIndividuals = new JToggleButton("Individuals");
-		btnUnequal = new JToggleButton("!=");
-		btnDeleted = new JToggleButton("X");
+		btnUnequal = new JGradientButton("!=");
+		btnDeleted = new JGradientButton("X");
 		chkSyncAttr = new JCheckBox("Show sync relevant fields");
 
 		JPanel pnlTop = new JPanel();
@@ -165,12 +176,13 @@ public class ComparisonFrame extends JFrame {
 
 		btnUnequal.setSelected(true);
 		btnUnequal.setFont(new Font("monospaced", Font.BOLD, 12));
+		btnUnequal.setBackground(LIGHT_ORANGE);
 		btnUnequal.addActionListener(simpleReload);
 		pnlFilters.add(btnUnequal, "2, 2, default, fill");
 
 		btnDeleted.setSelected(true);
 		btnDeleted.setFont(new Font("monospaced", Font.BOLD, 12));
-		btnDeleted.setForeground(Color.RED);
+		btnDeleted.setBackground(LIGHT_RED);
 		btnDeleted.addActionListener(simpleReload);
 		pnlFilters.add(btnDeleted, "4, 2, default, fill");
 
@@ -192,13 +204,13 @@ public class ComparisonFrame extends JFrame {
 
 		btnUpload.setSelected(true);
 		btnUpload.setFont(new Font("monospaced", Font.BOLD, 12));
-		btnUpload.setForeground(DARK_GREEN);
+		btnUpload.setBackground(LIGHT_GREEN);
 		btnUpload.addActionListener(simpleReload);
 		pnlFilters.add(btnUpload, "2, 4, default, fill");
 
 		btnDownload.setSelected(true);
 		btnDownload.setFont(new Font("monospaced", Font.BOLD, 12));
-		btnDownload.setForeground(Color.BLUE);
+		btnDownload.setBackground(LIGHT_BLUE);
 		btnDownload.addActionListener(simpleReload);
 		pnlFilters.add(btnDownload, "4, 4, default, fill");
 
@@ -315,6 +327,7 @@ public class ComparisonFrame extends JFrame {
 		container.add(tabs, BorderLayout.CENTER);
 
 		tabs.setFont(new Font("Dialog", Font.PLAIN, 12));
+		
 		refetchTables();
 	}
 
@@ -447,9 +460,9 @@ public class ComparisonFrame extends JFrame {
 				commonFields.remove("lastModified");
 			}
 			commonFields.add("A");
-
-			m1 = new ColourTableModel(commonFields.toArray(), 0);
-			m2 = new ColourTableModel(commonFields.toArray(), 0);
+			
+			ColourTableModel m1 = new ColourTableModel(commonFields.toArray(), 0);
+			ColourTableModel m2 = new ColourTableModel(commonFields.toArray(), 0);
 
 			commonFields.remove("A");
 
@@ -469,23 +482,23 @@ public class ComparisonFrame extends JFrame {
 
 					// update action label 
 					m1.setValueAt("D", row, 0);
-					m1.setCellColour(row, 0, Color.RED);
+					m1.setCellColour(row, 0, LIGHT_RED);
 					m2.setValueAt("D", row, 0);
-					m2.setCellColour(row, 0, Color.RED);
+					m2.setCellColour(row, 0, LIGHT_RED);
 
 					for (String key : commonFields) {
 						// filling rows on both sides
 						if (rowL != null && rowL.containsKey(key)) {
 							int col = m1.findColumn(key);
 							m1.setValueAt(rowL.get(key), row, col);
-							m1.setCellColour(row, col, Color.RED);
+							m1.setCellColour(row, col, LIGHT_RED);
 						} else {
 							m1.setValueAt(null, m1.getRowCount()-1, m1.findColumn(key));
 						}
 						if (rowR != null && rowR.containsKey(key)) {
 							int col = m2.findColumn(key);
 							m2.setValueAt(rowR.get(key), row, col);
-							m2.setCellColour(row, col, Color.RED);
+							m2.setCellColour(row, col, LIGHT_RED);
 						} else {
 							m2.setValueAt(null, m1.getRowCount()-1, m1.findColumn(key));
 						}
@@ -504,9 +517,9 @@ public class ComparisonFrame extends JFrame {
 						int row = m2.getRowCount()-1;
 						// update action label 
 						m1.setValueAt("C", row, 0);
-						m1.setCellColour(row, 0, DARK_ORANGE);
+						m1.setCellColour(row, 0, LIGHT_ORANGE);
 						m2.setValueAt("C", row, 0);
-						m2.setCellColour(row, 0, DARK_ORANGE);
+						m2.setCellColour(row, 0, LIGHT_ORANGE);
 
 						for (String key : commonFields) {
 							// filling rows on both sides
@@ -521,39 +534,39 @@ public class ComparisonFrame extends JFrame {
 							if (diffs.containsKey(key)) {
 								int col = m2.findColumn(key);
 								m2.setValueAt(diffs.get(key), row, col);
-								m1.setCellColour(row, col, DARK_ORANGE);
-								m2.setCellColour(row, col, DARK_ORANGE);
+								m1.setCellColour(row, col, LIGHT_ORANGE);
+								m2.setCellColour(row, col, LIGHT_ORANGE);
 							}
 						}
 					}
 					for (int j = 0; j < deleteOrDownload.size(); j++) {
 						notEmpty = true;
-						TreeMap<String,String> rowL = deleteOrDownload.get(j).getLeft();
+//						TreeMap<String,String> rowL = deleteOrDownload.get(j).getLeft();
 						TreeMap<String,String> diffs = deleteOrDownload.get(j).getRight();
 						m1.addRow(new String[0]);
 						m2.addRow(new String[0]);
 						int row = m2.getRowCount()-1;
 						// update action label 
 						m1.setValueAt("??", row, 0);
-						m1.setCellColour(row, 0, Color.RED);
+						m1.setCellColour(row, 0, LIGHT_RED);
 						m2.setValueAt("??", row, 0);
-						m2.setCellColour(row, 0, Color.RED);
+						m2.setCellColour(row, 0, LIGHT_RED);
 
 						for (String key : commonFields) {
 							// filling rows on both sides
-							if (rowL.containsKey(key)) {
-								m1.setValueAt(rowL.get(key), m1.getRowCount()-1, m1.findColumn(key));
-								m2.setValueAt(rowL.get(key), m2.getRowCount()-1, m2.findColumn(key));
-							} else {
-								m1.setValueAt(null, m1.getRowCount()-1, m1.findColumn(key));
-								m2.setValueAt(null, m2.getRowCount()-1, m2.findColumn(key));
-							}
+//							if (rowL.containsKey(key)) {
+//								m1.setValueAt(rowL.get(key), m1.getRowCount()-1, m1.findColumn(key));
+//								m2.setValueAt(rowL.get(key), m2.getRowCount()-1, m2.findColumn(key));
+//							} else {
+//								m1.setValueAt(null, m1.getRowCount()-1, m1.findColumn(key));
+//								m2.setValueAt(null, m2.getRowCount()-1, m2.findColumn(key));
+//							}
 							// overwrite diffs on right side
 							if (diffs.containsKey(key)) {
 								int col = m2.findColumn(key);
 								m2.setValueAt(diffs.get(key), row, col);
-								m1.setCellColour(row, col, Color.RED);
-								m2.setCellColour(row, col, Color.RED);
+								m1.setCellColour(row, col, LIGHT_RED);
+								m2.setCellColour(row, col, LIGHT_RED);
 							}
 						}
 
@@ -569,7 +582,7 @@ public class ComparisonFrame extends JFrame {
 							int row = m1.getRowCount()-1;
 							// update action label 
 							m1.setValueAt("U", row, m1.findColumn("A"));
-							m1.setCellColour(row, 0, Color.BLUE);
+							m1.setCellColour(row, 0, LIGHT_BLUE);
 							for (String key : commonFields) {
 								// filling rows on both sides
 								if (rowL.containsKey(key)) {
@@ -584,7 +597,7 @@ public class ComparisonFrame extends JFrame {
 									int col = m1.findColumn(key);
 									m1.setValueAt(diffs.get(key), row, col);
 									m2.setValueAt(diffs.get(key), row, col);
-									m1.setCellColour(row, col, Color.BLUE);
+									m1.setCellColour(row, col, LIGHT_BLUE);
 								}
 							}
 						}
@@ -600,7 +613,7 @@ public class ComparisonFrame extends JFrame {
 							int row = m2.getRowCount()-1;
 							// update action label 
 							m2.setValueAt("U", row, m1.findColumn("A"));
-							m2.setCellColour(row, 0, DARK_GREEN);
+							m2.setCellColour(row, 0, LIGHT_GREEN);
 
 							for (String key : commonFields) {
 								// filling rows on both sides. if val = null, fill with null.
@@ -616,7 +629,7 @@ public class ComparisonFrame extends JFrame {
 									int col = m2.findColumn(key);
 									m1.setValueAt(diffs.get(key), row, col);
 									m2.setValueAt(diffs.get(key), row, col);
-									m2.setCellColour(row, col, DARK_GREEN);
+									m2.setCellColour(row, col, LIGHT_GREEN);
 								}
 							}
 						}
@@ -636,11 +649,11 @@ public class ComparisonFrame extends JFrame {
 								else
 									m1.setValueAt(null, r, c);
 
-								m1.setCellColour(r, c, DARK_GREEN);
+								m1.setCellColour(r, c, LIGHT_GREEN);
 							}
 							m2.addRow(new String[] {});// update action label
 							m1.setValueAt("UL", r, 0);
-							m1.setCellColour(r, 0, DARK_GREEN);
+							m1.setCellColour(r, 0, LIGHT_GREEN);
 						}
 					}
 					if (btnDownload.isSelected()) {
@@ -656,16 +669,16 @@ public class ComparisonFrame extends JFrame {
 								else
 									m2.setValueAt(null, r, c);
 
-								m2.setCellColour(r, c, Color.BLUE);
+								m2.setCellColour(r, c, LIGHT_BLUE);
 							}
 							m1.addRow(new String[] {});
 							m2.setValueAt("DL", r, 0);
-							m2.setCellColour(r, 0, Color.BLUE);
+							m2.setCellColour(r, 0, LIGHT_BLUE);
 						}
 					}
 				}
 			}
-
+			
 			table1.setModel(m1);
 			table2.setModel(m2);
 
@@ -679,8 +692,10 @@ public class ComparisonFrame extends JFrame {
 			tables.put(tabs.getTabCount()-1, tableList);
 		}
 		for (int i = 0; i < tabs.getTabCount(); i++) {
-			if (tabs.getTitleAt(i).equals(lastTab))
+			if (tabs.getTitleAt(i).equals(lastTab)) {
 				tabs.setSelectedIndex(i);
+				break;
+			}
 		}
 	}
 
@@ -781,7 +796,8 @@ public class ComparisonFrame extends JFrame {
 		for (TreeMap<String, String> t : vector) {
 			for (int c = 1; c < tab.getColumnCount(); c++) {
 				// jtable value eq. db value?
-				if (!(tab.getValueAt(row, c)+"").equals(t.get(c))) {
+				String v = t.get(tab.getColumnName(c));
+				if (!(tab.getValueAt(row, c)+"").equals(v)) {
 					res = false;
 					break;
 				} else res = true;
@@ -829,8 +845,8 @@ public class ComparisonFrame extends JFrame {
 			Component c = super.getTableCellRendererComponent(table, value,
 					isSelected, hasFocus, row, column);
 			Color color = model.getCellColour(row, column);
-			c.setForeground(color);
-			if (!color.equals(Color.BLACK))
+			c.setBackground(color);
+			if (!color.equals(Color.WHITE))
 				c.setFont(c.getFont().deriveFont(Font.BOLD));
 			return c;
 		}
@@ -868,7 +884,7 @@ public class ComparisonFrame extends JFrame {
 					r.add(null);
 				}
 			}
-			return r.get(col) == null ? Color.BLACK : r.get(col);
+			return r.get(col) == null ? Color.WHITE : r.get(col);
 		}
 		@Override
 		public boolean isCellEditable(int row, int column) {
@@ -908,6 +924,18 @@ public class ComparisonFrame extends JFrame {
 
 				popup.removeAll();
 				JMenuItem menuItem = null;
+				// conflict
+				if (label.equals("C")) {
+					menuItem = new JMenuItem("Resolve conflict ...");
+					menuItem.addActionListener(new ActionListener(){
+						// click on menu item
+						@Override
+						public void actionPerformed(ActionEvent arg0) {
+							simpleReloadTables(true);
+						}
+					});
+					popup.add(menuItem);
+				}
 				// delete or download?
 				if (label.equals("??")) {
 					menuItem = new JMenuItem("Download from remote");
@@ -915,24 +943,34 @@ public class ComparisonFrame extends JFrame {
 						// click on menu item
 						@Override
 						public void actionPerformed(ActionEvent arg0) {
-							ComparisonResult c;
+							ComparisonResult c = null;
 							String tab = tabs.getTitleAt(tabs.getSelectedIndex());
-							// get current tab
+							TreeMap<String,String> tabRow = new TreeMap<String,String>();
+							TableModel m = currTables[1].getModel();
+							
 							for (Pair pa : commonTables) {
 								if (pa.getFMString().equals(tab)) {
 									// get lists for current tab
-									c = comps.get(pa);
-									int indToDel = -1;
-									Vector<TreeMap<String,String>> righties = new Vector<TreeMap<String, String>>();
-									for (Tuple<TreeMap<String, String>, TreeMap<String, String>> t : c.getDeleteOrDownloadList()){
-										righties.add(t.getRight());
-									}
-
-									TreeMap<String, String> tuple = getTupleToMatchingRow(currTables[1], righties, row);
-//									c.addToDownloadList(c.getDeleteOrDownloadList().remove(index).removeObject(tuple));
-									break;
+									c = comps.get(pa); break;
 								}
 							}
+							for (int i = 1; i < m.getColumnCount(); i++) {
+								String val = m.getValueAt(row, i) == null ? null : (String)m.getValueAt(row, i);
+								tabRow.put(m.getColumnName(i), val);
+							}
+							if (c != null) {
+								// delete from unsure list
+								for (Tuple<TreeMap<String, String>, TreeMap<String, String>> t : c.getDeleteOrDownloadList()) {
+									TreeMap<String, String> maa = t.getRight();
+									if (maa.equals(tabRow)) {
+										c.getDeleteOrDownloadList().remove(t);
+										// add to download list
+										c.addToDownloadList(tabRow);
+										break;
+									}
+								}
+							}
+							simpleReloadTables(true);
 						}
 					});
 					popup.add(menuItem);
@@ -940,17 +978,35 @@ public class ComparisonFrame extends JFrame {
 					menuItem.addActionListener(new ActionListener(){
 						@Override
 						public void actionPerformed(ActionEvent e) {
-							// TODO Auto-generated method stub
-
-						}
-					});
-					popup.add(menuItem);
-					menuItem = new JMenuItem("Skip this entry");
-					menuItem.addActionListener(new ActionListener(){
-						@Override
-						public void actionPerformed(ActionEvent e) {
-							// TODO Auto-generated method stub
-
+							ComparisonResult c = null;
+							String tab = tabs.getTitleAt(tabs.getSelectedIndex());
+							TreeMap<String,String> tabRow = new TreeMap<String,String>();
+							ColourTableModel m = (ColourTableModel) currTables[1].getModel();
+							
+							for (Pair pa : commonTables) {
+								if (pa.getFMString().equals(tab)) {
+									// get lists for current tab
+									c = comps.get(pa); break;
+								}
+							}
+							System.out.println("rows: "+m.getRowCount() + " cols: "+m.getColumnCount()+ " clickedrow:"+row);
+							for (int i = 1; i < m.getColumnCount(); i++) {
+								String val = m.getValueAt(row, i) == null ? null : (String)m.getValueAt(row, i);
+								tabRow.put(m.getColumnName(i), val);
+							}
+							if (c != null) {
+								// delete from unsure list
+								for (Tuple<TreeMap<String, String>, TreeMap<String, String>> t : c.getDeleteOrDownloadList()) {
+									if (t.getRight().equals(tabRow)) {
+										c.getDeleteOrDownloadList().remove(t);
+										// add to delete list
+										c.addToDeleteList(t.getLeft(), t.getRight());
+										m.fireTableDataChanged();
+										break;
+									}
+								}
+							}
+							simpleReloadTables(true);
 						}
 					});
 					popup.add(menuItem);
@@ -1006,6 +1062,41 @@ public class ComparisonFrame extends JFrame {
 			}
 
 			setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+		}
+	}
+	private static final class JGradientButton extends JToggleButton{
+		String s;
+
+		public JGradientButton(String str) {
+			super(str);
+			s = str;
+			setContentAreaFilled(false);
+		}
+		
+		@Override
+		protected void paintComponent(Graphics g){
+			if (this.isSelected()) {
+				int w = getWidth();
+				int h = getHeight();
+				g.setColor(getBackground()); // selected color
+				g.fillRect(0, 0, w, h);
+			} else {
+				Graphics2D g2 = (Graphics2D)g.create();
+				g2.setPaint(new GradientPaint(
+						new Point(0, 0), 
+						getBackground(), 
+						new Point(0, getHeight()/3), 
+						Color.WHITE));
+				g2.fillRect(0, 0, getWidth(), getHeight()/3);
+				g2.setPaint(new GradientPaint(
+						new Point(0, getHeight()/3), 
+						Color.WHITE, 
+						new Point(0, getHeight()), 
+						getBackground()));
+				g2.fillRect(0, getHeight()/3, getWidth(), getHeight());
+				g2.dispose();
+			}
+			super.paintComponent(g);
 		}
 	}
 }

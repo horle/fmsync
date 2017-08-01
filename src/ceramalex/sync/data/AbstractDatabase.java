@@ -307,16 +307,14 @@ public abstract class AbstractDatabase {
 	@Override
 	public void finalize() {
 		try {
-			if (!st.isClosed())
-				this.st.close();
+			this.st.close();
 			this.st = null;
-			if (!cn.isClosed())
-				this.cn.close();
+			this.cn.close();
 			this.cn = null;
 		} catch (SQLException e) {
-			e.printStackTrace();
+			if (!e.getMessage().contains("[FileMaker JDBC] Connection is closed. Execute operation is not permitted."))
+				e.printStackTrace();
 		}
-		logger.info("Database-Connector erfolgreich zerstoert");
 	}
 
 	// -------------------------------------------------------------------------------
@@ -331,7 +329,6 @@ public abstract class AbstractDatabase {
 			logger.error(e);
 			return false;
 		}
-		logger.info("Database-Connector erfolgreich zerstoert");
 		return true;
 	}
 

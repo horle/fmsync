@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.TreeMap;
+import java.util.Vector;
 
 import javax.swing.JLabel;
 import javax.swing.JTextArea;
@@ -16,6 +17,7 @@ import ceramalex.sync.exception.EntityManagementException;
 import ceramalex.sync.model.ComparisonResult;
 import ceramalex.sync.model.Pair;
 import ceramalex.sync.model.SQLDataModel;
+import ceramalex.sync.model.Tuple;
 
 public class ProgressWorker extends SwingWorker<Void, String> {
 	public static final int JOB_CALC_DIFF = 0;
@@ -77,6 +79,21 @@ public class ProgressWorker extends SwingWorker<Void, String> {
 						if (total > 0) {
 							publish("Applying changes to table " + c.getTableName().getLeft() +":\n");
 							
+							if (!c.getDeleteList().isEmpty()) {
+								Vector<TreeMap<String,String>> localDel = new Vector<TreeMap<String, String>>();
+								Vector<TreeMap<String,String>> remoteDel = new Vector<TreeMap<String, String>>();
+								for (Tuple<TreeMap<String, String>, TreeMap<String, String>> t : c.getDeleteList()) {
+									localDel.add(t.getLeft());
+									remoteDel.add(t.getRight());
+								}
+								
+								publish("Deleting " + localDel.size() +" local entries ... ");
+								data.deleteRows(c.getTableName(), true, localDel, 25);
+								publish("done.\n");
+								publish("Deleting " + remoteDel.size() +" remote entries ... ");
+								data.deleteRows(c.getTableName(), false, remoteDel, 25);
+								publish("done.\n");
+							}
 							if (!c.getDownloadList().isEmpty()) {
 								publish("Downloading " + c.getDownloadList().size() +" entries ... ");
 								data.prepareRowsAndDownload(c.getTableName(), c.getDownloadList(), 25);
