@@ -478,16 +478,14 @@ public class SQLDataModel {
 				case 3: case 4:
 					if (compareFields(commonFields, localRow, remoteRow, currTab) != 0) {
 						result.addToConflictList(localRow, remoteRow);
-						it.remove();
-						local.remove(uid, lID);
 					}
 					else {
 						diffs.put("lastModified", currRTS);
 						diffs.put("lastRemoteTS", currRTS);
 						result.addToUpdateList(localRow, diffs, true);
-						it.remove();
-						local.remove(uid, lID);
 					}
+					it.remove();
+					local.remove(uid, lID);
 					continue;
 				}
 			}
@@ -2034,6 +2032,9 @@ public class SQLDataModel {
 		
 		TreeMap<String, String> set = tuple.getRight();
 		TreeMap<String, String> where = new TreeMap<String,String>(tuple.getLeft());
+		
+		set.remove("ArachneEntityID");
+		
 		Iterator<String> it = set.keySet().iterator();
 		
 		while (it.hasNext()) {
@@ -2059,6 +2060,7 @@ public class SQLDataModel {
 		where.remove("ArachneEntityID");
 		// lastModified: problem with timezone...
 		where.remove("lastModified");
+		
 		it = where.keySet().iterator();
 		sql += " WHERE ";
 		while (it.hasNext()) {
@@ -2097,6 +2099,9 @@ public class SQLDataModel {
 		while (it.hasNext()) {
 			TreeMap<String, String> map = it.next();
 			if (map.containsKey(pk)) {
+				// empty primary key?!
+				if (map.get(pk) == null || map.get(pk).isEmpty())
+					return true;
 				sql += map.get(pk);
 				if (it.hasNext()) {
 					sql += " OR " + pk + "=";
