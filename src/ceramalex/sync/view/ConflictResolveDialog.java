@@ -7,6 +7,9 @@ import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.util.TreeMap;
 
 import javax.swing.AbstractListModel;
 import javax.swing.JButton;
@@ -14,6 +17,7 @@ import javax.swing.JCheckBox;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
@@ -23,6 +27,10 @@ import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
+import javax.swing.ListSelectionModel;
+
+import ceramalex.sync.model.Pair;
+import ceramalex.sync.model.Tuple;
 
 public class ConflictResolveDialog extends JDialog {
 
@@ -32,30 +40,48 @@ public class ConflictResolveDialog extends JDialog {
 	private JButton btnCancel = new JButton("Cancel");
 	private JButton btnLocal = new JButton("Choose local");
 	private JButton btnRemote = new JButton("Choose remote");
+	
+	private Object[] headers;
+	private TreeMap<String,String> localRow;
+	private TreeMap<String,String> remoteRow;
 
-	/**
-	 * Launch the application.
-	 */
-	public static void main(String[] args) {
-		try {
-			ConflictResolveDialog dialog = new ConflictResolveDialog();
-			dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-			dialog.setVisible(true);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
-
+	private String label;
+	private TreeMap<String, String> result;
+	
+	public static final int UPDATE_LOCALLY = 1;
+	public static final int UPDATE_REMOTELY = 2;
+	public static final int SKIP = 0;
+	
+	private int action = SKIP;
+	
 	/**
 	 * Create the dialog.
 	 */
-	public ConflictResolveDialog() {
+	public ConflictResolveDialog(TreeMap<String,String> lRow, TreeMap<String,String> rRow) {
+		label = lRow.remove("A");
+		rRow.remove("A");
+		
+		headers = lRow.keySet().toArray();
+		int colCount = lRow.size();
+		this.localRow = lRow;
+		this.remoteRow = rRow;
+		
+		String[] localR = new String[colCount];
+		String[] remoteR = new String[colCount];
+		
+		for (int i = 0; i < colCount; i++) {
+			localR[i] = lRow.get(headers[i]);
+			remoteR[i] = rRow.get(headers[i]);
+		}
+		
 		Font f = new Font("Dialog", Font.PLAIN, 12);
+		setResizable(false);
 		setTitle("Resolve Conflicts");
-		setSize(750, 180);
+		setSize(750, 190);
+		setModal(true);
 		getContentPane().setLayout(new BorderLayout(5, 0));
 		
-		JLabel lblText = new JLabel("You have to resolve this shit!");
+		JLabel lblText = new JLabel("Please select the row you want to keep.");
 		lblText.setBorder(new EmptyBorder(10, 10, 10, 10));
 		lblText.setFont(f);
 		getContentPane().add(lblText, BorderLayout.NORTH);
@@ -88,6 +114,20 @@ public class ConflictResolveDialog extends JDialog {
 		
 		btnLocal.setActionCommand("OK");
 		btnLocal.setFont(f);
+		btnLocal.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				if (JOptionPane.showConfirmDialog(null,
+						"Are you sure to apply the LOCAL row to the online database?",
+						"Really applying local row?", JOptionPane.YES_NO_OPTION,
+						JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION) {
+					// choose local row, so update remote row.
+					action = UPDATE_REMOTELY;
+					result = localRow;
+					dispose();
+				}
+			}
+		});
 		GridBagConstraints gbc_btnLocal = new GridBagConstraints();
 		gbc_btnLocal.fill = GridBagConstraints.HORIZONTAL;
 		gbc_btnLocal.insets = new Insets(5, 5, 5, 0);
@@ -96,7 +136,21 @@ public class ConflictResolveDialog extends JDialog {
 		pnlButtons.add(btnLocal, gbc_btnLocal);
 		
 		btnRemote.setFont(f);
-		btnLocal.setActionCommand("OK");
+		btnRemote.setActionCommand("OK");
+		btnRemote.addActionListener(new ActionListener() {
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				if (JOptionPane.showConfirmDialog(null,
+						"Are you sure to apply the REMOTE row to the local database?",
+						"Really applying remote row?", JOptionPane.YES_NO_OPTION,
+						JOptionPane.QUESTION_MESSAGE) == JOptionPane.YES_OPTION) {
+					// choose remote row, so update local row.
+					action = UPDATE_LOCALLY;
+					result = localRow;
+					dispose();
+				}
+			}
+		});
 		GridBagConstraints gbc_btnRemote = new GridBagConstraints();
 		gbc_btnRemote.insets = new Insets(5, 5, 0, 0);
 		gbc_btnRemote.fill = GridBagConstraints.HORIZONTAL;
@@ -112,27 +166,39 @@ public class ConflictResolveDialog extends JDialog {
 			public int getSize() { return headers.length; }
 		};
 		
-		DefaultTableModel dm = new DefaultTableModel(lm.getSize(), 10);
+		DefaultTableModel dm = new DefaultTableModel(0, colCount);
+		dm.setColumnIdentifiers(headers);
+		dm.addRow(localR);
+		dm.addRow(remoteR);
+		
 		table = new JTable(dm);
-		JList<String> rowHeaders = new JList(lm);
+		table.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+		table.setCellSelectionEnabled(true);
+		
+		JList<String> rowHeaders = new JList<String>(lm);
+		rowHeaders.setBackground(UIManager.getColor("Label.background"));
 		rowHeaders.setFixedCellWidth(50);
 		rowHeaders.setFixedCellHeight(table.getRowHeight());
 		rowHeaders.setCellRenderer(new RowHeaderRenderer(table));
+		
 		JScrollPane scroll = new JScrollPane(table);
 		scroll.setRowHeaderView(rowHeaders);
 		scroll.setBorder(new EmptyBorder(5,5,5,5));
 		getContentPane().add(scroll, BorderLayout.CENTER);
-		
-	
 	}
 
+	public Tuple<Integer, TreeMap<String, String>> showDialog() {
+		this.pack();
+		this.setVisible(true);
+		return new Tuple<Integer,TreeMap<String,String>>(action, result);
+	}
 }
 
 class RowHeaderRenderer extends JLabel implements ListCellRenderer<String> {
 
 	RowHeaderRenderer(JTable table) {
 		JTableHeader header = table.getTableHeader();
-		setOpaque(true);
+//		setOpaque(true);
 		setBorder(UIManager.getBorder("TableHeader.cellBorder"));
 		setHorizontalAlignment(CENTER);
 		setForeground(header.getForeground());

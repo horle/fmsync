@@ -33,6 +33,7 @@ import javax.swing.AbstractButton;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
@@ -301,8 +302,7 @@ public class ComparisonFrame extends JFrame {
 							"Now resolving conflicts?", JOptionPane.YES_NO_CANCEL_OPTION,
 							JOptionPane.QUESTION_MESSAGE);
 					if (dialogConfirm == JOptionPane.YES_OPTION) {
-						comps = null;
-						dispose();
+						
 					}
 					else if (dialogConfirm == JOptionPane.NO_OPTION) {
 						if (startMission())
@@ -931,6 +931,59 @@ public class ComparisonFrame extends JFrame {
 						// click on menu item
 						@Override
 						public void actionPerformed(ActionEvent arg0) {
+							ComparisonResult c = null;
+							String tab = tabs.getTitleAt(tabs.getSelectedIndex());
+							for (Pair pa : commonTables) {
+								if (pa.getFMString().equals(tab)) {
+									// get lists for current tab
+									c = comps.get(pa); break;
+								}
+							}
+							
+							TreeMap<String,String> localRow = new TreeMap<String,String>();
+							TreeMap<String,String> remoteRow = new TreeMap<String,String>();
+							
+							TableModel ltm = currTables[0].getModel();
+							TableModel rtm = currTables[1].getModel();
+							
+							for (int i = 0; i < ltm.getColumnCount(); i++) {
+								String lval = ltm.getValueAt(row, i) == null ? null : ""+ltm.getValueAt(row, i);
+								String rval = rtm.getValueAt(row, i) == null ? null : ""+rtm.getValueAt(row, i);
+								localRow.put(ltm.getColumnName(i), lval);
+								remoteRow.put(rtm.getColumnName(i), rval);
+							}
+							
+							ConflictResolveDialog dialog = new ConflictResolveDialog(localRow, remoteRow);
+							dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+							Tuple<Integer, TreeMap<String, String>> result = dialog.showDialog();
+							
+							switch(result.getLeft()) {
+							case ConflictResolveDialog.SKIP: break;
+							case ConflictResolveDialog.UPDATE_LOCALLY:								
+								for (Tuple<TreeMap<String, String>, TreeMap<String, String>> t : c.getConflictList()) {
+									// search for local row
+									TreeMap<String, String> maa = t.getLeft();
+									if (maa.equals(localRow)) {
+										c.getConflictList().remove(t);
+										// update locally
+										c.addToUpdateList(localRow, remoteRow, true);
+										break;
+									}
+								}
+								break;
+							case ConflictResolveDialog.UPDATE_REMOTELY:
+								for (Tuple<TreeMap<String, String>, TreeMap<String, String>> t : c.getConflictList()) {
+									// search for local row
+									TreeMap<String, String> maa = t.getLeft();
+									if (maa.equals(localRow)) {
+										c.getConflictList().remove(t);
+										// add to download list
+										c.addToUpdateList(remoteRow, localRow, false);
+										break;
+									}
+								}
+								break;
+							}
 							simpleReloadTables(true);
 						}
 					});
