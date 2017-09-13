@@ -45,6 +45,9 @@ public class ConfigController {
 		propertyList.setProperty("FMDB", "iDAIAbstractCeramalex");
 		propertyList.setProperty("FMUser", "admin");
 		propertyList.setProperty("FMPassword", "");
+		propertyList.setProperty("ImagePath", "");
+		propertyList.setProperty("ShowDetailFrame", "true");
+		propertyList.setProperty("IncludeImgFiles", "true");
 		return writeConfigFile();
 	}
 	
@@ -91,7 +94,7 @@ public class ConfigController {
 
 	public boolean setPrefs(String mURL, String mPort, String mUser,
 			String mPwd, String mDB, String fURL, String fUser, String fPwd,
-			String fDB) {
+			String fDB, String img) {
 
 		propertyList.setProperty("MySQLURL", mURL);
 		propertyList.setProperty("MySQLPort", mPort);
@@ -102,6 +105,7 @@ public class ConfigController {
 		propertyList.setProperty("FMDB", fDB);
 		propertyList.setProperty("FMUser", fUser);
 		propertyList.setProperty("FMPassword", fPwd);
+		propertyList.setProperty("ImagePath", img);
 		
 		try {
 			return writeConfigFile();
@@ -216,5 +220,29 @@ public class ConfigController {
 
 	public String getFMPort() {
 		return fmPort;
+	}
+
+	public String getImagePath() {
+		return propertyList.getProperty("ImagePath");
+	}
+	
+	public void setImagePath(String img) {
+		propertyList.setProperty("ImagePath", img);
+	}
+	
+	public void setShowDetailsFrame(boolean show) {
+		propertyList.setProperty("ShowDetailFrame", ""+show);
+	}
+	
+	public boolean getShowDetailsFrame() {
+		return new Boolean(propertyList.getProperty("ShowDetailFrame"));
+	}
+	
+	public void setIncludeImgFiles(boolean inc) {
+		propertyList.setProperty("IncludeImgFiles", ""+inc);
+	}
+	
+	public boolean getIncludeImgFiles() {
+		return new Boolean(propertyList.getProperty("IncludeImgFiles"));
 	}
 }

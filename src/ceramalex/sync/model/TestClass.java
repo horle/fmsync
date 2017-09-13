@@ -24,7 +24,7 @@ public class TestClass {
 				try {
 					System.out.print("\nProcessing table "
 							+ commonTables.get(i) + " ... ");
-					ComparisonResult result = m.calcDiffResultSet(
+					ComparisonResult result = m.calcDiff(
 							commonTables.get(i), true, true);
 					/**
 					 * BEGIN TESTING AREA

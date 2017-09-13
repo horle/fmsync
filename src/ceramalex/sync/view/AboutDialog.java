@@ -22,7 +22,8 @@ public class AboutDialog extends JDialog {
 	private final JPanel contentPanel = new JPanel();
 
 	/**
-	 * Create the dialog.
+	 * @author horle (Felix Kussmaul)
+	 * A simple dialog to display the "about" info.
 	 */
 	public AboutDialog() {
 		setTitle("About CeramalexSync");
@@ -40,7 +41,7 @@ public class AboutDialog extends JDialog {
 		txtAbout.setEditable(false);
 		txtAbout.setContentType("text/html");
 		txtAbout.setText("<html><body>\r\n<h3>About CeramalexSync</h3>\r\n<p>\r\nThis program has been developed within the scope of the Ceramalex/CeramEgypt project at the University of Cologne in 2017.\r\n</p>\r\n<p>Copyright &copy; 2017  horle (Felix Ku\u00DFmaul)</p>\r\n<p>This program is free software: you can redistribute it and/or modify\r\n    it under the terms of the GNU General Public License as published by\r\n    the Free Software Foundation, either version 3 of the License, or\r\n    (at your option) any later version.</p>\r\n\r\n    <p>This program is distributed in the hope that it will be useful,\r\n    but WITHOUT ANY WARRANTY; without even the implied warranty of\r\n    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the\r\n    GNU General Public License for more details.</p>\r\n\r\n    <p>You should have received a copy of the GNU General Public License\r\n    along with this program.  If not, see <a href=\"http://www.gnu.org/licenses/\">http://www.gnu.org/licenses/</a>.</p>\r\n</body></html>");
-		txtAbout.setFont(new Font("Dialog", Font.PLAIN, 12));
+		txtAbout.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 12));
 		txtAbout.setCaretPosition(0);
 		
 		JScrollPane scrollPane = new JScrollPane(txtAbout);

@@ -45,6 +45,7 @@ import ceramalex.sync.model.Pair;
 import ceramalex.sync.model.SQLDataModel;
 
 import com.mysql.jdbc.exceptions.jdbc4.CommunicationsException;
+import javax.swing.JCheckBox;
 
 /**
  * CeramalexSync main window to control DB sync actions
@@ -112,6 +113,8 @@ public class MainFrame {
 
 	private JMenu mnFile;
 	private ComparisonFrame comp;
+	private JCheckBox chkIncludeImg;
+	private JCheckBox chkShowDetails;
 
 	/**
 	 * Create the application.
@@ -279,6 +282,17 @@ public class MainFrame {
 			@Override
 			public void actionPerformed(ActionEvent arg0) {
 				timedOut = false;
+				config.setIncludeImgFiles(chkIncludeImg.isSelected());
+				config.setShowDetailsFrame(chkShowDetails.isSelected());
+				try {
+					config.writeConfigFile();
+				} catch (IOException e) {
+					JOptionPane
+					.showMessageDialog(
+							frame,
+							"I was not able to create a new config file. Missing permissions?",
+							"Error", JOptionPane.WARNING_MESSAGE);
+				}
 				/**
 				 * Check connections
 				 */
@@ -305,6 +319,16 @@ public class MainFrame {
 			}
 		});
 		panelActions.add(btnCancel);
+		
+		chkShowDetails = new JCheckBox("Show details");
+		chkShowDetails.setSelected(config.getShowDetailsFrame());
+		chkShowDetails.setBounds(8, 157, 145, 24);
+		panelActions.add(chkShowDetails);
+		
+		chkIncludeImg = new JCheckBox("Include image files");
+		chkIncludeImg.setSelected(config.getIncludeImgFiles());
+		chkIncludeImg.setBounds(8, 128, 145, 24);
+		panelActions.add(chkIncludeImg);
 
 		URL url = getClass().getResource("/ceramalex/sync/resources/logo.png");
 		JLabel lblPicture = new JLabel(new ImageIcon(url));
@@ -335,6 +359,8 @@ public class MainFrame {
 		
 		if (currComp == null) {
 			applyStatus(FrameStatus.closed("Sync aborted, connection closed. No changes were made."));
+		} else if (currComp.isEmpty()) {
+			applyStatus(FrameStatus.closed("Local database already in sync with remote database. No changes were made."));
 		} else {
 			applyStatus(FrameStatus.closed("Changes applied without errors."));
 		}

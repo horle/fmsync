@@ -6,6 +6,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 
+import org.apache.log4j.Logger;
+
 import ceramalex.sync.controller.ConfigController;
 
 public class FMDataAccess extends AbstractDatabase {
@@ -13,6 +15,8 @@ public class FMDataAccess extends AbstractDatabase {
 	//-------------------------------------------------------------------------------
 	public FMDataAccess(String dbUrl, String user, String pwd, String serverDataSource) throws SQLException {
 		super(dbUrl, user, pwd, serverDataSource);
+		
+		logger = Logger.getLogger(this.getClass());
 	}
 	
 	public FMDataAccess() throws SQLException {

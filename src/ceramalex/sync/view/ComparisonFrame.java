@@ -45,6 +45,7 @@ import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JToggleButton;
+import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
@@ -107,13 +108,12 @@ public class ComparisonFrame extends JFrame {
 	private TreeMap<Integer, JTable[]> tables;
 
 	private String lastTab;
-
-	private ArrayList<Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>>> unsafeRows;
+	private int unsafeRows;
 
 	private void initialize() {
 		commonTables = new ArrayList<Pair>();
 		tables = new TreeMap<Integer, JTable[]>();
-		unsafeRows = new ArrayList<Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>>>();
+		unsafeRows = 0;
 		ActionListener simpleReload = new ActionListener() {
 			@Override
 			public void actionPerformed(ActionEvent e) {
@@ -293,9 +293,8 @@ public class ComparisonFrame extends JFrame {
 		btnStart.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
 				boolean ready = true;
-				for (Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> rowsPerTable : unsafeRows) {
-					if (!rowsPerTable.isEmpty()) ready = false;
-				}
+				if (unsafeRows != 0) ready = false;
+				
 				if (!ready) {
 					int dialogConfirm = JOptionPane.showConfirmDialog(null,
 							"There are still unsafe conflicts to clear up. Would you like to resolve them now?",
@@ -400,7 +399,7 @@ public class ComparisonFrame extends JFrame {
 		tabs.removeAll();
 		comps = data.getResults();
 
-		unsafeRows.clear();
+		unsafeRows = 0;
 
 		for (ComparisonResult comp : comps.values()) {
 			Pair p = comp.getTableName();
@@ -408,10 +407,10 @@ public class ComparisonFrame extends JFrame {
 
 			Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> conflict = comp
 					.getConflictList();
-			Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> deleteOrDownload = comp
+			Vector<TreeMap<String, String>> deleteOrDownload = comp
 					.getDeleteOrDownloadList();
-			this.unsafeRows.add(deleteOrDownload);
-			this.unsafeRows.add(conflict);
+			unsafeRows += deleteOrDownload.size();
+			unsafeRows += conflict.size();
 			Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> updateLocally = comp
 					.getLocalUpdateList();
 			Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> updateRemotely = comp
@@ -433,8 +432,7 @@ public class ComparisonFrame extends JFrame {
 
 			JScrollPane innerLeftScroll = new JScrollPane(table1);
 			JScrollPane innerRightScroll = new JScrollPane(table2);
-			JPanel outerScroll = new JPanel();
-			outerScroll.setLayout(new GridLayout(1, 2));
+			JPanel outerScroll = new JPanel(new GridLayout(1, 2));
 
 			// setting policies
 			innerLeftScroll
@@ -449,7 +447,7 @@ public class ComparisonFrame extends JFrame {
 					innerRightScroll.getVerticalScrollBar().getModel());
 			innerLeftScroll.getHorizontalScrollBar().setModel(
 					innerRightScroll.getHorizontalScrollBar().getModel());
-
+			
 			table1.setSelectionModel(table2.getSelectionModel());
 
 			outerScroll.add(innerLeftScroll);
@@ -542,7 +540,7 @@ public class ComparisonFrame extends JFrame {
 					for (int j = 0; j < deleteOrDownload.size(); j++) {
 						notEmpty = true;
 //						TreeMap<String,String> rowL = deleteOrDownload.get(j).getLeft();
-						TreeMap<String,String> diffs = deleteOrDownload.get(j).getRight();
+						TreeMap<String,String> diffs = deleteOrDownload.get(j);
 						m1.addRow(new String[0]);
 						m2.addRow(new String[0]);
 						int row = m2.getRowCount()-1;
@@ -553,15 +551,7 @@ public class ComparisonFrame extends JFrame {
 						m2.setCellColour(row, 0, LIGHT_RED);
 
 						for (String key : commonFields) {
-							// filling rows on both sides
-//							if (rowL.containsKey(key)) {
-//								m1.setValueAt(rowL.get(key), m1.getRowCount()-1, m1.findColumn(key));
-//								m2.setValueAt(rowL.get(key), m2.getRowCount()-1, m2.findColumn(key));
-//							} else {
-//								m1.setValueAt(null, m1.getRowCount()-1, m1.findColumn(key));
-//								m2.setValueAt(null, m2.getRowCount()-1, m2.findColumn(key));
-//							}
-							// overwrite diffs on right side
+							// filling on right side sufficient in this case
 							if (diffs.containsKey(key)) {
 								int col = m2.findColumn(key);
 								m2.setValueAt(diffs.get(key), row, col);
@@ -691,12 +681,18 @@ public class ComparisonFrame extends JFrame {
 			JTable[] tableList = new JTable[] {table1, table2};
 			tables.put(tabs.getTabCount()-1, tableList);
 		}
-		for (int i = 0; i < tabs.getTabCount(); i++) {
-			if (tabs.getTitleAt(i).equals(lastTab)) {
-				tabs.setSelectedIndex(i);
-				break;
+		if (tabs.getTabCount() == 0 && btnDeleted.isSelected() && btnUnequal.isSelected() && btnUpload.isSelected() && btnDownload.isSelected()) {
+			if (JOptionPane.showConfirmDialog(this, "Your local database is equal to the remote database! Close?", "Already in sync", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.YES_OPTION) {
+				comps = new TreeMap<Pair, ComparisonResult>();
+				dispose();
 			}
-		}
+		} else 
+			for (int i = 0; i < tabs.getTabCount(); i++) {
+				if (tabs.getTitleAt(i).equals(lastTab)) {
+					tabs.setSelectedIndex(i);
+					break;
+				}
+			}
 	}
 
 	protected void abortMission() {
@@ -833,7 +829,7 @@ public class ComparisonFrame extends JFrame {
 				case "C": toolTip = "C: This row differs on both sides. Conflict! Has to be resolved."; break;
 				case "DL": toolTip = "DL: This row will be downloaded."; break;
 				case "UL": toolTip = "UL: This row will be uploaded."; break;
-				case "??": toolTip = "??: It is not determinable if this row shall be downloaded or deleted. Conflict! Has to be resolved."; break;
+				case "??": toolTip = "??: It is not determinable if this row shall be downloaded or deleted. Has to be resolved."; break;
 				case "D": toolTip = "D: This row will be deleted on both sides."; break;
 				default: toolTip = ""; break;
 				}
@@ -845,7 +841,11 @@ public class ComparisonFrame extends JFrame {
 			Component c = super.getTableCellRendererComponent(table, value,
 					isSelected, hasFocus, row, column);
 			Color color = model.getCellColour(row, column);
-			c.setBackground(color);
+			if (!isSelected)
+				c.setBackground(color);
+			else
+				c.setBackground(color.darker());
+			
 			if (!color.equals(Color.WHITE))
 				c.setFont(c.getFont().deriveFont(Font.BOLD));
 			return c;
@@ -903,27 +903,65 @@ public class ComparisonFrame extends JFrame {
 
 		private void maybeShowPopup(MouseEvent e) {
 			if (e.isPopupTrigger()) {
-				JTable source = (JTable)e.getSource();
+				popup.removeAll();
+				
+				JTable s = (JTable)e.getSource();
 				JTable[] currTables = tables.get(tabs.getSelectedIndex());
 
 				String label = "";
-				int row = source.rowAtPoint( e.getPoint() );
-				int column = source.columnAtPoint( e.getPoint() );
-
+				// coordinates of click -> row, col
+				int row = s.rowAtPoint( e.getPoint() );
+				int column = s.columnAtPoint( e.getPoint() );
+				
+				// empty action label? try other table! (rhymes, lol)
+				if (s.getValueAt(row, 0) == null) {
+					if (s.equals(currTables[0])) s = currTables[1];
+					else s = currTables[0];
+				}
+				
+				final JTable source = s;
+				
+				// select unselected row, if none selected
 				if (!source.isRowSelected(row))
 					source.changeSelection(row, column, false, false);
-
-				// empty label? try other table! (rhymes, lol)
-				if (source.getValueAt(row, 0) == null) {
-					System.out.println(tabs.getTitleAt(tabs.getSelectedIndex()));
-					if (source.equals(currTables[0])) source = currTables[1];
-					else source = currTables[0];
+				
+				// get all selected rows
+				int[] rows = source.getSelectedRows();
+				
+				// single row? -> label of this row
+				if (source.getSelectedRowCount() == 1)
+					label = (String)source.getValueAt(row, 0);
+				
+				// many rows? -> only one label accepted.
+				// thus, select clicked single row again
+				else {
+					for (int i = 0; i < rows.length; i++) {
+						if (label.isEmpty())
+							label = (String)source.getValueAt(rows[i], 0);
+						else if (!label.equals((String) source.getValueAt(rows[i], 0))){
+							label = (String)source.getValueAt(row, 0);
+							source.changeSelection(row, 0, false, false);
+							break;
+						}
+					}
 				}
+				
+				final String l = label;
 
-				label = (String)source.getValueAt(row, 0);
-
-				popup.removeAll();
-				JMenuItem menuItem = null;
+				// offer this option in any case
+				JMenuItem menuItem = new JMenuItem("Select all rows with "+l);
+				menuItem.addActionListener(new ActionListener(){
+					@Override
+					public void actionPerformed(ActionEvent arg0) {
+						for (int i = 0; i < source.getRowCount(); i++) {
+							String val = source.getValueAt(i, 0)==null?"":((String)source.getValueAt(i, 0));
+							if (val.equals(l)) 
+								source.addRowSelectionInterval(i, i);
+						}
+					}
+				});
+				popup.add(menuItem);
+				
 				// conflict
 				if (label.equals("C")) {
 					menuItem = new JMenuItem("Resolve conflict ...");
@@ -940,11 +978,11 @@ public class ComparisonFrame extends JFrame {
 								}
 							}
 							
-							TreeMap<String,String> localRow = new TreeMap<String,String>();
-							TreeMap<String,String> remoteRow = new TreeMap<String,String>();
-							
 							TableModel ltm = currTables[0].getModel();
 							TableModel rtm = currTables[1].getModel();
+							
+							TreeMap<String,String> localRow = new TreeMap<String,String>();
+							TreeMap<String,String> remoteRow = new TreeMap<String,String>();
 							
 							for (int i = 0; i < ltm.getColumnCount(); i++) {
 								String lval = ltm.getValueAt(row, i) == null ? null : ""+ltm.getValueAt(row, i);
@@ -987,6 +1025,7 @@ public class ComparisonFrame extends JFrame {
 							simpleReloadTables(true);
 						}
 					});
+					popup.addSeparator();
 					popup.add(menuItem);
 				}
 				// delete or download?
@@ -998,7 +1037,6 @@ public class ComparisonFrame extends JFrame {
 						public void actionPerformed(ActionEvent arg0) {
 							ComparisonResult c = null;
 							String tab = tabs.getTitleAt(tabs.getSelectedIndex());
-							TreeMap<String,String> tabRow = new TreeMap<String,String>();
 							TableModel m = currTables[1].getModel();
 							
 							for (Pair pa : commonTables) {
@@ -1007,25 +1045,29 @@ public class ComparisonFrame extends JFrame {
 									c = comps.get(pa); break;
 								}
 							}
-							for (int i = 1; i < m.getColumnCount(); i++) {
-								String val = m.getValueAt(row, i) == null ? null : (String)m.getValueAt(row, i);
-								tabRow.put(m.getColumnName(i), val);
-							}
-							if (c != null) {
-								// delete from unsure list
-								for (Tuple<TreeMap<String, String>, TreeMap<String, String>> t : c.getDeleteOrDownloadList()) {
-									TreeMap<String, String> maa = t.getRight();
-									if (maa.equals(tabRow)) {
-										c.getDeleteOrDownloadList().remove(t);
-										// add to download list
-										c.addToDownloadList(tabRow);
-										break;
+							
+							for (int r = 0; r < rows.length; r++) {
+								TreeMap<String,String> tabRow = new TreeMap<String,String>();
+								for (int i = 1; i < m.getColumnCount(); i++) {
+									String val = m.getValueAt(rows[r], i) == null ? null : (String)m.getValueAt(rows[r], i);
+									tabRow.put(m.getColumnName(i), val);
+								}
+								if (c != null) {
+									// delete from unsure list
+									for (TreeMap<String, String> t : c.getDeleteOrDownloadList()) {
+										if (t.equals(tabRow)) {
+											c.getDeleteOrDownloadList().remove(t);
+											// add to download list
+											c.addToDownloadList(tabRow);
+											break;
+										}
 									}
 								}
 							}
 							simpleReloadTables(true);
 						}
 					});
+					popup.addSeparator();
 					popup.add(menuItem);
 					menuItem = new JMenuItem("Delete on both sides");
 					menuItem.addActionListener(new ActionListener(){
@@ -1033,7 +1075,6 @@ public class ComparisonFrame extends JFrame {
 						public void actionPerformed(ActionEvent e) {
 							ComparisonResult c = null;
 							String tab = tabs.getTitleAt(tabs.getSelectedIndex());
-							TreeMap<String,String> tabRow = new TreeMap<String,String>();
 							ColourTableModel m = (ColourTableModel) currTables[1].getModel();
 							
 							for (Pair pa : commonTables) {
@@ -1042,20 +1083,22 @@ public class ComparisonFrame extends JFrame {
 									c = comps.get(pa); break;
 								}
 							}
-							System.out.println("rows: "+m.getRowCount() + " cols: "+m.getColumnCount()+ " clickedrow:"+row);
-							for (int i = 1; i < m.getColumnCount(); i++) {
-								String val = m.getValueAt(row, i) == null ? null : (String)m.getValueAt(row, i);
-								tabRow.put(m.getColumnName(i), val);
-							}
-							if (c != null) {
-								// delete from unsure list
-								for (Tuple<TreeMap<String, String>, TreeMap<String, String>> t : c.getDeleteOrDownloadList()) {
-									if (t.getRight().equals(tabRow)) {
-										c.getDeleteOrDownloadList().remove(t);
-										// add to delete list
-										c.addToDeleteList(t.getLeft(), t.getRight());
-										m.fireTableDataChanged();
-										break;
+							
+							for (int r = 0; r < rows.length; r++) {
+								TreeMap<String,String> tabRow = new TreeMap<String,String>();
+								for (int i = 1; i < m.getColumnCount(); i++) {
+									String val = m.getValueAt(rows[r], i) == null ? null : (String)m.getValueAt(rows[r], i);
+									tabRow.put(m.getColumnName(i), val);
+								}
+								if (c != null) {
+									// delete from unsure list
+									for (TreeMap<String, String> t : c.getDeleteOrDownloadList()) {
+										if (t.equals(tabRow)) {
+											c.getDeleteOrDownloadList().remove(t);
+											// add to delete list
+											c.addToDeleteList(null, t);
+											break;
+										}
 									}
 								}
 							}

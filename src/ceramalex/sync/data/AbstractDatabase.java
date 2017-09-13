@@ -88,7 +88,7 @@ public abstract class AbstractDatabase {
 
 		boolean result = false;
 		
-		logger.info("DBURL: '" + dbUrl + "' User: '" + user + "' Pass: '" + pwd
+		logger.info(this.getDriverName() + ": "+ "DBURL: '" + dbUrl + "' User: '" + user + "' Pass: '" + pwd
 				+ "' DataSource: '" + serverDataSource + "'");
 
 		// Registrieren des JDBC-Client-Treibers
@@ -151,7 +151,7 @@ public abstract class AbstractDatabase {
 	 * @throws SQLException 
 	 */
 	public ResultSet doSQLQuery(String sql) throws SQLException {
-		logger.debug(sql);
+		logger.debug(this.getDriverName() + ": "+ sql);
 		if (this.st == null || this.isConnected())
 			this.st = cn.createStatement();
 		return this.st.executeQuery(sql);
@@ -170,7 +170,7 @@ public abstract class AbstractDatabase {
 
 	public ArrayList<Integer> doSQLModify(String sql) throws SQLException {
 
-		logger.debug(sql);
+		logger.debug(this.getDriverName() + ": "+ sql);
 		PreparedStatement statement = null;
 		try {
 		statement = cn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
@@ -213,7 +213,7 @@ public abstract class AbstractDatabase {
 				eMsg = "MySQL: " + eMsg;
 			throw new SQLException(eMsg); // throw to gui ... 
 		}
-		
+		logger.debug(this.getDriverName() + ": "+ sql);
 		PreparedStatement statement = con.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
 		statement.executeUpdate();
 				
