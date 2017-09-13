@@ -4,11 +4,15 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import org.apache.log4j.Logger;
+
 public class MySQLDataAccess extends AbstractDatabase {
 	
 	//-------------------------------------------------------------------------------
 	public MySQLDataAccess(String dbUrl,String user, String pwd, String serverDataSource) throws SQLException {
 		super(dbUrl, user, pwd, serverDataSource);
+		
+		logger = Logger.getLogger(this.getClass());
 	}
 	
 	/**

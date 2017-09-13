@@ -565,14 +565,11 @@ public class SQLDataModel {
 			 */
 			else if (!local.containsColumn(rID)) {
 				String currRTS = remoteRow.get("lastModified"); // current arachne timestamp
-				TreeMap<String, String> localRow = new TreeMap<String,String>();
-				for (String field : commonFields)
-					localRow.put(field, null);
 				
 				if (!isDeletedRemotely) {
 					remoteRow.remove("ForeignKey");
 					remoteRow.remove("isDeleted");
-					result.addToDeleteOrDownloadList(localRow, remoteRow);
+					result.addToDeleteOrDownloadList(remoteRow);
 				}
 				it.remove();
 				continue;
@@ -795,7 +792,7 @@ public class SQLDataModel {
 	/**
 	 * prepare row packs of size x to download into local db
 	 * @param currTab
-	 * @param RAUIDs
+	 * @param vector
 	 * @param packSize
 	 * @return
 	 * @throws SQLException
@@ -994,14 +991,15 @@ public class SQLDataModel {
 		while (id.next()) {
 			proof++;
 			int RAUID = id.getInt("ArachneEntityID");
-			//TODO change to add to local update list ...
-			if (!updateLocalUIDAndTS(currTab, RAUID, id.getTimestamp("lastModified").toLocalDateTime(), keyField, id.getInt(keyField)))
+			int lID =  id.getInt(keyField);
+			
+			if (!updateLocalUIDAndTS(currTab, RAUID, id.getTimestamp("lastModified").toLocalDateTime(), keyField, lID))
 				throw new EntityManagementException("Updating local AUID "
 						+ id.getInt(1) + " and timestamp in table " + currTab.getLeft()
 						+ " FAILED!");
 			else {
-				logger.debug("Updated local AUID " + id.getInt(1)
-						+ " in table " + currTab.getLeft()
+				logger.debug("Updated local entry "+lID+"; added UUID " + RAUID
+						+ " and TS in table " + currTab.getLeft()
 						+ " after upload.");
 				result.add(RAUID);
 			}
@@ -1027,8 +1025,6 @@ public class SQLDataModel {
 				+ ", lastModified={ts '" + currRemoteTS.format(formatTS) + "'}"
 				+ ", lastRemoteTS={ts '" + currRemoteTS.format(formatTS) + "'}"
 				+ " WHERE " + pkName + "=" + pkVal) != null) {
-			logger.debug("Added RUID " + currRAUID
-					+ " and TS to local entry with ID " + pkVal + ".");
 			return true;
 		} else {
 			logger.error("Adding RUID " + currRAUID
@@ -1392,7 +1388,7 @@ public class SQLDataModel {
 
 	public boolean deleteRows(Pair currTab, boolean local, Vector<TreeMap<String, String>> delList, int packSize) throws SQLException, IOException {
 		if (delList.size() == 0)
-			return false;
+			return true;
 		
 		String pk = local ? sqlAccess.getFMTablePrimaryKey(currTab.getFMString()) : sqlAccess.getMySQLTablePrimaryKey(currTab.getMySQLString());
 		String sql = "DELETE FROM " + currTab.getLeft() + " WHERE " + pk + "=";
@@ -1401,6 +1397,8 @@ public class SQLDataModel {
 		
 		while (it.hasNext()) {
 			TreeMap<String, String> map = it.next();
+			if (map == null) continue;
+			
 			if (map.containsKey(pk)) {
 				// empty primary key?!
 				if (map.get(pk) == null || map.get(pk).isEmpty())
@@ -1411,7 +1409,7 @@ public class SQLDataModel {
 				}
 			}
 			else
-				throw new SQLException("Primary key "+pk+ " in table "+currTab+" not found!");
+				throw new SQLException("Primary key "+pk+ " in "+(local?"local":"remote")+" table "+currTab+" not found!");
 		}
 		
 		if (!sql.endsWith("=")) {
