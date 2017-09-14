@@ -350,7 +350,7 @@ public class MainFrame {
 
 	private void invokeComparisonFrame() {
 		
-		comp = new ComparisonFrame(txtLog);
+		comp = new ComparisonFrame(txtLog, chkIncludeImg.isSelected());
 		comp.setLocationRelativeTo(frame);
 		currComp = comp.showDialog(frame);
 		

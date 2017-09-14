@@ -109,6 +109,7 @@ public class ComparisonFrame extends JFrame {
 
 	private String lastTab;
 	private int unsafeRows;
+	private boolean img;
 
 	private void initialize() {
 		commonTables = new ArrayList<Pair>();
@@ -335,7 +336,7 @@ public class ComparisonFrame extends JFrame {
 		ProgressMonitor monitor = ProgressUtil.createModalProgressMonitor(this, 100, false, 0); 
 
 		try {
-			worker = new ProgressWorker(txtLog, ProgressWorker.JOB_APPLY_CHANGES) {
+			worker = new ProgressWorker(txtLog, ProgressWorker.JOB_APPLY_CHANGES, img) {
 				@Override
 				protected void done() {
 					System.out.println("applying worker done.");
@@ -719,8 +720,9 @@ public class ComparisonFrame extends JFrame {
 	 * 
 	 * @param txtLog
 	 */
-	public ComparisonFrame(JTextArea txtLog) {
+	public ComparisonFrame(JTextArea txtLog, boolean img) {
 		this.txtLog = txtLog;
+		this.img = img;
 		try {
 			data = SQLDataModel.getInstance();
 		} catch (IOException e) {
@@ -737,7 +739,7 @@ public class ComparisonFrame extends JFrame {
 		//		monitor.start("Fetching ...");
 
 		try {
-			worker = new ProgressWorker(txtLog, ProgressWorker.JOB_CALC_DIFF) {
+			worker = new ProgressWorker(txtLog, ProgressWorker.JOB_CALC_DIFF, img) {
 				@Override
 				protected void done() {
 					initialize();

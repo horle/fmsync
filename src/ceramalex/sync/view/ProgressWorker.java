@@ -25,11 +25,13 @@ public class ProgressWorker extends SwingWorker<Void, String> {
 	private JTextArea txtLog;
 	private SQLDataModel data;
 	private int job;
+	private boolean img;
 	
-	public ProgressWorker(JTextArea txtLog, int job) throws IOException, SQLException{
+	public ProgressWorker(JTextArea txtLog, int job, boolean img) throws IOException, SQLException{
 		this.data = SQLDataModel.getInstance();
 		this.txtLog = txtLog;
 		this.job = job;
+		this.img = img;
 	}
 	
 	@Override
@@ -56,6 +58,9 @@ public class ProgressWorker extends SwingWorker<Void, String> {
 						}
 						publish(" done.\n");
 					} else return null;
+				}
+				if (img) {
+					System.out.println("HÖHÖHÖ BILDER");
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
