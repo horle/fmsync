@@ -409,6 +409,11 @@ public class SQLDataModel {
 			 */
 			if (local.containsRow(uid)) {
 				TreeMap<String, String> localRow = local.get(uid, rID);
+				
+				if (localRow == null) {
+					throw new EntityManagementException("Your local database seems to be corrupted (UUID not the same as in remote DB). Please re-download the whole database!");
+				}
+				
 				int lID = Integer.parseInt(localRow.get(fmpk));
 				
 				if (isDeletedRemotely) {
