@@ -52,7 +52,7 @@ public abstract class ConnectionWorker extends SwingWorker<Boolean, FrameStatus>
 			btnConnect.setEnabled(status.isBtnConnectEn());
 		}
 	}
-	public void pub(FrameStatus fra){
-		publish(fra);
+	public void publish(FrameStatus fra){
+		super.publish(fra);
 	}
 }

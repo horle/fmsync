@@ -296,15 +296,15 @@ public class SQLAccessController {
 	 * @throws SQLException
 	 * @throws IOException 
 	 */
-	public TreeSet<String> fetchTimestampFields(ArrayList<Pair> commonTables)
+	public TreeSet<Pair> fetchTimestampFields(ArrayList<Pair> commonTables)
 			throws SQLException {
-		TreeSet<String> list = new TreeSet<String>();
+		TreeSet<Pair> list = new TreeSet<Pair>();
 		ArrayList<String> fm = new ArrayList<String>();
 		String sqlCommonTables = "AND (";
 
 		for (int i = 0; i < commonTables.size(); i++) {
-			fm.addAll(getFMTimestampFields(commonTables.get(i).getLeft()));
-			sqlCommonTables += "TABLE_NAME = '" + commonTables.get(i).getRight() + "'";
+			fm.addAll(getFMTimestampFields(commonTables.get(i).getFMString()));
+			sqlCommonTables += "TABLE_NAME = '" + commonTables.get(i).getMySQLString() + "'";
 			if (i < commonTables.size()-1) sqlCommonTables += " OR ";
 		}
 		sqlCommonTables += ") ";
@@ -318,11 +318,16 @@ public class SQLAccessController {
 		
 		// get common timestamp fields
 		while (mysql.next()) {
-			String bla = (mysql.getString(2)+"."+mysql.getString(1));
+			String mySQLTableName = mysql.getString("TABLE_NAME");
+			String mySQLColumnName = mysql.getString("COLUMN_NAME");
+			String mysqlField = (mySQLTableName + "." + mySQLColumnName);
 			for (int i = 0; i < fm.size(); i++) {
 				String fmField = fm.get(i);
-				if (bla.equalsIgnoreCase(fmField)) {
-					list.add(fmField);
+				String[] split = fmField.split("\\.");
+				String fmTableName = split[0];
+				String fmColumnName = split[1];
+				if (mysqlField.equalsIgnoreCase(fmField) || (tableMatch(fmTableName, mySQLTableName) && mySQLColumnName.equalsIgnoreCase(fmColumnName))) {
+					list.add(new Pair(fmField, mysqlField));
 					logger.debug("New common timestamp field: "+fmField);
 					break;
 				}
@@ -333,6 +338,18 @@ public class SQLAccessController {
 		return list;
 	}
 	
+	/**
+	 * TODO: improve with config file!
+	 * @param fm
+	 * @param mysql
+	 * @return
+	 */
+	private boolean tableMatch(String fm, String mysql) {
+		if (fm.equals("IsolatedSherdMainAbstract") && mysql.equalsIgnoreCase("isolatedsherd")) return true;
+		
+		return false;
+	}
+
 	/**
 	 * helper method to fetch filemaker numeric fields from particular table
 	 * 
