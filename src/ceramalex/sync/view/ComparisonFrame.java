@@ -112,6 +112,7 @@ public class ComparisonFrame extends JFrame {
 	private boolean img;
 
 	private void initialize() {
+		
 		commonTables = new ArrayList<Pair>();
 		tables = new TreeMap<Integer, JTable[]>();
 		unsafeRows = 0;
@@ -349,7 +350,7 @@ public class ComparisonFrame extends JFrame {
 			logger.error(e);
 		}
 		worker.addPropertyChangeListener(new PropertyChangeListener() {
-
+			//TODO: macht nix!
 			@Override
 			public void propertyChange(final PropertyChangeEvent event) {
 				if ("progress".equals(event.getPropertyName())) {
@@ -676,27 +677,25 @@ public class ComparisonFrame extends JFrame {
 			table1.getColumnModel().getColumn(0).setMaxWidth(25);
 			table2.getColumnModel().getColumn(0).setMaxWidth(25);
 
-			if (notEmpty)
+			if (notEmpty) {
 				tabs.addTab(p.getLeft(), null, outerScroll, p.toString());
 
-			JTable[] tableList = new JTable[] {table1, table2};
-			tables.put(tabs.getTabCount()-1, tableList);
-		}
-		if (tabs.getTabCount() == 0 && btnDeleted.isSelected() && btnUnequal.isSelected() && btnUpload.isSelected() && btnDownload.isSelected()) {
-			if (JOptionPane.showConfirmDialog(this, "Your local database is equal to the remote database! Close?", "Already in sync", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.YES_OPTION) {
-				comps = new TreeMap<Pair, ComparisonResult>();
-				dispose();
+				JTable[] tableList = new JTable[] {table1, table2};
+				int tabCount = tabs.getTabCount();
+				tables.put(tabCount-1, tableList);
 			}
-		} else 
+		}
+		if (!(tabs.getTabCount() == 0 && btnDeleted.isSelected() && btnUnequal.isSelected() && btnUpload.isSelected() && btnDownload.isSelected())) {
 			for (int i = 0; i < tabs.getTabCount(); i++) {
 				if (tabs.getTitleAt(i).equals(lastTab)) {
 					tabs.setSelectedIndex(i);
 					break;
 				}
 			}
+		}
 	}
 
-	protected void abortMission() {
+	private void abortMission() {
 		if (JOptionPane.showConfirmDialog(this,
 				"Are you sure to cancel the operation? No changes will apply.",
 				"Really closing?", JOptionPane.YES_NO_OPTION,
@@ -705,7 +704,7 @@ public class ComparisonFrame extends JFrame {
 			dispose();
 		}
 	}
-	protected boolean startMission() {
+	private boolean startMission() {
 		if (JOptionPane.showConfirmDialog(this,
 				"Are you sure to apply all changes to the databases?",
 				"Really applying changes?", JOptionPane.YES_NO_OPTION,
@@ -733,51 +732,9 @@ public class ComparisonFrame extends JFrame {
 			e.printStackTrace();
 		}
 
-		ProgressMonitor monitor = ProgressUtil.createModalProgressMonitor(this, 100, false, 0); 
-		//new ProgressMonitor(null,
-		//"Comparing tables ...", "Current table: ", 0, 100);
-		//		monitor.start("Fetching ...");
-
-		try {
-			worker = new ProgressWorker(txtLog, ProgressWorker.JOB_CALC_DIFF, img) {
-				@Override
-				protected void done() {
-					initialize();
-				}
-			};
-		} catch (IOException | SQLException e) {
-			JOptionPane.showMessageDialog(this,
-					"I couldn't create a new thread, consult the log.",
-					"Error", JOptionPane.ERROR_MESSAGE);
-			logger.error(e);
-		}
-		worker.addPropertyChangeListener(new PropertyChangeListener() {
-
-			@Override
-			public void propertyChange(final PropertyChangeEvent event) {
-				if ("progress".equals(event.getPropertyName())) {
-					int progress = (Integer) event.getNewValue();
-					monitor.setCurrent(""+progress, 123);
-
-					if (worker.isDone()) {
-						if (monitor.isCanceled()) {
-							worker.cancel(true);
-							txtLog.append("Comparing tables canceled.\n");
-						} else
-							txtLog.append("Comparing tables completed.\n");
-					}
-				}
-			}
-		});
-		worker.execute();
-
-		try {
-			worker.get();
-		} catch (InterruptedException | ExecutionException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		//HIER SWINGWORKER RAUS GENOMMEN
 		comps = new TreeMap<Pair, ComparisonResult>();
+		initialize();
 	}
 
 	/**
@@ -1089,7 +1046,8 @@ public class ComparisonFrame extends JFrame {
 							for (int r = 0; r < rows.length; r++) {
 								TreeMap<String,String> tabRow = new TreeMap<String,String>();
 								for (int i = 1; i < m.getColumnCount(); i++) {
-									String val = m.getValueAt(rows[r], i) == null ? null : (String)m.getValueAt(rows[r], i);
+									Object o = m.getValueAt(rows[r], i);
+									String val = o == null ? null : (String)m.getValueAt(rows[r], i);
 									tabRow.put(m.getColumnName(i), val);
 								}
 								if (c != null) {

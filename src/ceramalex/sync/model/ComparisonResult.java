@@ -16,6 +16,7 @@ import java.util.Vector;
  */
 public class ComparisonResult {
 	private Pair currTab;
+	private int rowCount;
 	private ResultSet fmColumns;
 	private ResultSet msColumns;
 	
@@ -65,6 +66,7 @@ public class ComparisonResult {
 		if (rowFM.size() != rowMS.size()) throw new IllegalArgumentException("tried to add rows with different size to conflict list");
 		
 		TreeMap<String,String> diff = new TreeMap<String,String>();
+		rowCount++;
 		
 		for (Entry<String,String> e : rowFM.entrySet()) {
 			String key = e.getKey();
@@ -84,6 +86,7 @@ public class ComparisonResult {
 	 * @return
 	 */
 	public boolean addToConflictListDiff(TreeMap<String,String> row, TreeMap<String,String> diffs) {
+		rowCount++;
 		return conflict.add(new Tuple<TreeMap<String,String>, TreeMap<String,String>>(row, diffs));
 	}
 
@@ -95,6 +98,7 @@ public class ComparisonResult {
 	 * @return true, if successfully added
 	 */
 	public boolean addToUpdateList(TreeMap<String,String> whereList, TreeMap<String,String> setList, boolean local) {
+		rowCount++;
 		if (local)
 			return toUpdateLocally.add(
 					new Tuple<TreeMap<String,String>,TreeMap<String,String>>
@@ -112,6 +116,7 @@ public class ComparisonResult {
 	 * @return true, if successfully added
 	 */
 	public boolean addToDeleteList(TreeMap<String,String> rowFM, TreeMap<String,String> rowMS) {
+		rowCount++;
 		return toDelete.add(new Tuple<TreeMap<String,String>,TreeMap<String,String>>(rowFM, rowMS));
 	}
 	
@@ -125,6 +130,7 @@ public class ComparisonResult {
 //	}
 
 	public void addToDownloadList(TreeMap<String, String> row) {
+		rowCount++;
 		toDownload.add(row);
 	}
 	
@@ -134,6 +140,7 @@ public class ComparisonResult {
 	 * @return true, if successfully added
 	 */
 	public boolean addToUploadList(TreeMap<String, String> row) {
+		rowCount++;
 		return toUpload.add(row);
 	}
 	
@@ -173,6 +180,11 @@ public class ComparisonResult {
 	}
 
 	public void addToDeleteOrDownloadList(TreeMap<String, String> remote) {
+		rowCount++;
 		this.deleteOrDownload.addElement(remote);
+	}
+
+	public int getRowCount() {
+		return rowCount;
 	}
 }

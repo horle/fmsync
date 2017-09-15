@@ -10,6 +10,8 @@ import java.util.Properties;
 
 import org.apache.log4j.Logger;
 
+import ceramalex.sync.model.Pair;
+
 public class ConfigController {
 
 	private static ConfigController control;
@@ -24,7 +26,7 @@ public class ConfigController {
 
 	private final String fmPort = "2399";
 
-	private TreeSet<String> timestampFields;
+	private TreeSet<Pair> timestampFields;
 	private TreeSet<String> numericFields;
 
 	private String fileName = "sync.conf";
@@ -203,12 +205,12 @@ public class ConfigController {
 		this.numericFields = list;
 	}
 
-	public TreeSet<String> getTimestampFields() {
+	public TreeSet<Pair> getTimestampFields() {
 		return timestampFields;
 	}
 
-	public void setTimestampFields(TreeSet<String> timestampFields) {
-		this.timestampFields = timestampFields;
+	public void setTimestampFields(TreeSet<Pair> list) {
+		this.timestampFields = list;
 	}
 
 	public boolean writeConfigFile() throws IOException {

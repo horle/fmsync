@@ -45,8 +45,6 @@ public class SQLDataModel {
 
 	private SQLAccessController sqlAccess;
 	private DateTimeFormatter formatTS;
-	private ZoneId zoneBerlin;
-	private ZoneId zoneUTC;
 	private ArrayList<Pair> commonTables;
 	private TreeMap<Pair,ComparisonResult> results;
 	private ConfigController conf;
@@ -70,8 +68,6 @@ public class SQLDataModel {
 
 	private SQLDataModel() throws IOException, SQLException {
 		formatTS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-		zoneBerlin = ZoneId.of("Europe/Berlin");
-		zoneUTC = ZoneId.of("UTC");
 		sqlAccess = SQLAccessController.getInstance();
 		conf = ConfigController.getInstance();
 		results = new TreeMap<Pair, ComparisonResult>();
@@ -825,7 +821,7 @@ public class SQLDataModel {
 		if (vector.size() == 0)
 			return null;
 		
-		String sql = "INSERT INTO \"" + currTab.getLeft() + "\" (";
+		String sql = "INSERT INTO \"" + currTab.getFMString() + "\" (";
 		String vals = " VALUES (";
 		// iterate through rows
 		for (int i = 0; i < vector.size(); i++) {
@@ -836,7 +832,7 @@ public class SQLDataModel {
 			// ( col1, col2, col3, ..)
 			while (it.hasNext()) {
 				String currFieldName = it.next();
-				String longName = currTab.getLeft() + "." + currFieldName;
+				String longName = currTab.getFMString() + "." + currFieldName;
 				if (i == 0) {
 					if (currFieldName.endsWith("lastModified")){
 						sql += "lastModified,lastRemoteTS";
@@ -997,8 +993,9 @@ public class SQLDataModel {
 			proof++;
 			int RAUID = id.getInt("ArachneEntityID");
 			int lID =  id.getInt(keyField);
+			Timestamp ts = id.getTimestamp("lastModified");
 			
-			if (!updateLocalUIDAndTS(currTab, RAUID, id.getTimestamp("lastModified").toLocalDateTime(), keyField, lID))
+			if (!updateLocalUIDAndTS(currTab, RAUID, ts, keyField, lID))
 				throw new EntityManagementException("Updating local AUID "
 						+ id.getInt(1) + " and timestamp in table " + currTab.getLeft()
 						+ " FAILED!");
@@ -1021,14 +1018,16 @@ public class SQLDataModel {
 	}
 
 	private boolean updateLocalUIDAndTS(Pair currTab, int currRAUID,
-			LocalDateTime currRemoteTS, String pkName, int pkVal)
+			Timestamp ts, String pkName, int pkVal)
 			throws SQLException {
+		
+		LocalDateTime ldt = ts.toLocalDateTime();
 		
 		// locate row by local ID
 		if (sqlAccess.doFMUpdate("UPDATE \"" + currTab.getLeft()
 				+ "\" SET ArachneEntityID=" + currRAUID
-				+ ", lastModified={ts '" + currRemoteTS.format(formatTS) + "'}"
-				+ ", lastRemoteTS={ts '" + currRemoteTS.format(formatTS) + "'}"
+				+ ", lastModified={ts '" + ldt.format(formatTS) + "'}"
+				+ ", lastRemoteTS={ts '" + ldt.format(formatTS) + "'}"
 				+ " WHERE " + pkName + "=" + pkVal) != null) {
 			return true;
 		} else {
@@ -1079,34 +1078,34 @@ public class SQLDataModel {
 				continue;
 
 			// Strings to compare in field with equal name
-			String myVal = rowMS.get(currField);
+			String msVal = rowMS.get(currField);
 			String fmVal = rowFM.get(currField);
 
-			myVal = myVal == null ? "" : myVal;
+			msVal = msVal == null ? "" : msVal;
 			fmVal = fmVal == null ? "" : fmVal;
 
-			if (!myVal.isEmpty())
+			if (!msVal.isEmpty())
 				remoteAllNull = false;
 			if (!fmVal.isEmpty())
 				localAllNull = false;
 
-			if (!(myVal.equalsIgnoreCase(fmVal))) {
+			if (!(msVal.equalsIgnoreCase(fmVal))) {
 
 				if (isFMPrimaryKey(currTab, currField)) {
 
 					// if local ID is 0, then entry is NULL on each field.
-					if (myVal.isEmpty())
+					if (msVal.isEmpty())
 						return 3;
 					if (fmVal.isEmpty())
 						return 2;
 
 					System.out.println("INDEX SHIFTING!! LocalID: " + fmVal
-							+ ", RemoteID: " + myVal);
+							+ ", RemoteID: " + msVal);
 					logger.debug("INDEX SHIFTING!! LocalID: " + fmVal
-							+ ", RemoteID: " + myVal);
+							+ ", RemoteID: " + msVal);
 
 					int fID = Integer.parseInt(fmVal);
-					int mID = Integer.parseInt(myVal);
+					int mID = Integer.parseInt(msVal);
 
 					// missing entry in remote db
 					if (fID < mID) // offset < 0
@@ -1117,11 +1116,11 @@ public class SQLDataModel {
 				}
 
 				// numeric fields can differ as strings, e.g. 9.0 and 9.00
-				if (isNumericalField(currTab.getLeft()+"."+currField)) {
+				if (isNumericalField(currTab.getFMString()+"."+currField)) {
 					// parsing empty string raises exc
-					if (!myVal.isEmpty() && !fmVal.isEmpty()) { 
+					if (!msVal.isEmpty() && !fmVal.isEmpty()) { 
 						try {
-							double m = Double.parseDouble(myVal);
+							double m = Double.parseDouble(msVal);
 							double f = Double.parseDouble(fmVal);
 							if (m == f) {
 								continue;
@@ -1131,11 +1130,11 @@ public class SQLDataModel {
 						}
 					}
 				}
-				if (isTimestampField(currTab.getLeft()+"."+currField)) {
+				if (isTimestampField(currTab.getFMString()+"."+currField)) {
 					// parsing empty string raises exc
-					if (!myVal.isEmpty() && !fmVal.isEmpty()) { 
+					if (!msVal.isEmpty() && !fmVal.isEmpty()) { 
 						try {
-							Timestamp m = Timestamp.valueOf(myVal);
+							Timestamp m = Timestamp.valueOf(msVal);
 							Timestamp f = Timestamp.valueOf(fmVal);
 							if (m.equals(f)) {
 								continue;
@@ -1147,7 +1146,7 @@ public class SQLDataModel {
 				}
 				allSame = false;
 				System.out.println(currField + " in " + currTab
-						+ " not equal: \"" + fmVal + "\" (FM) and \"" + myVal
+						+ " not equal: \"" + fmVal + "\" (FM) and \"" + msVal
 						+ "\" (MS)");
 				return 1;
 			}
@@ -1236,16 +1235,16 @@ public class SQLDataModel {
 		return result;
 	}
 
-	private String getBerlinTimeStamp() {
-		return LocalDateTime.now(zoneBerlin).format(formatTS);
-	}
-
 	private boolean isNumericalField(String field) throws IOException {
 		return conf.getNumericFields().contains(field);
 	}
 
 	private boolean isTimestampField(String field) throws IOException {
-		return conf.getTimestampFields().contains(field);
+		for (Pair p : conf.getTimestampFields()) {
+			if (p.getFMString().equalsIgnoreCase(field)) return true;
+			if (p.getMySQLString().equalsIgnoreCase(field)) return true;
+		}
+		return false;
 	}
 
 	public boolean updateRowsLocally(Pair currTab,
@@ -1396,7 +1395,7 @@ public class SQLDataModel {
 			return true;
 		
 		String pk = local ? sqlAccess.getFMTablePrimaryKey(currTab.getFMString()) : sqlAccess.getMySQLTablePrimaryKey(currTab.getMySQLString());
-		String sql = "DELETE FROM " + currTab.getLeft() + " WHERE " + pk + "=";
+		String sql = " WHERE " + pk + "=";
 		
 		Iterator<TreeMap<String, String>> it = delList.iterator();
 		
@@ -1419,11 +1418,16 @@ public class SQLDataModel {
 		
 		if (!sql.endsWith("=")) {
 			if (local)
-				sqlAccess.doFMUpdate(sql);
+				sqlAccess.doFMUpdate("DELETE FROM " + currTab.getFMString() + sql);
 			else
-				sqlAccess.doMySQLUpdate(sql);
+				sqlAccess.doMySQLUpdate("DELETE FROM " + currTab.getMySQLString() + sql);
 		}
 		return true;
+	}
+
+	public ComparisonResultImg calcImgDiff() {
+		// TODO Auto-generated method stub
+		return null;
 	}
 	
 }

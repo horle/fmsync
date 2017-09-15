@@ -6,6 +6,8 @@ import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.net.URL;
 import java.sql.SQLException;
@@ -93,7 +95,7 @@ public class MainFrame {
 			}
 		});
 	}
-	private JFrame frame;
+	private static JFrame frame;
 
 	private JPanel panelLog;
 	private JPanel panelActions;
@@ -106,7 +108,7 @@ public class MainFrame {
 	private boolean inProgress;
 
 	private TreeMap<Pair, ComparisonResult> currComp;
-	private ConnectionWorker worker;
+	private SwingWorker worker;
 	private SQLAccessController sqlAccess;
 	
 	private boolean timedOut = false;
@@ -123,36 +125,14 @@ public class MainFrame {
 		try {
 			sqlAccess = SQLAccessController.getInstance();
 		} catch(IOException e) {
-			SwingUtilities
-			.invokeLater(new Runnable() {
-				@Override
-				public void run() {
-					JOptionPane
-							.showMessageDialog(
-									frame,
-									"I was not able to create a new config file. Missing permissions?",
-									"Error",
-									JOptionPane.WARNING_MESSAGE);
-				};
-			});
+			handleException("I was not able to create a new config file. Missing permissions?");
 		} catch (SQLException e) {
-			SwingUtilities
-			.invokeLater(new Runnable() {
-				@Override
-				public void run() {
-					JOptionPane
-							.showMessageDialog(
-									frame,
-									e,
-									"Error",
-									JOptionPane.WARNING_MESSAGE);
-				};
-			});
+			handleException(getErrorMsg(e));
 		}
 		initialize();
 	}
 
-	protected String handleErrorMsg(Exception e) {
+	private static String getErrorMsg(Exception e) {
 		String msg = e.getMessage();
 		String prefix = "";
 		if (msg == null) msg = "";
@@ -287,11 +267,7 @@ public class MainFrame {
 				try {
 					config.writeConfigFile();
 				} catch (IOException e) {
-					JOptionPane
-					.showMessageDialog(
-							frame,
-							"I was not able to create a new config file. Missing permissions?",
-							"Error", JOptionPane.WARNING_MESSAGE);
+					handleException("I was not able to create a new config file. Missing permissions?");
 				}
 				/**
 				 * Check connections
@@ -334,7 +310,6 @@ public class MainFrame {
 		JLabel lblPicture = new JLabel(new ImageIcon(url));
 		lblPicture.setBounds(10, 38, 774, 70);
 		frame.getContentPane().add(lblPicture);
-
 	}
 	
 	private boolean confirmClose() {
@@ -349,6 +324,21 @@ public class MainFrame {
 	}
 
 	private void invokeComparisonFrame() {
+		TreeMap<Pair, ComparisonResult> comps = data.getResults();
+		
+		int rowCount = 0;
+		for (Pair key : comps.keySet()) {
+			ComparisonResult comp = comps.get(key);
+			rowCount += comp.getRowCount();
+		}
+		if (rowCount == 0) {
+			if (JOptionPane.showConfirmDialog(frame, "Your local database is equal to the remote database! Close?", "Already in sync", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.YES_OPTION) {
+				sqlAccess.close();
+				connected = false;
+				frame.dispose();
+				return;
+			}
+		}
 		
 		comp = new ComparisonFrame(txtLog, chkIncludeImg.isSelected());
 		comp.setLocationRelativeTo(frame);
@@ -406,7 +396,7 @@ public class MainFrame {
 								return false;
 							}
 						} catch (SQLException e) {
-							String msg = handleErrorMsg(e);
+							String msg = getErrorMsg(e);
 							
 							if (timedOut && msg.contains("Server did not answer.")) {
 								timedOut = true;
@@ -414,18 +404,7 @@ public class MainFrame {
 							} else {
 								publish(FrameStatus.closedError(msg));
 								this.cancel(true);
-								SwingUtilities.invokeLater(new Runnable() {
-											@Override
-											public void run() {
-												JOptionPane
-														.showMessageDialog(
-																frame,
-																"Establishing the connection failed: "
-																		+ msg,
-																"Connection failure",
-																JOptionPane.WARNING_MESSAGE);
-											};
-										});
+								handleException(msg);
 							}
 							return false;
 						}
@@ -472,48 +451,113 @@ public class MainFrame {
 					worker.get(CONN_TIMEOUT, TimeUnit.SECONDS);
 				} catch (InterruptedException | ExecutionException e1) {
 					worker.cancel(true);
+					handleException(getErrorMsg(e1));
 					publish(FrameStatus.closedError("Connection aborted by error."));
-					SwingUtilities.invokeLater(new Runnable() {
-						@Override
-						public void run() {
-							JOptionPane.showMessageDialog(
-									frame,
-									"Connection aborted by error: "
-											+ e1.getMessage(),
-									"Aborted by error",
-									JOptionPane.WARNING_MESSAGE);
-						};
-					});
 				} catch (TimeoutException e2) {
-					String msg = handleErrorMsg(e2);
+					String msg = getErrorMsg(e2);
 					
 					if (!timedOut) {
 						timedOut = true;
 						worker.cancel(true);
-						worker.pub(FrameStatus.closedError(msg));
-						SwingUtilities.invokeLater(new Runnable() {
-							@Override
-							public void run() {
-								JOptionPane.showMessageDialog(
-										frame,
-										"Establishing the connection failed: "+msg,
-										"Connection failure",
-										JOptionPane.WARNING_MESSAGE);
-							};
-						});
+						publish(FrameStatus.closedError(msg));
+						handleException(msg);
 					}
 				}
 				return null;
 			}
 			@Override
 			protected void done() {
-				if (connected)
-					invokeComparisonFrame();
+				try {
+					// when watcher finishes
+					this.get();
+				} catch (InterruptedException | ExecutionException e) {
+					String msg = getErrorMsg(e);
+					
+					if (!timedOut) {
+						timedOut = true;
+						worker.cancel(true);
+						publish(FrameStatus.closedError(msg));
+						handleException(msg);
+					}
+				}
+				// execute this
+				if (connected && chkShowDetails.isSelected()) {
+					invokeComparisonCalculation();
+				}
 			}
 		};
 		watcher.execute();
 	}
 	
+	private void invokeComparisonCalculation() {
+		ProgressMonitor monitor = ProgressUtil.createModalProgressMonitor(frame, 100, false, 0); 
+		//new ProgressMonitor(null,
+		//"Comparing tables ...", "Current table: ", 0, 100);
+		//		monitor.start("Fetching ...");
+
+		try {
+			worker = new ProgressWorker(txtLog, ProgressWorker.JOB_CALC_DIFF, chkIncludeImg.isSelected()) {
+				@Override
+				protected void done() {
+					try {
+						worker.get();
+						invokeComparisonFrame();
+					} catch (Exception e) {
+						sqlAccess.close();
+						connected = false;
+						applyStatus(FrameStatus.closedError("Error: " + e.getMessage()));
+						handleException(getErrorMsg(e));
+					}
+				}
+			};
+		} catch (IOException | SQLException e) {
+			sqlAccess.close();
+			connected = false;
+			handleException("I couldn't create a new thread, consult the log.");
+			applyStatus(FrameStatus.closedError("Error: " + e.getMessage()));
+			logger.error(e);
+		}
+		worker.addPropertyChangeListener(new PropertyChangeListener() {
+
+			@Override
+			public void propertyChange(final PropertyChangeEvent event) {
+				if ("progress".equals(event.getPropertyName())) {
+					int progress = (Integer) event.getNewValue();
+					monitor.setCurrent(""+progress, 123);
+
+					if (worker.isDone()) {
+						if (monitor.isCanceled()) {
+							worker.cancel(true);
+							txtLog.append("Comparing tables canceled.\n");
+						} else
+							txtLog.append("Comparing tables completed.\n");
+					}
+				}
+			}
+		});
+		worker.execute();
+
+		
+	}
+	
+	/**
+	 * has to be executed on background method!
+	 * @param string
+	 */
+	public static void handleException(String string) {
+		SwingUtilities.invokeLater(new Runnable() {
+			@Override
+			public void run() {
+				JOptionPane.showMessageDialog(
+				frame,
+				"Connection aborted by error: "
+						+ string,
+				"Aborted by error",
+				JOptionPane.ERROR_MESSAGE);
+			}
+		});
+	}
+
 	private void invokeDisconnectWorker() {
 		/**
 		 * SwingWorker to disconnect and update GUI elements
@@ -534,26 +578,14 @@ public class MainFrame {
 					SwingUtilities.invokeLater(new Runnable() {
 						@Override
 						public void run() {
-							JOptionPane
-									.showMessageDialog(
-											frame,
+							JOptionPane.showMessageDialog(frame,
 											"I was not able to create a new config file. Missing permissions?",
-											"Error",
-											JOptionPane.WARNING_MESSAGE);
+											"Error",JOptionPane.WARNING_MESSAGE);
 						}
 					});
 				} catch (SQLException e) {
-					SwingUtilities.invokeLater(new Runnable() {
-						@Override
-						public void run() {
-							JOptionPane
-									.showMessageDialog(
-											frame,
-											e,
-											"Error",
-											JOptionPane.WARNING_MESSAGE);
-						}
-					});
+					publish(FrameStatus.closedError("Error: " + e.getMessage()));
+					handleException(getErrorMsg(e));
 				}
 
 				if (connector.close()) {
@@ -568,8 +600,7 @@ public class MainFrame {
 						@Override
 						public void run() {
 							JOptionPane
-									.showMessageDialog(
-											frame,
+									.showMessageDialog(frame,
 											"Connection could not be closed!",
 											"Error closing connection",
 											JOptionPane.ERROR_MESSAGE);
@@ -586,7 +617,7 @@ public class MainFrame {
 		this.btnConnect.setEnabled(status.isBtnConnectEn());
 		this.btnCancel.setEnabled(status.isBtnCancelEn());
 		if (!status.getLogMsg().equals(""))
-			this.txtLog.append(status.getLogMsg());
+			txtLog.append(status.getLogMsg());
 	}
 
 	public static JTextArea getLog() {
