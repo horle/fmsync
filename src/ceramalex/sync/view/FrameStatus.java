@@ -106,7 +106,7 @@ class FrameStatus {
 	}
 	
 	public final static FrameStatus closedError(String msg) {
-		return new FrameStatus("Connection failed. " + msg, true, false);
+		return new FrameStatus("Error: " + msg, true, false);
 	}
 	
 	public final static FrameStatus closedError() {

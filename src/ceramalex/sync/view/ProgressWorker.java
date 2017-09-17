@@ -15,6 +15,8 @@ import javax.swing.ProgressMonitor;
 import javax.swing.SwingWorker;
 
 import ceramalex.sync.exception.EntityManagementException;
+import ceramalex.sync.exception.FilemakerIsCrapException;
+import ceramalex.sync.exception.SyncException;
 import ceramalex.sync.model.ComparisonResult;
 import ceramalex.sync.model.ComparisonResultImg;
 import ceramalex.sync.model.Pair;
@@ -37,7 +39,7 @@ public class ProgressWorker extends SwingWorker<Void, String> {
 	}
 	
 	@Override
-	protected Void doInBackground() throws Exception {
+	protected Void doInBackground() throws SQLException, FilemakerIsCrapException, SyncException, EntityManagementException, IOException   {
 		ArrayList<Pair> commonTables = data.fetchCommonTables();
 		ComparisonResultImg imgs = null;
 		
