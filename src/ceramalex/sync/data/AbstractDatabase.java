@@ -172,10 +172,10 @@ public abstract class AbstractDatabase {
 
 		logger.debug(this.getDriverName() + ": "+ sql);
 		PreparedStatement statement = null;
-		try {
+
 		statement = cn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
 		statement.executeUpdate();
-		} catch (Exception e) { e.printStackTrace();}
+
 		ResultSet r = statement.getGeneratedKeys();
 		
 		ArrayList<Integer> result = new ArrayList<Integer>();

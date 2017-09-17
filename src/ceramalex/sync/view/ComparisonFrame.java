@@ -98,9 +98,7 @@ public class ComparisonFrame extends JFrame {
 	private JToggleButton btnIndividuals;
 	private JGradientButton btnDeleted;
 	private JGradientButton btnUnequal;
-	private JTextArea txtLog;
 	// private ProgressMonitor monitor;
-	private ProgressWorker worker;
 	private JCheckBox chkSyncAttr;
 
 	private JPopupMenu popup;
@@ -108,7 +106,6 @@ public class ComparisonFrame extends JFrame {
 
 	private String lastTab;
 	private int unsafeRows;
-	private boolean img;
 
 	private void initialize() {
 		frame = this;
@@ -297,7 +294,7 @@ public class ComparisonFrame extends JFrame {
 				if (unsafeRows != 0) ready = false;
 				
 				if (!ready) {
-					int dialogConfirm = JOptionPane.showConfirmDialog(null,
+					int dialogConfirm = JOptionPane.showConfirmDialog(frame,
 							"There are still unsafe conflicts to clear up. Would you like to resolve them now?",
 							"Now resolving conflicts?", JOptionPane.YES_NO_CANCEL_OPTION,
 							JOptionPane.QUESTION_MESSAGE);
@@ -333,46 +330,7 @@ public class ComparisonFrame extends JFrame {
 
 	private void handleStartBtn() {
 		dispose();
-		ProgressMonitor monitor = ProgressUtil.createModalProgressMonitor(this, 100, false, 0); 
-
-		try {
-			worker = new ProgressWorker(txtLog, ProgressWorker.JOB_APPLY_CHANGES, img) {
-				@Override
-				protected void done() {
-					System.out.println("applying worker done.");
-				}
-			};
-		} catch (IOException | SQLException e) {
-			JOptionPane.showMessageDialog(this,
-					"I couldn't create a new thread, consult the log.",
-					"Error", JOptionPane.ERROR_MESSAGE);
-			logger.error(e);
-		}
-		worker.addPropertyChangeListener(new PropertyChangeListener() {
-			//TODO: macht nix!
-			@Override
-			public void propertyChange(final PropertyChangeEvent event) {
-				if ("progress".equals(event.getPropertyName())) {
-					int progress = (Integer) event.getNewValue();
-					monitor.setCurrent(""+progress, 123);
-
-					if (worker.isDone()) {
-						if (monitor.isCanceled()) {
-							worker.cancel(true);
-							txtLog.append("Comparing tables canceled.\n");
-						} else
-							txtLog.append("Comparing tables completed.\n");
-					}
-				}
-			}
-		});
-		worker.execute();
-		try {
-			worker.get();
-		} catch (InterruptedException | ExecutionException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		
 	}
 
 	private void refetchTables() {
@@ -719,9 +677,7 @@ public class ComparisonFrame extends JFrame {
 	 * 
 	 * @param txtLog
 	 */
-	public ComparisonFrame(JTextArea txtLog, boolean img) {
-		this.txtLog = txtLog;
-		this.img = img;
+	public ComparisonFrame() {
 		try {
 			data = SQLDataModel.getInstance();
 		} catch (IOException e) {

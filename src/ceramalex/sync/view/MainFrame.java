@@ -14,6 +14,7 @@ import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.TreeMap;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -63,9 +64,7 @@ public class MainFrame {
 	private static SQLDataModel data;
 	
 	private static JFrame frame;
-	/**
-	 * Launch the application.
-	 */
+	
 	public static void main(String[] args) {
 
 		DOMConfigurator.configureAndWatch("log4j.xml");
@@ -205,7 +204,7 @@ public class MainFrame {
 		mnHelp.setFont(new Font("Dialog", Font.PLAIN, 12));
 		menuBar.add(mnHelp);
 
-		JMenuItem mntmOpenHelpDocument = new JMenuItem("Online Help Document");
+		JMenuItem mntmOpenHelpDocument = new JMenuItem("Online Documentation");
 		mntmOpenHelpDocument.setFont(new Font("Dialog", Font.PLAIN, 12));
 		mnHelp.add(mntmOpenHelpDocument);
 
@@ -260,9 +259,7 @@ public class MainFrame {
 				} catch (IOException e) {
 					handleException("I was not able to create a new config file. Missing permissions?");
 				}
-				/**
-				 * Check connections
-				 */
+				
 				if (!connected) {
 					invokeConnectWorker();
 				}
@@ -312,7 +309,7 @@ public class MainFrame {
 		}else return false;
 	}
 
-	private void invokeComparisonFrame() {
+	private int getResultRowCount() {
 		TreeMap<Pair, ComparisonResult> comps = data.getResults();
 		
 		int rowCount = 0;
@@ -320,28 +317,61 @@ public class MainFrame {
 			ComparisonResult comp = comps.get(key);
 			rowCount += comp.getRowCount();
 		}
-		if (rowCount == 0) {
-			sqlAccess.close();
-			connected = false;
-			if (JOptionPane.showConfirmDialog(frame, "Your local database is equal to the remote database! Close?", "Already in sync", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.YES_OPTION) {
-				frame.dispose();
-				return;
-			} else return;
-		}
+		return rowCount;
+	}
+
+	private int getResultTableCount() {
+		TreeMap<Pair, ComparisonResult> comps = data.getResults();
+
+		return comps.size();
+	}
+	
+	private void invokeComparisonFrame() {
 		
-		comp = new ComparisonFrame(txtLog, chkIncludeImg.isSelected());
+		comp = new ComparisonFrame();
 		comp.setLocationRelativeTo(frame);
 		currComp = comp.showDialog(frame);
 		
+		if (currComp == null) {
+			disconnect("Sync aborted, connection closed. No changes were made.");
+		} else if (currComp.isEmpty()) {
+			disconnect("Local database already in sync with remote database. No changes were made.");
+		} else {
+			invokeApplyWorker();
+		}
+	}
+	
+	private void disconnect(String msg) {
 		sqlAccess.close();
 		connected = false;
-		
-		if (currComp == null) {
-			applyStatus(FrameStatus.closed("Sync aborted, connection closed. No changes were made."));
-		} else if (currComp.isEmpty()) {
-			applyStatus(FrameStatus.closed("Local database already in sync with remote database. No changes were made."));
-		} else {
-			applyStatus(FrameStatus.closed("Changes applied without errors."));
+		applyStatus(FrameStatus.closed(msg));
+	}
+	
+	private void invokeApplyWorker() {
+//		ProgressMonitor monitor = ProgressUtil.createModalProgressMonitor(frame, 100, false, 0);
+
+		try {
+			worker = new ProgressWorker(txtLog, ProgressWorker.JOB_APPLY_CHANGES, chkIncludeImg.isSelected()) {
+				@Override
+				protected void done() {
+					System.out.println("applying worker done.");
+				}
+			};
+		} catch (IOException | SQLException e) {
+			JOptionPane.showMessageDialog(frame, getErrorMsg(e),
+					"Error", JOptionPane.ERROR_MESSAGE);
+			applyStatus(FrameStatus.closedError(getErrorMsg(e)));
+			logger.error(e);
+		}
+		worker.execute();
+		try {
+			worker.get();
+			applyStatus(FrameStatus.closed("Changes to databases applied without errors."));
+		} catch (InterruptedException | ExecutionException e) {
+			JOptionPane.showMessageDialog(frame, getErrorMsg(e),
+					"Error", JOptionPane.ERROR_MESSAGE);
+			applyStatus(FrameStatus.closedError(getErrorMsg(e)));
+			logger.error(e);
 		}
 	}
 
@@ -442,7 +472,7 @@ public class MainFrame {
 					}
 				}
 				// execute this
-				if (connected && chkShowDetails.isSelected()) {
+				if (connected) {
 					invokeComparisonCalculation();
 				}
 			}
@@ -462,7 +492,29 @@ public class MainFrame {
 				protected void done() {
 					try {
 						worker.get();
-						invokeComparisonFrame();
+						
+						if (getResultRowCount() == 0) {
+							sqlAccess.close();
+							connected = false;
+							if (JOptionPane.showConfirmDialog(frame, "Your local database is equal to the remote database! Close?", "Already in sync", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.YES_OPTION) {
+								frame.dispose();
+								return;
+							} else return;
+						} else {
+							if (chkShowDetails.isSelected()) {
+								invokeComparisonFrame();
+							} else {
+								if (JOptionPane.showConfirmDialog(frame, "Apply changes for "+getResultRowCount() + " rows in " + getResultTableCount() +" tables?", "Ready to start?", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.YES_OPTION) {
+									invokeApplyWorker();
+								} else {
+									sqlAccess.close();
+									connected = false;
+									applyStatus(FrameStatus.closed("Connection closed."));
+								}
+							}
+						}
+					} catch (CancellationException e) {
+						disconnect("\nComparison aborted by user.");
 					} catch (Exception e) {
 						sqlAccess.close();
 						connected = false;
@@ -474,7 +526,7 @@ public class MainFrame {
 		} catch (IOException | SQLException e) {
 			sqlAccess.close();
 			connected = false;
-			handleException("I couldn't create a new thread, consult the log.");
+			handleException(getErrorMsg(e));
 			applyStatus(FrameStatus.closedError("Error: " + e.getMessage()));
 			logger.error(e);
 		}
@@ -514,6 +566,8 @@ public class MainFrame {
 	}
 
 	private void invokeDisconnectWorker() {
+		
+		worker.cancel(true);
 		/**
 		 * SwingWorker to disconnect and update GUI elements
 		 */
@@ -537,7 +591,6 @@ public class MainFrame {
 					logger.info("Connection closed.");
 					return true;
 				} else {
-					publish(FrameStatus.closedError("Error: Connection could not be closed."));
 					logger.error("Error: Connection could not be closed.");
 					SwingUtilities.invokeLater(new Runnable() {
 						@Override

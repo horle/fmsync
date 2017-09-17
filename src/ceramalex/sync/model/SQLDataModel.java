@@ -708,9 +708,10 @@ public class SQLDataModel {
 	 * @throws SQLException
 	 * @throws EntityManagementException
 	 * @throws IOException
+	 * @throws FilemakerIsCrapException 
 	 */
 	public Vector<Integer> prepareRowsAndUpload(Pair currTab, Vector<TreeMap<String, String>> rows, int packSize) throws SQLException,
-			EntityManagementException, IOException {
+			EntityManagementException, IOException, FilemakerIsCrapException {
 		int count = rows.size() / packSize;
 		int mod = rows.size() % packSize;
 		Vector<Integer> resultIDs = new Vector<Integer>();
@@ -734,10 +735,11 @@ public class SQLDataModel {
 	 * @throws SQLException
 	 * @throws EntityManagementException
 	 * @throws IOException
+	 * @throws FilemakerIsCrapException 
 	 */
 	private ArrayList<Integer> insertRowsIntoRemote(Pair currTab,
 			Vector<TreeMap<String, String>> vector) throws SQLException,
-			EntityManagementException, IOException {
+			EntityManagementException, IOException, FilemakerIsCrapException {
 		
 		if (vector.size() == 0)
 			return null;
@@ -771,8 +773,11 @@ public class SQLDataModel {
 				String currFieldVal = currRow.get(currFieldName);
 				String longName = currTab.getLeft() + "." + currFieldName;
 				
-				if (currFieldName.equalsIgnoreCase(keyField) && currFieldVal != null)
-					localIDs.add(Integer.parseInt(currFieldVal));
+				if (currFieldName.equalsIgnoreCase(keyField)) {
+					if (currFieldVal != null) localIDs.add(Integer.parseInt(currFieldVal));
+					else throw new FilemakerIsCrapException("Primary key field "+keyField+" in table " +currTab.getFMString()+" is NULL!");
+				}
+					
 				
 				if (!isNumericalField(longName)
 						&& !isTimestampField(longName)
@@ -1132,6 +1137,17 @@ public class SQLDataModel {
 		
 		TreeMap<String, String> set = tuple.getRight();
 		TreeMap<String, String> where = new TreeMap<String,String>(tuple.getLeft());
+		
+		// local UUID = null? update locally!
+		if (set.containsKey("ArachneEntityID")) {
+			if (set.get("ArachneEntityID") == null) {
+				if (where.containsKey("ArachneEntityID")) {
+					String keyField = sqlAccess.getFMTablePrimaryKey(currTab.getFMString());
+					Timestamp ts = where.get("lastModified") == null ? null : Timestamp.valueOf(where.get("lastModified"));
+					updateLocalUIDAndTS(currTab, Integer.parseInt(where.get("ArachneEntityID")), ts, keyField, Integer.parseInt(where.get(keyField)));
+				}
+			}
+		}
 		
 		set.remove("ArachneEntityID");
 		
