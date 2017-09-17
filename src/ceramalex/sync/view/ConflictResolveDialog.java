@@ -1,6 +1,7 @@
 package ceramalex.sync.view;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -25,16 +26,21 @@ import javax.swing.ListCellRenderer;
 import javax.swing.ListModel;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import javax.swing.ListSelectionModel;
 
 import ceramalex.sync.model.Pair;
 import ceramalex.sync.model.Tuple;
+import ceramalex.sync.view.ComparisonFrame.ColourCellRenderer;
+import ceramalex.sync.view.ComparisonFrame.ColourTableModel;
+
+import java.awt.Dimension;
 
 public class ConflictResolveDialog extends JDialog {
 
-	private JTable table;
+	private JResizeTable table;
 	private JCheckBox chkApplyForAll = new JCheckBox("Apply for all conflicts of this kind");
 	private JButton btnMerge = new JButton("Merge");
 	private JButton btnCancel = new JButton("Cancel");
@@ -55,7 +61,8 @@ public class ConflictResolveDialog extends JDialog {
 	private int action = SKIP;
 	
 	/**
-	 * Create the dialog.
+	 * JDialog to resolve conflicts between two concurring rows.
+	 * @author horle (Felix Kussmaul)
 	 */
 	public ConflictResolveDialog(TreeMap<String,String> lRow, TreeMap<String,String> rRow) {
 		label = lRow.remove("A");
@@ -75,10 +82,10 @@ public class ConflictResolveDialog extends JDialog {
 		}
 		
 		Font f = new Font("Dialog", Font.PLAIN, 12);
-		setResizable(false);
 		setTitle("Resolve Conflicts");
-		setSize(750, 190);
+		setSize(950, 200);
 		setModal(true);
+		setResizable(true);
 		getContentPane().setLayout(new BorderLayout(5, 0));
 		
 		JLabel lblText = new JLabel("Please select the row you want to keep.");
@@ -171,9 +178,11 @@ public class ConflictResolveDialog extends JDialog {
 		dm.addRow(localR);
 		dm.addRow(remoteR);
 		
-		table = new JTable(dm);
+		table = new JResizeTable(dm);
+		table.setPreferredScrollableViewportSize(new Dimension(0, 0));
 		table.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
 		table.setCellSelectionEnabled(true);
+		table.setDefaultRenderer(Object.class, new TooltipCellRenderer());
 		
 		JList<String> rowHeaders = new JList<String>(lm);
 		rowHeaders.setBackground(UIManager.getColor("Label.background"));
@@ -182,6 +191,7 @@ public class ConflictResolveDialog extends JDialog {
 		rowHeaders.setCellRenderer(new RowHeaderRenderer(table));
 		
 		JScrollPane scroll = new JScrollPane(table);
+		scroll.setPreferredSize(new Dimension(900, 0));
 		scroll.setRowHeaderView(rowHeaders);
 		scroll.setBorder(new EmptyBorder(5,5,5,5));
 		getContentPane().add(scroll, BorderLayout.CENTER);
@@ -191,6 +201,22 @@ public class ConflictResolveDialog extends JDialog {
 		this.pack();
 		this.setVisible(true);
 		return new Tuple<Integer,TreeMap<String,String>>(action, result);
+	}
+}
+
+class TooltipCellRenderer extends DefaultTableCellRenderer {
+	@Override
+	public Component getTableCellRendererComponent(JTable table,
+			Object value, boolean isSelected, boolean hasFocus, int row,
+			int column) {
+		
+		String toolTip;
+		toolTip = table.getColumnName(column) + ": " + value;
+		setToolTipText(toolTip);
+
+		Component c = super.getTableCellRendererComponent(table, value,
+				isSelected, hasFocus, row, column);
+		return c;
 	}
 }
 

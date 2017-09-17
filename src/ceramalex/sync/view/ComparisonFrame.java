@@ -55,8 +55,6 @@ import javax.swing.plaf.ButtonUI;
 import javax.swing.plaf.metal.MetalToggleButtonUI;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
-import javax.swing.table.TableColumn;
-import javax.swing.table.TableColumnModel;
 import javax.swing.table.TableModel;
 
 import org.apache.log4j.Logger;
@@ -82,6 +80,7 @@ public class ComparisonFrame extends JFrame {
 	private final Color LIGHT_BLUE = new Color(173,216,230);
 	
 	private JPanel container;
+	private ComparisonFrame frame;
 	private final ButtonGroup buttonGroup = new ButtonGroup();
 
 	private TreeMap<Pair, ComparisonResult> comps;
@@ -112,7 +111,7 @@ public class ComparisonFrame extends JFrame {
 	private boolean img;
 
 	private void initialize() {
-		
+		frame = this;
 		commonTables = new ArrayList<Pair>();
 		tables = new TreeMap<Integer, JTable[]>();
 		unsafeRows = 0;
@@ -539,30 +538,6 @@ public class ComparisonFrame extends JFrame {
 							}
 						}
 					}
-					for (int j = 0; j < deleteOrDownload.size(); j++) {
-						notEmpty = true;
-//						TreeMap<String,String> rowL = deleteOrDownload.get(j).getLeft();
-						TreeMap<String,String> diffs = deleteOrDownload.get(j);
-						m1.addRow(new String[0]);
-						m2.addRow(new String[0]);
-						int row = m2.getRowCount()-1;
-						// update action label 
-						m1.setValueAt("??", row, 0);
-						m1.setCellColour(row, 0, LIGHT_RED);
-						m2.setValueAt("??", row, 0);
-						m2.setCellColour(row, 0, LIGHT_RED);
-
-						for (String key : commonFields) {
-							// filling on right side sufficient in this case
-							if (diffs.containsKey(key)) {
-								int col = m2.findColumn(key);
-								m2.setValueAt(diffs.get(key), row, col);
-								m1.setCellColour(row, col, LIGHT_RED);
-								m2.setCellColour(row, col, LIGHT_RED);
-							}
-						}
-
-					}
 					if (btnDownload.isSelected()) {
 						for (int j = 0; j < updateLocally.size(); j++) {
 							notEmpty = true;
@@ -627,49 +602,74 @@ public class ComparisonFrame extends JFrame {
 						}
 					}
 				}
-				if (btnIndividuals.isSelected()) {
-					if (btnUpload.isSelected()) {
-						for (int j = 0; j < upload.size(); j++) {
-							TreeMap<String,String> row = upload.get(j);
-							notEmpty = true;
-							m1.addRow(new String[0]);
-							int r = m1.getRowCount()-1;
-							for (String key : commonFields) {
-								int c = m1.findColumn(key);
-								if (row.containsKey(key)) 
-									m1.setValueAt(row.get(key), r, c);
-								else
-									m1.setValueAt(null, r, c);
+			}
+			if (btnIndividuals.isSelected()) {
+				for (int j = 0; j < deleteOrDownload.size(); j++) {
+					notEmpty = true;
+//						TreeMap<String,String> rowL = deleteOrDownload.get(j).getLeft();
+					TreeMap<String,String> diffs = deleteOrDownload.get(j);
+					m1.addRow(new String[0]);
+					m2.addRow(new String[0]);
+					int row = m2.getRowCount()-1;
+					// update action label 
+					m1.setValueAt("??", row, 0);
+					m1.setCellColour(row, 0, LIGHT_RED);
+					m2.setValueAt("??", row, 0);
+					m2.setCellColour(row, 0, LIGHT_RED);
 
-								m1.setCellColour(r, c, LIGHT_GREEN);
-							}
-							m2.addRow(new String[] {});// update action label
-							m1.setValueAt("UL", r, 0);
-							m1.setCellColour(r, 0, LIGHT_GREEN);
+					for (String key : commonFields) {
+						// filling on right side sufficient in this case
+						if (diffs.containsKey(key)) {
+							int col = m2.findColumn(key);
+							m2.setValueAt(diffs.get(key), row, col);
+							m1.setCellColour(row, col, LIGHT_RED);
+							m2.setCellColour(row, col, LIGHT_RED);
 						}
 					}
-					if (btnDownload.isSelected()) {
-						for (int j = 0; j < download.size(); j++) {
-							TreeMap<String,String> row = download.get(j);
-							notEmpty = true;
-							m2.addRow(new String[0]);
-							int r = m2.getRowCount()-1;
-							for (String key : commonFields) {
-								int c = m2.findColumn(key);
-								if (row.containsKey(key)) 
-									m2.setValueAt(row.get(key), r, c);
-								else
-									m2.setValueAt(null, r, c);
 
-								m2.setCellColour(r, c, LIGHT_BLUE);
-							}
-							m1.addRow(new String[] {});
-							m2.setValueAt("DL", r, 0);
-							m2.setCellColour(r, 0, LIGHT_BLUE);
+				}
+				if (btnUpload.isSelected()) {
+					for (int j = 0; j < upload.size(); j++) {
+						TreeMap<String,String> row = upload.get(j);
+						notEmpty = true;
+						m1.addRow(new String[0]);
+						int r = m1.getRowCount()-1;
+						for (String key : commonFields) {
+							int c = m1.findColumn(key);
+							if (row.containsKey(key)) 
+								m1.setValueAt(row.get(key), r, c);
+							else
+								m1.setValueAt(null, r, c);
+
+							m1.setCellColour(r, c, LIGHT_GREEN);
 						}
+						m2.addRow(new String[] {});// update action label
+						m1.setValueAt("UL", r, 0);
+						m1.setCellColour(r, 0, LIGHT_GREEN);
+					}
+				}
+				if (btnDownload.isSelected()) {
+					for (int j = 0; j < download.size(); j++) {
+						TreeMap<String,String> row = download.get(j);
+						notEmpty = true;
+						m2.addRow(new String[0]);
+						int r = m2.getRowCount()-1;
+						for (String key : commonFields) {
+							int c = m2.findColumn(key);
+							if (row.containsKey(key)) 
+								m2.setValueAt(row.get(key), r, c);
+							else
+								m2.setValueAt(null, r, c);
+
+							m2.setCellColour(r, c, LIGHT_BLUE);
+						}
+						m1.addRow(new String[] {});
+						m2.setValueAt("DL", r, 0);
+						m2.setCellColour(r, 0, LIGHT_BLUE);
 					}
 				}
 			}
+			
 			
 			table1.setModel(m1);
 			table2.setModel(m2);
@@ -951,6 +951,7 @@ public class ComparisonFrame extends JFrame {
 							}
 							
 							ConflictResolveDialog dialog = new ConflictResolveDialog(localRow, remoteRow);
+							dialog.setLocationRelativeTo(frame);
 							dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
 							Tuple<Integer, TreeMap<String, String>> result = dialog.showDialog();
 							
@@ -1074,58 +1075,10 @@ public class ComparisonFrame extends JFrame {
 		}
 	}
 
-	class JResizeTable extends JTable {
-
-		@Override
-		public Point getToolTipLocation(MouseEvent event) {
-			return new Point(10, 10);
-		}
-
-		@Override
-		public boolean getScrollableTracksViewportWidth() {
-			return getPreferredSize().width < getParent().getWidth();
-		}
-
-		@Override
-		public void doLayout() {
-			TableColumn resizingColumn = null;
-
-			if (tableHeader != null)
-				resizingColumn = tableHeader.getResizingColumn();
-
-			// Viewport size changed. May need to increase columns widths
-
-			if (resizingColumn == null) {
-				setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
-				super.doLayout();
-			}
-
-			// Specific column resized. Reset preferred widths
-
-			else {
-				TableColumnModel tcm = getColumnModel();
-
-				for (int i = 0; i < tcm.getColumnCount(); i++) {
-					TableColumn tc = tcm.getColumn(i);
-					tc.setPreferredWidth(tc.getWidth());
-				}
-
-				// Columns don't fill the viewport, invoke default layout
-
-				if (tcm.getTotalColumnWidth() < getParent().getWidth())
-					setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
-				super.doLayout();
-			}
-
-			setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
-		}
-	}
 	private static final class JGradientButton extends JToggleButton{
-		String s;
 
 		public JGradientButton(String str) {
 			super(str);
-			s = str;
 			setContentAreaFilled(false);
 		}
 		

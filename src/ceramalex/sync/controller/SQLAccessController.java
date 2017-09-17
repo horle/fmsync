@@ -211,23 +211,28 @@ public class SQLAccessController {
 	 * @return true, if both are established.
 	 * @throws SQLException
 	 */
-	public boolean connect() throws SQLException {
+	public boolean connect() {
 
 		boolean mRes = true;
 		boolean fRes = true;
 
-		mDataAccess = new MySQLDataAccess(conf.getMySQLURL(),
-					conf.getMySQLUser(), conf.getMySQLPassword(),
-					conf.getMySQLDB());
-		fDataAccess = new FMDataAccess(conf.getFmURL(),
-					conf.getFmUser(), conf.getFmPassword(),
-					conf.getFmDB());
+		try {
+			mDataAccess = new MySQLDataAccess(conf.getMySQLURL(),
+						conf.getMySQLUser(), conf.getMySQLPassword(),
+						conf.getMySQLDB());
+			fDataAccess = new FMDataAccess(conf.getFmURL(),
+						conf.getFmUser(), conf.getFmPassword(),
+						conf.getFmDB());
 		
-		if (!mDataAccess.isConnected()) {
-			mRes = mDataAccess.createConnection();
-		}
-		if (!fDataAccess.isConnected()) {
-			fRes = fDataAccess.createConnection();
+			if (!mDataAccess.isConnected()) {
+				mRes = mDataAccess.createConnection();
+			}
+			if (!fDataAccess.isConnected()) {
+				fRes = fDataAccess.createConnection();
+			}
+			
+		} catch (SQLException e) {
+			return false;
 		}
 		
 		return mRes && fRes;
