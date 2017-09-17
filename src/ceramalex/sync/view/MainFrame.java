@@ -61,6 +61,8 @@ public class MainFrame {
 	private static Logger logger = Logger.getLogger(MainFrame.class);
 	private static ConfigController config;
 	private static SQLDataModel data;
+	
+	private static JFrame frame;
 	/**
 	 * Launch the application.
 	 */
@@ -71,31 +73,23 @@ public class MainFrame {
 			config = ConfigController.getInstance();
 			data = SQLDataModel.getInstance();
 		} catch (IOException e1) {
-			JOptionPane
-					.showMessageDialog(
-							null,
-							"I was not able to create a new config file. Missing permissions?",
+			JOptionPane.showMessageDialog(frame,"I was not able to create a new config file. Missing permissions?",
 							"Error", JOptionPane.WARNING_MESSAGE);
 		} catch (SQLException e) {
-			JOptionPane
-			.showMessageDialog(
-					null,
-					e,
-					"Error", JOptionPane.WARNING_MESSAGE);
+			JOptionPane.showMessageDialog(frame,e,"Error", JOptionPane.WARNING_MESSAGE);
 		}
 
 		EventQueue.invokeLater(new Runnable() {
 			public void run() {
 				try {
-					MainFrame window = new MainFrame();
-					window.frame.setVisible(true);
+					new MainFrame();
+					frame.setVisible(true);
 				} catch (Exception e) {
 					e.printStackTrace();
 				}
 			}
 		});
 	}
-	private static JFrame frame;
 
 	private JPanel panelLog;
 	private JPanel panelActions;
@@ -140,7 +134,8 @@ public class MainFrame {
 		if (msg.startsWith("MySQL:"))
 			prefix = "MySQL: ";
 
-		if (e.toString().contains("The driver has not received any packets from the server."))
+		if (e.toString().contains("CancellationException") || 
+				e.toString().contains("The driver has not received any packets from the server."))
 			msg = "Server did not answer.";
 		if (msg.contains("Access denied"))
 			msg = "Access denied: Wrong user name or password.";
@@ -154,9 +149,8 @@ public class MainFrame {
 	private void initialize() {
 		connected = false;
 
-		frame = new JFrame();
+		frame = new JFrame("CeramalexSync");
 		frame.setResizable(false);
-		frame.setTitle("CeramalexSync");
 		frame.setBounds(100, 100, 800, 346);
 		frame.setLocationRelativeTo(null);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -242,16 +236,13 @@ public class MainFrame {
 		caret.setUpdatePolicy(DefaultCaret.ALWAYS_UPDATE);
 
 		scrollPane = new JScrollPane(txtLog);
-		scrollPane
-				.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-		scrollPane
-				.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
+		scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+		scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
 		panelLog.add(scrollPane);
 
 		panelActions = new JPanel();
 		panelActions.setBorder(new TitledBorder(new LineBorder(new Color(0, 0,
-				0)), "Actions", TitledBorder.LEADING, TitledBorder.TOP, null,
-				null));
+				0)), "Actions", TitledBorder.LEADING, TitledBorder.TOP, null,null));
 		panelActions.setBounds(617, 115, 165, 190);
 		frame.getContentPane().add(panelActions);
 		panelActions.setLayout(null);
@@ -313,11 +304,9 @@ public class MainFrame {
 	}
 	
 	private boolean confirmClose() {
-		if (JOptionPane.showConfirmDialog(
-				frame,
+		if (JOptionPane.showConfirmDialog(frame,
 				"The sync is still in progress. Do you really want to quit and RISK DATA LOSS?",
-				"Really interrupt?",
-				JOptionPane.OK_CANCEL_OPTION,
+				"Really interrupt?",JOptionPane.OK_CANCEL_OPTION,
 				JOptionPane.WARNING_MESSAGE) == JOptionPane.OK_OPTION) {
 			return true;
 		}else return false;
@@ -332,12 +321,12 @@ public class MainFrame {
 			rowCount += comp.getRowCount();
 		}
 		if (rowCount == 0) {
+			sqlAccess.close();
+			connected = false;
 			if (JOptionPane.showConfirmDialog(frame, "Your local database is equal to the remote database! Close?", "Already in sync", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.YES_OPTION) {
-				sqlAccess.close();
-				connected = false;
 				frame.dispose();
 				return;
-			}
+			} else return;
 		}
 		
 		comp = new ComparisonFrame(txtLog, chkIncludeImg.isSelected());
@@ -363,7 +352,7 @@ public class MainFrame {
 		SwingWorker<Void, FrameStatus> watcher = new SwingWorker<Void, FrameStatus>() {
 
 			@Override
-			protected Void doInBackground() throws Exception {
+			protected Void doInBackground() throws InterruptedException, ExecutionException, TimeoutException {
 				
 				/**
 				 * SwingWorker to connect to DBs and update GUI
@@ -373,7 +362,7 @@ public class MainFrame {
 
 					/**
 					 * @return true if connection established; false if connection failed
-					 * @throws IOException 
+					 * @throws IOException
 					 */
 					@Override
 					protected Boolean doInBackground()
@@ -382,30 +371,17 @@ public class MainFrame {
 						data.resetResults();
 						publish(FrameStatus.connecting());
 
-						try {
-							if (sqlAccess.connect()) {
-								connected = true;
-								publish(FrameStatus.open());
-								logger.info(FrameStatus.open().getLogMsg());
-								return true;
-							} else {
-								connected = false;
-								publish(FrameStatus.closedError());
-								logger.error(FrameStatus.closedError().getLogMsg());
-								sqlAccess.close();
-								return false;
-							}
-						} catch (SQLException e) {
-							String msg = getErrorMsg(e);
-							
-							if (timedOut && msg.contains("Server did not answer.")) {
-								timedOut = true;
-								return false;
-							} else {
-								publish(FrameStatus.closedError(msg));
-								this.cancel(true);
-								handleException(msg);
-							}
+						if (sqlAccess.connect()) {
+							connected = true;
+							publish(FrameStatus.open());
+							logger.info(FrameStatus.open().getLogMsg());
+							return true;
+						} else {
+							connected = false;
+							publish(FrameStatus.closedError());
+							logger.error(FrameStatus.closedError().getLogMsg());
+							this.cancel(true);
+							sqlAccess.close();
 							return false;
 						}
 					}
@@ -447,22 +423,7 @@ public class MainFrame {
 					}
 				};
 				worker.execute();
-				try {
-					worker.get(CONN_TIMEOUT, TimeUnit.SECONDS);
-				} catch (InterruptedException | ExecutionException e1) {
-					worker.cancel(true);
-					handleException(getErrorMsg(e1));
-					publish(FrameStatus.closedError("Connection aborted by error."));
-				} catch (TimeoutException e2) {
-					String msg = getErrorMsg(e2);
-					
-					if (!timedOut) {
-						timedOut = true;
-						worker.cancel(true);
-						publish(FrameStatus.closedError(msg));
-						handleException(msg);
-					}
-				}
+				worker.get(CONN_TIMEOUT, TimeUnit.SECONDS);
 				return null;
 			}
 			@Override
@@ -536,8 +497,6 @@ public class MainFrame {
 			}
 		});
 		worker.execute();
-
-		
 	}
 	
 	/**
@@ -548,12 +507,8 @@ public class MainFrame {
 		SwingUtilities.invokeLater(new Runnable() {
 			@Override
 			public void run() {
-				JOptionPane.showMessageDialog(
-				frame,
-				"Connection aborted by error: "
-						+ string,
-				"Aborted by error",
-				JOptionPane.ERROR_MESSAGE);
+				JOptionPane.showMessageDialog(frame,"Connection aborted by error: "+ string,
+						"Aborted by error", JOptionPane.ERROR_MESSAGE);
 			}
 		});
 	}
@@ -567,27 +522,15 @@ public class MainFrame {
 			/**
 			 * @return true if connection closed
 			 * @return false if closing connection failed
+			 * @throws SQLException 
+			 * @throws IOException 
 			 */
 			@Override
-			protected Boolean doInBackground() {
+			protected Boolean doInBackground() throws IOException, SQLException {
 
 				SQLAccessController connector = null;
-				try {
-					connector = SQLAccessController.getInstance();
-				} catch (IOException e) {
-					SwingUtilities.invokeLater(new Runnable() {
-						@Override
-						public void run() {
-							JOptionPane.showMessageDialog(frame,
-											"I was not able to create a new config file. Missing permissions?",
-											"Error",JOptionPane.WARNING_MESSAGE);
-						}
-					});
-				} catch (SQLException e) {
-					publish(FrameStatus.closedError("Error: " + e.getMessage()));
-					handleException(getErrorMsg(e));
-				}
-
+				connector = SQLAccessController.getInstance();
+				
 				if (connector.close()) {
 					connected = false;
 					publish(FrameStatus.closed("Connection closed."));
@@ -599,11 +542,8 @@ public class MainFrame {
 					SwingUtilities.invokeLater(new Runnable() {
 						@Override
 						public void run() {
-							JOptionPane
-									.showMessageDialog(frame,
-											"Connection could not be closed!",
-											"Error closing connection",
-											JOptionPane.ERROR_MESSAGE);
+							JOptionPane.showMessageDialog(frame, "Connection could not be closed!",
+									"Error closing connection",JOptionPane.ERROR_MESSAGE);
 						};
 					});
 					return false;

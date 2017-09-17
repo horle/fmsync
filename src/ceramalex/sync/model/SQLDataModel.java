@@ -2,37 +2,27 @@ package ceramalex.sync.model;
 
 import java.io.IOException;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.AbstractList;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Collection;
+import java.util.Iterator;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.Iterator;
-import java.util.Set;
-import java.util.TimeZone;
 import java.util.Vector;
 
 import org.apache.log4j.Logger;
-import org.apache.log4j.xml.DOMConfigurator;
+
+import com.filemaker.jdbc.FMSQLException;
+import com.google.common.collect.Table.Cell;
+import com.google.common.collect.TreeBasedTable;
 
 import ceramalex.sync.controller.ConfigController;
 import ceramalex.sync.controller.SQLAccessController;
 import ceramalex.sync.exception.EntityManagementException;
 import ceramalex.sync.exception.FilemakerIsCrapException;
 import ceramalex.sync.exception.SyncException;
-
-import com.filemaker.jdbc.FMSQLException;
-import com.google.common.collect.Table.Cell;
-import com.google.common.collect.TreeBasedTable;
 
 /**
  * Internal logic for comparing databases
@@ -71,14 +61,6 @@ public class SQLDataModel {
 		sqlAccess = SQLAccessController.getInstance();
 		conf = ConfigController.getInstance();
 		results = new TreeMap<Pair, ComparisonResult>();
-	}
-
-	private Timestamp normaliseTS(Timestamp t) {
-		return Timestamp.valueOf(t.toLocalDateTime().format(formatTS));
-	}
-	private Timestamp normaliseTS(String t) {
-		LocalDateTime bla = LocalDateTime.parse(t);
-		return Timestamp.valueOf(bla.format(formatTS));
 	}
 	
 	public ArrayList<Pair> fetchCommonTables() throws SQLException {
@@ -565,7 +547,6 @@ public class SQLDataModel {
 			 * LID == NULL and RID != NULL
 			 */
 			else if (!local.containsColumn(rID)) {
-				String currRTS = remoteRow.get("lastModified"); // current arachne timestamp
 				
 				if (!isDeletedRemotely) {
 					remoteRow.remove("ForeignKey");
@@ -631,163 +612,6 @@ public class SQLDataModel {
 			}
 		}
 		return compareFields(commonFields, rowLocal, rowRemote, currTab);
-	}
-
-	private TreeMap<String, String> remoteLookupByPK(Pair currTab, Pair pk, TreeSet<String> commFields)
-			throws SQLException, IOException {
-		String archerMSSkip = "";
-		TreeSet<String> commonFields = new TreeSet<String>(commFields);
-		
-		if (currTab.getLeft().equalsIgnoreCase("mainabstract")) {
-			archerMSSkip = " AND " + currTab.getRight()
-					+ ".ImportSource!='Comprehensive Table'";
-		}
-		String select = "SELECT arachneentityidentification.ArachneEntityID, "
-				+ "CONVERT_TZ(" + currTab.getRight() + ".`lastModified`, @@session.time_zone, '+00:00') as lastModified, ";
-		String sql = " FROM arachneentityidentification"
-				// left join includes deleted or empty UIDs
-				+ " LEFT JOIN " + currTab.getRight()
-				+ " ON arachneentityidentification.ForeignKey = "
-				+ currTab.getRight() + "." + pk.getLeft()
-				+ " WHERE arachneentityidentification.TableName=\""
-				+ currTab.getRight() + "\"" + archerMSSkip
-				+ " AND "+pk.getLeft() + "="+pk.getRight();
-
-		commonFields.remove("ArachneEntityID");
-		commonFields.remove("lastModified");
-		
-		Iterator<String> it = commonFields.iterator();
-		while (it.hasNext()) {
-			String next = it.next();
-			if (it.hasNext())
-				select += currTab.getRight()+"."+next + ",";
-			else 
-				select += currTab.getRight()+"."+next;
-		}
-		
-		ResultSet r = sqlAccess.doMySQLQuery(select + sql);
-		ResultSetMetaData rmd = r.getMetaData();
-		TreeMap<String,String> result = new TreeMap<String,String>();
-		if (r.next()) {
-			for (int i = 1; i <= rmd.getColumnCount(); i++) {
-				result.put(rmd.getColumnLabel(i), r.getString(i));
-			}
-			result.put("ArachneEntityID", r.getString("ArachneEntityID")); // RAUID
-			String t = r.getTimestamp("lastModified") == null ? null : r.getTimestamp("lastModified")
-					.toLocalDateTime().format(formatTS);
-			result.put("lastModified", t); // lastmodified
-			result.put(pk.getLeft(), r.getString(pk.getLeft())); // pk value
-		}
-		return result;
-	}
-	
-	/**
-	 * method checks, if row with common fields is already in remote DB
-	 * 
-	 * @param currTab
-	 * @param row
-	 * @param commonFields 
-	 * @return Vector<Tuple<Pair, Object>> with Pair of RAUID, TS, and PK, if
-	 *         row is already in remote db. empty list else.
-	 * @throws SQLException
-	 * @throws IOException
-	 */
-	private TreeMap<String, String> isRowOnRemote(Pair currTab, TreeMap<String, String> row, ArrayList<String> commonFields)
-			throws SQLException, IOException {
-		String archerMSSkip = "";
-		if (currTab.getLeft().equalsIgnoreCase("mainabstract")) {
-			archerMSSkip = " AND " + currTab.getRight()
-					+ ".ImportSource!='Comprehensive Table'";
-		}
-		String pk = sqlAccess.getMySQLTablePrimaryKey(currTab.getRight());
-		String sql = "SELECT arachneentityidentification.ArachneEntityID, "
-				+ "CONVERT_TZ(" + currTab.getRight() + ".`lastModified`, @@session.time_zone, '+00:00') as lastModified, "
-				+ currTab.getRight() + "." + pk
-				+ " FROM arachneentityidentification"
-				// left join includes deleted or empty UIDs
-				+ " LEFT JOIN " + currTab.getRight()
-				+ " ON arachneentityidentification.ForeignKey = "
-				+ currTab.getRight() + "." + pk
-				+ " WHERE arachneentityidentification.TableName=\""
-				+ currTab.getRight() + "\"" + archerMSSkip;
-
-		for (String key : commonFields) {
-			
-			if (key.equals("ArachneEntityID")
-					|| key.equals("lastModified")
-					|| key.equals("lastRemoteTS"))
-				continue;
-			
-			String val = row.get(key) == null ? null
-					: escapeChars(row.get(key));
-			
-			if (key.equals("lastRemoteTS")
-					&& (val == null || val.equals("null")))
-				continue;
-			
-			if (val == null || val.equals("null"))
-				sql += " AND " + currTab.getRight() + "." + key
-						+ " IS NULL";
-			else if (isNumericalField(currTab.getLeft() + "." + key))
-				sql += " AND " + currTab.getRight() + "." + key + " = "
-						+ val;
-			else
-				sql += " AND " + currTab.getRight() + "." + key
-						+ " = '" + val + "'";
-		}
-		ResultSet r = sqlAccess.doMySQLQuery(sql);
-		TreeMap<String,String> result = new TreeMap<String,String>();
-		ResultSetMetaData rmd = r.getMetaData();
-		if (r.next()) {
-			for (int i = 1; i <= rmd.getColumnCount(); i++) {
-				result.put(rmd.getColumnLabel(i), r.getString(i));
-			}
-		}
-		return result;
-	}
-	
-	/**
-	 * method checks, if row with common fields is already in local DB
-	 * 
-	 * @param currTab Pair with current table
-	 * @param rowMS TreeMap of remote row
-	 * @return row with RAUID, TS, and PK, if row is already in remote db. empty list else.
-	 * @throws SQLException
-	 * @throws IOException
-	 */
-	private TreeMap<String,String> isRowOnLocal(Pair currTab, Pair lookup, TreeSet<String> commonFields)
-			throws SQLException, IOException {
-		String archerMSSkip = "";
-		TreeMap<String,String> result = new TreeMap<String,String>();
-		
-		if (lookup.getRight() == null || lookup.getRight().isEmpty())
-			return result;
-		
-		if (currTab.getLeft().equalsIgnoreCase("mainabstract")) {
-			archerMSSkip = " AND " + currTab.getLeft()
-					+ ".ImportSource!='Comprehensive Table' AND";
-		}
-		String select = "SELECT lastRemoteTS,";
-		String sql = " FROM " + currTab.getLeft()
-				+ " WHERE " + archerMSSkip
-				+ " "+lookup.getLeft()+"="+lookup.getRight();
-
-		Iterator<String> it = commonFields.iterator();
-		while (it.hasNext()) {
-			String next = it.next();
-			if (it.hasNext())
-				select += next + ",";
-			else 
-				select += next;
-		}
-		ResultSet r = sqlAccess.doFMQuery(select + sql);
-		ResultSetMetaData rmd = r.getMetaData();
-		while (r.next()) {
-			for (int i = 1; i <= rmd.getColumnCount(); i++) {
-				result.put(rmd.getColumnLabel(i), r.getString(i));
-			}
-		}
-		return result;
 	}
 
 	/**
@@ -1177,33 +1001,6 @@ public class SQLDataModel {
 	 */
 	private boolean isFMPrimaryKey(Pair currTab, String field) {
 		return sqlAccess.getFMTablePrimaryKey(currTab.getLeft()).equalsIgnoreCase(field);
-	}
-
-	/**
-	 * get common fields from fm and ms tables
-	 * 
-	 * @param m
-	 *            MySQL resultset of table
-	 * @param f
-	 *            FileMaker resultset of table
-	 * @return common field names as Strings in ArrayList
-	 */
-	private ArrayList<String> getCommonFields(ResultSet m, ResultSet f)
-			throws SQLException {
-		ArrayList<String> result = new ArrayList<String>();
-		ResultSetMetaData metaFMTab = f.getMetaData();
-		ResultSetMetaData metaMSTab = m.getMetaData();
-
-		// columns start at 1
-		for (int i = 1; i <= metaFMTab.getColumnCount(); i++) {
-			for (int j = 1; j <= metaMSTab.getColumnCount(); j++) {
-				if (metaFMTab.getColumnName(i).equalsIgnoreCase(
-						metaMSTab.getColumnName(j))) {
-					result.add(metaFMTab.getColumnName(i));
-				}
-			}
-		}
-		return result;
 	}
 
 	/**
