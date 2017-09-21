@@ -2,6 +2,7 @@ package ceramalex.sync.model;
 
 import java.io.IOException;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
@@ -61,6 +62,21 @@ public class SQLDataModel {
 		sqlAccess = SQLAccessController.getInstance();
 		conf = ConfigController.getInstance();
 		results = new TreeMap<Pair, ComparisonResult>();
+	}
+	
+	public ArrayList<String> fetchFMTables() throws SQLException {
+		ArrayList<String> tables = new ArrayList<String>();
+		
+		if (!sqlAccess.isFMConnected()) {
+			sqlAccess.connect();
+		}
+		
+		ResultSet metaFM = sqlAccess.getFMDBMetaData();
+		while (metaFM.next()) {
+			tables.add(metaFM.getString("TABLE_NAME"));
+		}
+		
+		return tables;
 	}
 	
 	public ArrayList<Pair> fetchCommonTables() throws SQLException {
@@ -1241,6 +1257,34 @@ public class SQLDataModel {
 	public ComparisonResultImg calcImgDiff() {
 		// TODO Auto-generated method stub
 		return null;
+	}
+
+	public TreeBasedTable<Integer, Integer, TreeMap<String, String>> getWholeFMTable(String currTab) throws SQLException, FilemakerIsCrapException, IOException {
+		TreeBasedTable<Integer,Integer,TreeMap<String,String>> table = TreeBasedTable.create();
+
+		addAUIDField(currTab);
+		addLastModifiedField(currTab);
+		addLastRemoteTSField(currTab);
+		
+		String fmSQL = "SELECT * FROM " + currTab;
+		
+		// get only common fields from filemaker
+		ResultSet filemaker = sqlAccess.doFMQuery(fmSQL);
+		ResultSetMetaData meta = sqlAccess.getFMRSMetaData(filemaker);
+		
+		String fmpk = sqlAccess.getFMTablePrimaryKey(currTab);
+				
+		while (filemaker.next()) {
+			TreeMap<String,String> row = new TreeMap<String,String>();
+			for (int i = 1; i < meta.getColumnCount(); i++) {
+				String field = meta.getColumnName(i);
+				row.put(field, filemaker.getString(field));
+			}
+			
+			table.put(filemaker.getInt("ArachneEntityID"), filemaker.getInt(fmpk), row);
+		}
+		
+		return table;
 	}
 	
 }
