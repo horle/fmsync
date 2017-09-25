@@ -8,7 +8,9 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.Iterator;
+import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.Vector;
@@ -64,8 +66,8 @@ public class SQLDataModel {
 		results = new TreeMap<Pair, ComparisonResult>();
 	}
 	
-	public ArrayList<String> fetchFMTables() throws SQLException {
-		ArrayList<String> tables = new ArrayList<String>();
+	public HashSet<String> fetchFMTables() throws SQLException {
+		HashSet<String> tables = new HashSet<String>();
 		
 		if (!sqlAccess.isFMConnected()) {
 			sqlAccess.connect();
@@ -144,7 +146,19 @@ public class SQLDataModel {
 				throw new FilemakerIsCrapException(
 						"Column lastModified has been added manually into table \""
 								+ table
-								+ "\", but has still to be updated in FileMaker with the following script:");// TODO
+								+ "\", but has still to be updated in FileMaker with the following script:\n"
+								+ "SetzeVar (\n" + 
+								"	[\n" + 
+								"		trigger = HoleFeldwert ( \"\" ) ; // note the innovative use of GetField\n" + 
+								"		ros = Hole ( DatensatzOffenStatus ) ;\n" + 
+								"		ies = IstLeer ( Hole ( ScriptName ) ) ;\n" + 
+								"		ts = LiesAlsZeitstempel( Hole ( SystemUhrzeitUTCMillisekunden )/1000)\n" + 
+								"	] ;\n" + 
+								"	Falls (\n" + 
+								"		ros = 1 ; \"\" ;\n" + 
+								"			ros = 2 UND ies = 1 ; ts ; Selbst\n" + 
+								"	)\n" + 
+								")\n");
 			} else
 				throw new FilemakerIsCrapException(
 						"Column lastModified has to be added manually into table \""
@@ -313,7 +327,7 @@ public class SQLDataModel {
 			commonFields.add("lastModified");
 			result.setCommonFields(commonFields);
 			
-			fmpk = sqlAccess.getFMTablePrimaryKey(currTab.getLeft());
+			fmpk = getActualPrimaryKey((currTab.getLeft()));
 			mspk = sqlAccess.getMySQLTablePrimaryKey(currTab.getRight());
 			// pk, map
 			TreeMap<Integer, TreeMap<String, String>> remotePKs = getRemoteSyncInfo(currTab, mspk);	
@@ -617,8 +631,8 @@ public class SQLDataModel {
 		return list;
 	}
 
-	private int compareFields(TreeMap<String, String> rowLocal,
-			TreeMap<String, String> rowRemote, Pair currTab) throws SQLException, IOException {
+	int compareFields(TreeMap<String, String> rowLocal,
+			TreeMap<String, String> rowRemote, Pair currTab) throws SQLException, IOException, NumberFormatException, FilemakerIsCrapException {
 
 		TreeSet<String> commonFields = new TreeSet<String>();
 		//calculate common fields
@@ -902,9 +916,11 @@ public class SQLDataModel {
 	 *         6, if fm index is missing and has to be shifted. -1, if #fields differs
 	 * @throws SQLException
 	 * @throws IOException
+	 * @throws FilemakerIsCrapException 
+	 * @throws NumberFormatException 
 	 */
 	private int compareFields(TreeSet<String> commonFields, TreeMap<String, String> rowFM, TreeMap<String, String> rowMS,
-			Pair currTab) throws SQLException, IOException {
+			Pair currTab) throws SQLException, IOException, NumberFormatException, FilemakerIsCrapException {
 		
 		if (rowMS.size() != rowFM.size()) throw new IllegalArgumentException("trying to compare rows with different field count");
 		
@@ -1019,9 +1035,10 @@ public class SQLDataModel {
 	 * @param field
 	 *            filemaker field name to check
 	 * @return true, if PK. false else.
+	 * @throws FilemakerIsCrapException 
 	 */
-	private boolean isFMPrimaryKey(Pair currTab, String field) {
-		return sqlAccess.getFMTablePrimaryKey(currTab.getLeft()).equalsIgnoreCase(field);
+	private boolean isFMPrimaryKey(Pair currTab, String field) throws FilemakerIsCrapException {
+		return getActualPrimaryKey(currTab.getLeft()).equalsIgnoreCase(field);
 	}
 
 	/**
@@ -1136,7 +1153,7 @@ public class SQLDataModel {
 
 
 	public boolean updateRowsRemotely(Pair currTab,
-			Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> list) throws IOException, SQLException {
+			Vector<Tuple<TreeMap<String, String>, TreeMap<String, String>>> list) throws IOException, SQLException, FilemakerIsCrapException {
 		boolean res = true;
 		
 		for (Tuple<TreeMap<String, String>, TreeMap<String, String>> row : list) {
@@ -1145,7 +1162,7 @@ public class SQLDataModel {
 		return res;
 	}
 
-	private boolean updateRowOnRemote(Pair currTab, Tuple<TreeMap<String, String>, TreeMap<String, String>> tuple) throws IOException, SQLException {
+	private boolean updateRowOnRemote(Pair currTab, Tuple<TreeMap<String, String>, TreeMap<String, String>> tuple) throws IOException, SQLException, FilemakerIsCrapException {
 		if (tuple.getLeft().size() == 0 || tuple.getRight().size() == 0)
 			return false;
 		
@@ -1158,7 +1175,7 @@ public class SQLDataModel {
 		if (set.containsKey("ArachneEntityID")) {
 			if (set.get("ArachneEntityID") == null) {
 				if (where.containsKey("ArachneEntityID")) {
-					String keyField = sqlAccess.getFMTablePrimaryKey(currTab.getFMString());
+					String keyField = getActualPrimaryKey(currTab.getFMString());
 					Timestamp ts = where.get("lastModified") == null ? null : Timestamp.valueOf(where.get("lastModified"));
 					updateLocalUIDAndTS(currTab, Integer.parseInt(where.get("ArachneEntityID")), ts, keyField, Integer.parseInt(where.get(keyField)));
 				}
@@ -1219,11 +1236,11 @@ public class SQLDataModel {
 		return true;
 	}
 
-	public boolean deleteRows(Pair currTab, boolean local, Vector<TreeMap<String, String>> delList, int packSize) throws SQLException, IOException {
+	public boolean deleteRows(Pair currTab, boolean local, Vector<TreeMap<String, String>> delList, int packSize) throws SQLException, IOException, FilemakerIsCrapException {
 		if (delList.size() == 0)
 			return true;
 		
-		String pk = local ? sqlAccess.getFMTablePrimaryKey(currTab.getFMString()) : sqlAccess.getMySQLTablePrimaryKey(currTab.getMySQLString());
+		String pk = local ? getActualPrimaryKey(currTab.getFMString()) : sqlAccess.getMySQLTablePrimaryKey(currTab.getMySQLString());
 		String sql = " WHERE " + pk + "=";
 		
 		Iterator<TreeMap<String, String>> it = delList.iterator();
@@ -1259,12 +1276,23 @@ public class SQLDataModel {
 		return null;
 	}
 
-	public TreeBasedTable<Integer, Integer, TreeMap<String, String>> getWholeFMTable(String currTab) throws SQLException, FilemakerIsCrapException, IOException {
-		TreeBasedTable<Integer,Integer,TreeMap<String,String>> table = TreeBasedTable.create();
-
-		addAUIDField(currTab);
-		addLastModifiedField(currTab);
-		addLastRemoteTSField(currTab);
+	public String getActualPrimaryKey(String currTab) throws FilemakerIsCrapException {
+		TreeSet<String> pks = sqlAccess.getFMTablePrimaryKey(currTab);
+		if (pks.size() == 1) return pks.first();
+		else if (pks.size() <= 0) {
+			logger.warn("No primary key in table "+currTab+"!");
+			return "";
+		}
+		else {
+			for (String key : pks) {
+				if (key.toLowerCase().contains(currTab.toLowerCase())) return key;
+			}
+			throw new FilemakerIsCrapException("LALALALA");
+		}
+	}
+	
+	public TreeBasedTable<String, Integer, TreeMap<String, String>> getWholeFMTable(String currTab) throws SQLException, FilemakerIsCrapException, IOException {
+		TreeBasedTable<String,Integer,TreeMap<String,String>> table = TreeBasedTable.create();
 		
 		String fmSQL = "SELECT * FROM " + currTab;
 		
@@ -1272,16 +1300,22 @@ public class SQLDataModel {
 		ResultSet filemaker = sqlAccess.doFMQuery(fmSQL);
 		ResultSetMetaData meta = sqlAccess.getFMRSMetaData(filemaker);
 		
-		String fmpk = sqlAccess.getFMTablePrimaryKey(currTab);
+		String fmpk = getActualPrimaryKey(currTab);
 				
 		while (filemaker.next()) {
 			TreeMap<String,String> row = new TreeMap<String,String>();
 			for (int i = 1; i < meta.getColumnCount(); i++) {
 				String field = meta.getColumnName(i);
-				row.put(field, filemaker.getString(field));
+				if (!(field.equals("lastModified") || field.equals("lastRemoteTS") || field.equals("ArachneEntityID")))
+					row.put(field, filemaker.getString(field));
+			}
+			try {
+				int pk = filemaker.getInt(fmpk);
+				table.put(currTab, pk, row);
+			} catch (SQLException e) {
+				System.out.println("error while accessing pk "+fmpk +" in table "+currTab);
 			}
 			
-			table.put(filemaker.getInt("ArachneEntityID"), filemaker.getInt(fmpk), row);
 		}
 		
 		return table;

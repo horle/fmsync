@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
+import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 
@@ -30,15 +30,13 @@ public class FMDataAccess extends AbstractDatabase {
 	 * @return name of primary key for certain table. if not found, returns empty string
 	 */
 	@Override
-	public String getTablePrimaryKey(String table) {
-		String result = "";
+	public TreeSet<String> getTablePrimaryKey(String table) {
+		TreeSet<String> result = new TreeSet<String>();
 		
 		try {
 			ResultSet r = cn.getMetaData().getColumns(null, serverDataSource, table, "PS%");
-			if (r.next())
-				result = r.getString("COLUMN_NAME");
 			while (r.next()) { // another PS_* column?
-				result += "," + r.getString("COLUMN_NAME");
+				result.add(r.getString("COLUMN_NAME"));
 			}
 			return result;
 		} catch (SQLException e) {
@@ -48,6 +46,20 @@ public class FMDataAccess extends AbstractDatabase {
 	}
 
 	/**
+	 * Method returns metadata of given FM db
+	 * 
+	 * @param table
+	 *            table to get the metadata from
+	 * @return ResultSet with metadata
+	 * @throws SQLException 
+	 */
+	@Override
+	public ResultSet getDBMetaData() throws SQLException {
+			DatabaseMetaData md = cn.getMetaData();
+			return md.getColumns(null, serverDataSource, "%", "%");
+	}
+	
+	/**
 	 * Method returns metadata of given FM table
 	 * 
 	 * @param table
@@ -56,7 +68,7 @@ public class FMDataAccess extends AbstractDatabase {
 	 * @throws SQLException 
 	 */
 	@Override
-	public ResultSet getColumnMetaData(String table) throws SQLException {
+	public ResultSet getTableMetaData(String table) throws SQLException {
 			DatabaseMetaData md = cn.getMetaData();
 			return md.getColumns(null, serverDataSource, table, "%");
 	}

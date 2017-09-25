@@ -3,6 +3,7 @@ package ceramalex.sync.data;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 
@@ -22,11 +23,11 @@ public class MySQLDataAccess extends AbstractDatabase {
 	 * @throws SQLException 
 	 */
 	@Override
-	public String getTablePrimaryKey(String table) throws SQLException {
-		String result = "";
+	public TreeSet<String> getTablePrimaryKey(String table) throws SQLException {
+		TreeSet<String> result = new TreeSet<String>();
 		ResultSet md = cn.getMetaData().getPrimaryKeys(null, null, table);
 		if (md.next()) {
-			result = md.getString("COLUMN_NAME");
+			result.add(md.getString("COLUMN_NAME"));
 		}
 		return result;
 	}
@@ -40,7 +41,7 @@ public class MySQLDataAccess extends AbstractDatabase {
 	 * @throws SQLException 
 	 */
 	@Override
-	public ResultSet getColumnMetaData(String table) throws SQLException {
+	public ResultSet getTableMetaData(String table) throws SQLException {
 
 		DatabaseMetaData md = cn.getMetaData();
 		return md.getColumns(null, null, table, "%");
