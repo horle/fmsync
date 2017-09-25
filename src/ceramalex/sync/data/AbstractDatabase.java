@@ -11,6 +11,8 @@ import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.SortedSet;
 
 import org.apache.log4j.Logger;
 
@@ -96,7 +98,7 @@ public abstract class AbstractDatabase {
 		try {
 			d = (Driver) Class.forName(getDriverName()).newInstance();
 		} catch (InstantiationException | ClassNotFoundException | IllegalAccessException e) {
-			logger.error("::::" + e);
+			logger.error(e);
 		}
 
 		// eine Verbindung mit DB herstellen
@@ -109,9 +111,9 @@ public abstract class AbstractDatabase {
 		}
 		catch (SQLException e) {
 			logger.error("Driver:" + e);
-			String eMsg = e.getMessage();
+			String eMsg = e.toString();
 			if (getDriverName().contains("mysql"))
-				eMsg = "MySQL: " + eMsg;
+				eMsg = "MySQL: " + e;
 			throw new SQLException(eMsg); // throw to gui ... 
 		}
 		// Verbindungswarnungen holen + ";serverDataSource=" + dbName
@@ -259,7 +261,7 @@ public abstract class AbstractDatabase {
 	 * @return ResultSet with metadata
 	 * @throws SQLException 
 	 */
-	public abstract ResultSet getColumnMetaData(String table) throws SQLException;
+	public abstract ResultSet getTableMetaData(String table) throws SQLException;
 	
 	/**
 	 * Method returns primary key of given table
@@ -267,7 +269,7 @@ public abstract class AbstractDatabase {
 	 * @return name of primary key. if not found, returns empty string
 	 * @throws SQLException 
 	 */
-	public abstract String getTablePrimaryKey(String table) throws SQLException;
+	public abstract SortedSet<String> getTablePrimaryKey(String table) throws SQLException;
 
 	
 	/**

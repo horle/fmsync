@@ -5,6 +5,8 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.SortedSet;
 import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
@@ -110,7 +112,7 @@ public class SQLAccessController {
 	 * @throws SQLException
 	 */
 	public String getMySQLTablePrimaryKey(String table) throws SQLException {
-		return this.mDataAccess.getTablePrimaryKey(table);
+		return this.mDataAccess.getTablePrimaryKey(table).first();
 	}
 
 	/**
@@ -213,27 +215,8 @@ public class SQLAccessController {
 	 */
 	public boolean connect() {
 
-		boolean mRes = true;
-		boolean fRes = true;
-
-		try {
-			mDataAccess = new MySQLDataAccess(conf.getMySQLURL(),
-						conf.getMySQLUser(), conf.getMySQLPassword(),
-						conf.getMySQLDB());
-			fDataAccess = new FMDataAccess(conf.getFmURL(),
-						conf.getFmUser(), conf.getFmPassword(),
-						conf.getFmDB());
-		
-			if (!mDataAccess.isConnected()) {
-				mRes = mDataAccess.createConnection();
-			}
-			if (!fDataAccess.isConnected()) {
-				fRes = fDataAccess.createConnection();
-			}
-			
-		} catch (SQLException e) {
-			return false;
-		}
+		boolean mRes = connectMySQL();
+		boolean fRes = connectFM();
 		
 		return mRes && fRes;
 	}
@@ -366,7 +349,7 @@ public class SQLAccessController {
 	private TreeSet<String> getFMNumericFields(String table)
 			throws SQLException {
 		TreeSet<String> list = new TreeSet<String>();
-		ResultSet s = this.fDataAccess.getColumnMetaData(table);
+		ResultSet s = this.fDataAccess.getTableMetaData(table);
 		while (s.next()) {
 			if (s.getInt(5) == java.sql.Types.DOUBLE
 					&& !s.getString(4).startsWith("["))
@@ -386,7 +369,7 @@ public class SQLAccessController {
 	private TreeSet<String> getFMTimestampFields(String table)
 			throws SQLException {
 		TreeSet<String> list = new TreeSet<String>();
-		ResultSet s = this.fDataAccess.getColumnMetaData(table);
+		ResultSet s = this.fDataAccess.getTableMetaData(table);
 		while (s.next()) {
 			if (s.getInt(5) == java.sql.Types.TIMESTAMP
 					&& !s.getString(4).startsWith("["))
@@ -396,18 +379,50 @@ public class SQLAccessController {
 	}
 
 	public ResultSet getFMColumnMetaData(String f) throws SQLException {
-		return this.fDataAccess.getColumnMetaData(f);
+		return this.fDataAccess.getTableMetaData(f);
 	}
 
 	public ResultSet getMySQLColumnMetaData(String m) throws SQLException {
-		return this.mDataAccess.getColumnMetaData(m);
+		return this.mDataAccess.getTableMetaData(m);
 	}
 
-	public String getFMTablePrimaryKey(String f) {
+	public TreeSet<String> getFMTablePrimaryKey(String f) {
 		return this.fDataAccess.getTablePrimaryKey(f);
 	}
 
 	public boolean doFMAlter(String sql) throws SQLException, IOException {
 		return fDataAccess.doSQLAlter(sql);
+	}
+
+	public boolean connectFM() {
+		try {
+			fDataAccess = new FMDataAccess(conf.getFmURL(),
+						conf.getFmUser(), conf.getFmPassword(),
+						conf.getFmDB());
+			
+			if (!fDataAccess.isConnected()) {
+				return fDataAccess.createConnection();
+			}
+			
+		} catch (SQLException e) {
+			return false;
+		}
+		return false;
+	}
+	
+	public boolean connectMySQL() {
+		try {
+			mDataAccess = new MySQLDataAccess(conf.getMySQLURL(),
+						conf.getMySQLUser(), conf.getMySQLPassword(),
+						conf.getMySQLDB());
+		
+			if (!mDataAccess.isConnected()) {
+				return mDataAccess.createConnection();
+			}
+			
+		} catch (SQLException e) {
+			return false;
+		}
+		return false;
 	}
 }
