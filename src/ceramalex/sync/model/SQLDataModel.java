@@ -10,6 +10,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -66,19 +67,98 @@ public class SQLDataModel {
 		results = new TreeMap<Pair, ComparisonResult>();
 	}
 	
-	public HashSet<String> fetchFMTables() throws SQLException {
-		HashSet<String> tables = new HashSet<String>();
+	/**
+	 * only for importOtherFM
+	 * @return
+	 * @throws SQLException
+	 */
+	public ArrayList<String> fetchFMTables() throws SQLException {
+		ArrayList<String> tables = new ArrayList<String>();
 		
 		if (!sqlAccess.isFMConnected()) {
 			sqlAccess.connect();
 		}
 		
 		ResultSet metaFM = sqlAccess.getFMDBMetaData();
+		
 		while (metaFM.next()) {
-			tables.add(metaFM.getString("TABLE_NAME"));
+			String table = metaFM.getString("TABLE_NAME");
+			if (!tables.contains(table))
+				tables.add(table);
 		}
 		
+		conf.setNumericFields(sqlAccess.fetchFMNumericFields(tables));
+		conf.setTimestampFields(sqlAccess.fetchFMTimestampFields(tables));
 		return tables;
+	}
+	
+	/**
+	 * method checks, if row with common fields is already in local DB
+	 * 
+	 * @param currTab Pair with current table
+	 * @param pk 
+	 * @param row remote row
+	 * @return row with RAUID, TS, and PK, if row is already in remote db. empty list else.
+	 * @throws SQLException
+	 * @throws IOException
+	 */
+	public TreeMap<String,String> isRowOnLocal(Pair currTab, String pk, TreeMap<String,String> row)
+			throws SQLException, IOException {
+		String archerMSSkip = "";
+		TreeMap<String,String> result = new TreeMap<String,String>();
+		
+		TreeMap<String,String> commonFields = new TreeMap<String,String>(row);
+		
+		for (String key : row.keySet()) {
+			if (key.startsWith("[")) commonFields.remove(key);
+		}
+		commonFields.remove("ArachneEntityID");
+		commonFields.remove(pk);
+		
+		if (currTab.getLeft().equalsIgnoreCase("mainabstract")) {
+			archerMSSkip = " AND " + currTab.getLeft()
+					+ ".ImportSource!='Comprehensive Table' AND";
+		}
+		
+		String select = "SELECT ";
+		String sql = " FROM " + currTab.getLeft() + " WHERE " + archerMSSkip
+				+ " ";
+
+		Iterator<String> it = commonFields.keySet().iterator();
+		while (it.hasNext()) {
+			String key = it.next();
+			String val = commonFields.get(key);
+			String longName = currTab.getFMString()+"."+key;
+			select += key;
+			
+			if (!isNumericalField(longName)
+					&& !isTimestampField(longName)
+					&& val != null) {
+				val = "'" + escapeChars(val) + "'";
+			}
+			else if (isTimestampField(longName)
+					&& val != null) {
+				val = "TIMESTAMP '" + val;
+			}
+			
+			if (val == null || val.equals("null"))
+				sql += key + " IS NULL";
+			else
+				sql += key + "="+val;
+			
+			if (it.hasNext()) {
+				select += ",";
+				sql += " AND ";
+			}
+		}
+		ResultSet r = sqlAccess.doFMQuery((select + sql).replace('\n', ' '));
+		ResultSetMetaData rmd = r.getMetaData();
+		while (r.next()) {
+			for (int i = 1; i <= rmd.getColumnCount(); i++) {
+				result.put(rmd.getColumnLabel(i), r.getString(i));
+			}
+		}
+		return result;
 	}
 	
 	public ArrayList<Pair> fetchCommonTables() throws SQLException {
@@ -133,11 +213,9 @@ public class SQLDataModel {
 			ResultSet fmColumns = sqlAccess.getFMColumnMetaData(table);
 
 			while (fmColumns.next()) {
-				{
-					if (fmColumns.getString("COLUMN_NAME").equalsIgnoreCase(
-							"lastModified")) {
-						return true;
-					}
+				if (fmColumns.getString("COLUMN_NAME").equalsIgnoreCase(
+						"lastModified")) {
+					return true;
 				}
 			}
 
@@ -922,9 +1000,11 @@ public class SQLDataModel {
 	private int compareFields(TreeSet<String> commonFields, TreeMap<String, String> rowFM, TreeMap<String, String> rowMS,
 			Pair currTab) throws SQLException, IOException, NumberFormatException, FilemakerIsCrapException {
 		
-		if (rowMS.size() != rowFM.size()) throw new IllegalArgumentException("trying to compare rows with different field count");
+//		if (rowMS.size() != rowFM.size()) {
+//			throw new IllegalArgumentException("trying to compare rows with different field count");
+//		}
 		
-		if (!rowMS.keySet().equals(rowFM.keySet())) return -1;
+//		if (!rowMS.keySet().equals(rowFM.keySet())) return -1;
 		
 		int res = 1;
 		boolean localAllNull = true; // empty local fields
@@ -1006,9 +1086,9 @@ public class SQLDataModel {
 					}
 				}
 				allSame = false;
-				System.out.println(currField + " in " + currTab
-						+ " not equal: \"" + fmVal + "\" (FM) and \"" + msVal
-						+ "\" (MS)");
+//				System.out.println(currField + " in " + currTab
+//						+ " not equal: \"" + fmVal + "\" (FM) and \"" + msVal
+//						+ "\" (MS)");
 				return 1;
 			}
 		}
@@ -1313,11 +1393,9 @@ public class SQLDataModel {
 				int pk = filemaker.getInt(fmpk);
 				table.put(currTab, pk, row);
 			} catch (SQLException e) {
-				System.out.println("error while accessing pk "+fmpk +" in table "+currTab);
+//				System.out.println("error while accessing pk "+fmpk +" in table "+currTab);
 			}
-			
 		}
-		
 		return table;
 	}
 	
