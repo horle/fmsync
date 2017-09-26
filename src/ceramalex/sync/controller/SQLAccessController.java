@@ -55,7 +55,6 @@ public class SQLAccessController {
 		fDataAccess = new FMDataAccess(conf.getFmURL(),
 				conf.getFmUser(), conf.getFmPassword(),
 				conf.getFmDB());
-
 	}
 
 	/**
@@ -239,8 +238,8 @@ public class SQLAccessController {
 		
 		for (int i = 0; i < commonTables.size(); i++) {
 			list.add(commonTables.get(i).getLeft() + ".ArachneEntityID");
-			fm.addAll(getFMNumericFields(commonTables.get(i).getLeft()));
-			sqlCommonTables += "TABLE_NAME = '" + commonTables.get(i).getRight() + "'";
+			fm.addAll(getFMNumericFields(commonTables.get(i).getFMString()));
+			sqlCommonTables += "TABLE_NAME = '" + commonTables.get(i).getMySQLString() + "'";
 			if (i < commonTables.size()-1) sqlCommonTables += " OR ";
 		}
 		sqlCommonTables += ") ";
@@ -338,6 +337,23 @@ public class SQLAccessController {
 		return false;
 	}
 
+	public TreeSet<String> fetchFMNumericFields(ArrayList<String> commonTables) throws SQLException {
+		TreeSet<String> list = new TreeSet<String>();
+		for (int i = 0; i < commonTables.size(); i++) {
+			list.addAll(getFMNumericFields(commonTables.get(i)));
+		}
+		return list;
+	}
+	
+	public TreeSet<Pair> fetchFMTimestampFields(ArrayList<String> commonTables) throws SQLException {
+		TreeSet<Pair> list = new TreeSet<Pair>();
+		for (int i = 0; i < commonTables.size(); i++) {
+			for (String field : getFMTimestampFields(commonTables.get(i)))
+				list.add(new Pair (field,field));
+		}
+		return list;
+	}
+	
 	/**
 	 * helper method to fetch filemaker numeric fields from particular table
 	 * 
