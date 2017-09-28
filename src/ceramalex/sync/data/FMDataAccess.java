@@ -16,7 +16,7 @@ public class FMDataAccess extends AbstractDatabase {
 	public FMDataAccess(String dbUrl, String user, String pwd, String serverDataSource) throws SQLException {
 		super(dbUrl, user, pwd, serverDataSource);
 		
-		logger = Logger.getLogger(this.getClass());
+		logger = Logger.getLogger(FMDataAccess.class);
 	}
 	
 	public FMDataAccess() throws SQLException {
@@ -28,21 +28,16 @@ public class FMDataAccess extends AbstractDatabase {
 	 * Method returns primary key of filemaker table
 	 * 
 	 * @return name of primary key for certain table. if not found, returns empty string
+	 * @throws SQLException 
 	 */
 	@Override
-	public TreeSet<String> getTablePrimaryKey(String table) {
+	public TreeSet<String> getTablePrimaryKey(String table) throws SQLException {
 		TreeSet<String> result = new TreeSet<String>();
-		
-		try {
-			ResultSet r = cn.getMetaData().getColumns(null, serverDataSource, table, "PS%");
-			while (r.next()) { // another PS_* column?
-				result.add(r.getString("COLUMN_NAME"));
-			}
-			return result;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return result;
+		ResultSet r = cn.getMetaData().getColumns(null, serverDataSource, table, "PS%");
+		while (r.next()) { // another PS_* column?
+			result.add(r.getString("COLUMN_NAME"));
 		}
+		return result;
 	}
 
 	/**
@@ -54,7 +49,7 @@ public class FMDataAccess extends AbstractDatabase {
 	 * @throws SQLException 
 	 */
 	@Override
-	public ResultSet getDBMetaData() throws SQLException {
+	public ResultSet getTableMetaData() throws SQLException {
 			DatabaseMetaData md = cn.getMetaData();
 			return md.getColumns(null, serverDataSource, "%", "%");
 	}
