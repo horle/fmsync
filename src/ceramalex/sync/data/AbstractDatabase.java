@@ -241,16 +241,11 @@ public abstract class AbstractDatabase {
 	 * @param rs
 	 *            ResultSet, fuer das die Metadaten geholt werden sollen
 	 * @return ResultMetaDaten fuer uebergebenes ResultSet
+	 * @throws SQLException 
 	 */
-	public ResultSetMetaData getRSMetaData(ResultSet rs) {
-
-		try {
-			ResultSetMetaData rsmd = rs.getMetaData();
-			return rsmd;
-		} catch (SQLException e) {
-			e.printStackTrace();
-			return null;
-		}
+	public ResultSetMetaData getRSMetaData(ResultSet rs) throws SQLException {
+		ResultSetMetaData rsmd = rs.getMetaData();
+		return rsmd;
 	}
 	
 	/**
@@ -271,14 +266,24 @@ public abstract class AbstractDatabase {
 	 */
 	public abstract SortedSet<String> getTablePrimaryKey(String table) throws SQLException;
 
-	
 	/**
-	 * Methode liefert die Metadaten
+	 * method returns metadata object for db
 	 * 
-	 * @return MetaDaten fuer datenbank
+	 * @return metadata for db
 	 * @throws SQLException 
 	 */
-	public ResultSet getDBMetaData() throws SQLException {
+	public DatabaseMetaData getDBMetaData() throws SQLException {
+		
+		return cn.getMetaData();
+	}
+	
+	/**
+	 * method returns metadata for all tables
+	 * 
+	 * @return metadata for all tables as ResultSet
+	 * @throws SQLException 
+	 */
+	public ResultSet getTableMetaData() throws SQLException {
 
 		String[] types = {"TABLE"};
 		ResultSet md = cn.getMetaData().getTables(null, null, "%", types);

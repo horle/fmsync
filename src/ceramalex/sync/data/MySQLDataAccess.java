@@ -40,7 +40,6 @@ public class MySQLDataAccess extends AbstractDatabase {
 	 * @return ResultSet with metadata
 	 * @throws SQLException 
 	 */
-	@Override
 	public ResultSet getTableMetaData(String table) throws SQLException {
 
 		DatabaseMetaData md = cn.getMetaData();

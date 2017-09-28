@@ -7,6 +7,9 @@ import java.util.HashSet;
 import java.util.Scanner;
 import java.util.TreeMap;
 
+import org.apache.log4j.Logger;
+import org.apache.log4j.xml.DOMConfigurator;
+
 import com.google.common.collect.Table.Cell;
 import com.google.common.collect.TreeBasedTable;
 
@@ -17,6 +20,8 @@ import javafx.scene.control.TabPaneBuilder;
 
 public class ImportOtherFM {
 	
+	private static Logger logger = Logger.getLogger(SQLDataModel.class);
+	
 	/**
 	 * import datasets from luana, check for existing, referenced entities, e.g. fabrics, and if they are reused in luana db
 	 * or if there exist new fabrics with same ID
@@ -26,18 +31,19 @@ public class ImportOtherFM {
 	 */
 	public static void main(String[] args) {
 		try {
+			DOMConfigurator.configureAndWatch("log4j.xml");
 			ConfigController conf = ConfigController.getInstance();
 			SQLAccessController sqlAccess = SQLAccessController.getInstance();
 			SQLDataModel m = SQLDataModel.getInstance();
 			
 			Scanner scan = new Scanner(System.in);
 			
-			TreeMap<String, TreeBasedTable<String, Integer, TreeMap<String, String>>> old = new TreeMap<String, TreeBasedTable<String, Integer, TreeMap<String, String>>>();
+			TreeMap<String, TreeBasedTable<String, Integer, TreeMap<String, String>>> newList = new TreeMap<String, TreeBasedTable<String, Integer, TreeMap<String, String>>>();
 			
 			conf.setFmPassword("btbw");
 			conf.setFmDB("iDAIAbstractCeramalex");
 			
-			System.out.println("STARTING? CHANGE TO REAL DB");
+			System.out.println("STARTING? CHANGE TO NEW DB");
 			scan.nextLine();
 			
 			sqlAccess.connectFM();
@@ -45,55 +51,66 @@ public class ImportOtherFM {
 			for (String currTab : m.fetchFMTables()) {
 				if (!("S".equals(currTab) || "Sprache".equals(currTab))) {
 					TreeBasedTable<String, Integer, TreeMap<String, String>> table = m.getWholeFMTable(currTab);
-					old.put(currTab, table);
+					newList.put(currTab, table);
 				}
 			}
 
 			sqlAccess.close();
-			System.out.println("DONE WITH FIRST DB; PRESS ENTER WHEN READY!");
+			System.out.println("DONE; CHANGE DB AND PRESS ENTER WHEN READY!");
 			scan.nextLine();
 			scan.close();
-			
-			sqlAccess.close();
 			
 			sqlAccess.connectFM();
 			
 			for (String currTab : m.fetchFMTables()) {
+				// NEW -> RIGHT
+				// OLD -> LEFT
 				Pair pair = new Pair(currTab,currTab);
-				if (currTab.equals("Place")) 
-					pair = new Pair(currTab, "Ort");
-				if (currTab.equals("PlaceConnection")) 
-					pair = new Pair(currTab, "Ortsbezug");
-				if (currTab.equals("XPlaceX")) 
-					pair = new Pair(currTab, "XOrtX");
+				if (currTab.equals("Ort")) 
+					pair = new Pair(currTab, "Place");
+				if (currTab.equals("Ortsbezug")) 
+					pair = new Pair(currTab, "PlaceConnection");
+				if (currTab.equals("XOrtX")) 
+					pair = new Pair(currTab, "XPlaceX");
 				
 				int count = 0;
+				int existCount = 0;
 				int diffCount = 0;
-				if (!("S".equals(currTab) || currTab.startsWith("["))) {
-					TreeBasedTable<String, Integer, TreeMap<String, String>> table = m.getWholeFMTable(pair.getLeft());					
+				
+				if (!("S".equals(currTab) || currTab.startsWith("["))) {			
 					int smID = 0;
 					int bgID = 0;
-					if (old.get(pair.getRight()) != null) {
-						for (Cell<String, Integer, TreeMap<String, String>> cell : table.cellSet()) {
-							String tab = cell.getRowKey();
-							int pkval = cell.getColumnKey();
-							String pk = m.getActualPrimaryKey(currTab);
-							TreeMap<String,String> row = cell.getValue();
-							row.remove(pk);
-							
-							if (!m.isRowOnLocal(pair, pk, row).isEmpty()) {
-//							if (old.get(pair.getRight()).contains(pair.getRight(),pkval)) {
-								
-								TreeMap<String, String> oldRow = old.get(pair.getRight()).get(pair.getRight(), pkval);
-								TreeMap<String, String> oldRowIt = new TreeMap<String, String>(oldRow);
-								oldRow.remove(pk);
-								for (String key : oldRowIt.keySet()) {
-									if (key.startsWith("[")) {
-										oldRow.remove(key);
-										row.remove(key);
-									}
+					TreeBasedTable<String, Integer, TreeMap<String, String>> newTable = newList.get(pair.getRight());
+					if (newTable != null) {
+						String pkold = m.getActualPrimaryKey(currTab);
+						String pknew = m.getActualPrimaryKey(currTab);
+						if (pkold.contains("Ortsbezug")) pknew = "PS_PlaceConnectionID";
+						else if (pkold.contains("XOrtX")) pknew = "PS_XPlaceIDX";
+						else if (pkold.contains("Ort")) pknew = "PS_PlaceID";
+						
+						for (Cell<String, Integer, TreeMap<String, String>> newCell : newTable.cellSet()) {
+							int pkval = newCell.getColumnKey();
+							TreeMap<String,String> newRow = new TreeMap<String,String>(newCell.getValue());
+
+							newRow.remove(pknew);
+							for (String key : newCell.getValue().keySet()) {
+								if (key.startsWith("[")) {
+									newRow.remove(key);
 								}
-								if (m.compareFields(row, oldRow, pair) != 0) {
+							}
+							
+							TreeMap<String, String> oldRow = m.isRowOnLocal(pair.getLeft(), pkold, newRow);
+							
+							oldRow.remove(pkold);
+							for (String key : newCell.getValue().keySet()) {
+								if (key.startsWith("[")) {
+									oldRow.remove(key);
+								}
+							}
+							
+							if (!oldRow.isEmpty()) {
+								existCount++;
+								if (m.compareFields(oldRow, newRow, pair) != 0) {
 									if (smID == 0) smID = pkval;
 									bgID = pkval;
 									diffCount++;
@@ -106,7 +123,7 @@ public class ImportOtherFM {
 							}
 						}
 						if (count + diffCount != 0) {
-							System.out.println(+count +" n,\t"+diffCount +" d\t"+currTab+(diffCount!=0?": "+smID+"-"+bgID:""));
+							System.out.println(count +" n,\t"+existCount+" e,\t"+diffCount +" d\t"+currTab+(diffCount!=0?": "+smID+"-"+bgID:""));
 						}
 						
 					} else 

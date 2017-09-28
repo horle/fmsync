@@ -79,7 +79,8 @@ public class SQLDataModel {
 			sqlAccess.connect();
 		}
 		
-		ResultSet metaFM = sqlAccess.getFMDBMetaData();
+		ResultSet metaFM = sqlAccess.getFMTableMetaData();
+		System.out.println("IDENTIFIER QUOTE: "+sqlAccess.getFMDBMetaData().getIdentifierQuoteString());
 		
 		while (metaFM.next()) {
 			String table = metaFM.getString("TABLE_NAME");
@@ -102,39 +103,47 @@ public class SQLDataModel {
 	 * @throws SQLException
 	 * @throws IOException
 	 */
-	public TreeMap<String,String> isRowOnLocal(Pair currTab, String pk, TreeMap<String,String> row)
+	public TreeMap<String,String> isRowOnLocal(String currTab, String pk, TreeMap<String,String> row)
 			throws SQLException, IOException {
 		String archerMSSkip = "";
 		TreeMap<String,String> result = new TreeMap<String,String>();
 		
-		TreeMap<String,String> commonFields = new TreeMap<String,String>(row);
+		TreeMap<String,String> remoteRow = new TreeMap<String,String>(row);
+		remoteRow.remove("ArachneEntityID");
+		remoteRow.remove(pk);
 		
 		for (String key : row.keySet()) {
-			if (key.startsWith("[")) commonFields.remove(key);
+			if (key.startsWith("[")) remoteRow.remove(key);
+			if (key.contains("ü") || key.contains("ä") || key.contains("ö")) remoteRow.remove(key);
+			
+			String val = remoteRow.get(key);
+			remoteRow.remove(key);
+			if (key.equals("Length")) key = "LengthSize";
+			if (key.equals("PS_PlaceID")) key = "PS_OrtID";
+			if (key.equals("PS_PlaceConnectionID")) key = "PS_OrtsbezugID";
+			if (key.equals("PS_XPlaceIDX")) key = "PS_XOrtIDX";
+			remoteRow.put("\""+key+"\"", val);
 		}
-		commonFields.remove("ArachneEntityID");
-		commonFields.remove(pk);
 		
-		if (currTab.getLeft().equalsIgnoreCase("mainabstract")) {
-			archerMSSkip = " AND " + currTab.getLeft()
-					+ ".ImportSource!='Comprehensive Table' AND";
+		if (currTab.equalsIgnoreCase("mainabstract")) {
+			archerMSSkip = currTab + ".ImportSource!='Comprehensive Table' AND";
 		}
 		
 		String select = "SELECT ";
-		String sql = " FROM " + currTab.getLeft() + " WHERE " + archerMSSkip
+		String sql = " FROM " + currTab + " WHERE " + archerMSSkip
 				+ " ";
 
-		Iterator<String> it = commonFields.keySet().iterator();
+		Iterator<String> it = remoteRow.keySet().iterator();
 		while (it.hasNext()) {
 			String key = it.next();
-			String val = commonFields.get(key);
-			String longName = currTab.getFMString()+"."+key;
+			String val = remoteRow.get(key);
+			String longName = currTab+"."+key.replace("\"", "");
 			select += key;
 			
 			if (!isNumericalField(longName)
 					&& !isTimestampField(longName)
 					&& val != null) {
-				val = "'" + escapeChars(val) + "'";
+				val = "'" + escapeCharsFM(val) + "'";
 			}
 			else if (isTimestampField(longName)
 					&& val != null) {
@@ -151,7 +160,7 @@ public class SQLDataModel {
 				sql += " AND ";
 			}
 		}
-		ResultSet r = sqlAccess.doFMQuery((select + sql).replace('\n', ' '));
+		ResultSet r = sqlAccess.doFMQuery((select + sql));
 		ResultSetMetaData rmd = r.getMetaData();
 		while (r.next()) {
 			for (int i = 1; i <= rmd.getColumnCount(); i++) {
@@ -171,7 +180,7 @@ public class SQLDataModel {
 			sqlAccess.connect();
 		}
 
-		ResultSet metaFM = sqlAccess.getFMDBMetaData();
+		ResultSet metaFM = sqlAccess.getFMTableMetaData();
 		ResultSet metaMS = sqlAccess.getMySQLDBMetaData();
 
 		if (sqlAccess.isMySQLConnected() && sqlAccess.isFMConnected()) {
@@ -953,6 +962,11 @@ public class SQLDataModel {
 		return currFieldVal.replace("'", "\\'").replace("\"", "\\\"")
 				.replace("%", "%");
 	}
+	
+	private String escapeCharsFM(String currFieldVal) throws IOException {
+		return currFieldVal.replace("'", "''").replace("\"", "\\\"")
+				.replace("%", "%");
+	}
 
 	private boolean updateLocalUIDAndTS(Pair currTab, int currRAUID,
 			Timestamp ts, String pkName, int pkVal)
@@ -1032,7 +1046,7 @@ public class SQLDataModel {
 
 			if (!(msVal.equalsIgnoreCase(fmVal))) {
 
-				if (isFMPrimaryKey(currTab, currField)) {
+				if (isFMPrimaryKey(currTab.getFMString(), currField)) {
 
 					// if local ID is 0, then entry is NULL on each field.
 					if (msVal.isEmpty())
@@ -1116,9 +1130,10 @@ public class SQLDataModel {
 	 *            filemaker field name to check
 	 * @return true, if PK. false else.
 	 * @throws FilemakerIsCrapException 
+	 * @throws SQLException 
 	 */
-	private boolean isFMPrimaryKey(Pair currTab, String field) throws FilemakerIsCrapException {
-		return getActualPrimaryKey(currTab.getLeft()).equalsIgnoreCase(field);
+	private boolean isFMPrimaryKey(String currTab, String field) throws FilemakerIsCrapException, SQLException {
+		return getActualPrimaryKey(currTab).equalsIgnoreCase(field);
 	}
 
 	/**
@@ -1356,7 +1371,7 @@ public class SQLDataModel {
 		return null;
 	}
 
-	public String getActualPrimaryKey(String currTab) throws FilemakerIsCrapException {
+	public String getActualPrimaryKey(String currTab) throws FilemakerIsCrapException, SQLException {
 		TreeSet<String> pks = sqlAccess.getFMTablePrimaryKey(currTab);
 		if (pks.size() == 1) return pks.first();
 		else if (pks.size() <= 0) {

@@ -1,6 +1,7 @@
 package ceramalex.sync.controller;
 
 import java.io.IOException;
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -101,7 +102,7 @@ public class SQLAccessController {
 	 * @throws SQLException
 	 */
 	public ResultSet getMySQLDBMetaData() throws SQLException {
-		return this.mDataAccess.getDBMetaData();
+		return this.mDataAccess.getTableMetaData();
 	}
 
 	/**
@@ -115,16 +116,25 @@ public class SQLAccessController {
 	}
 
 	/**
-	 * get FM database metadata object
-	 * @return FM database metadata object as ResultSet
+	 * get FM metadata object for all tables
+	 * @return FM metadata for all tables object as ResultSet
 	 * @throws SQLException
 	 */
-	public ResultSet getFMDBMetaData() throws SQLException {
+	public ResultSet getFMTableMetaData() throws SQLException {
+		return this.fDataAccess.getTableMetaData();
+	}
+	
+	/**
+	 * get FM database metadata object
+	 * @return FM database metadata object
+	 * @throws SQLException
+	 */
+	public DatabaseMetaData getFMDBMetaData() throws SQLException {
 		return this.fDataAccess.getDBMetaData();
 	}
 
 	/**
-	 * get metadata of resultSet
+	 * get FM metadata of resultSet
 	 * @param r resultset to get metadata from
 	 * @return metadata of r as ResultSetMetaData object
 	 * @throws SQLException
@@ -402,7 +412,7 @@ public class SQLAccessController {
 		return this.mDataAccess.getTableMetaData(m);
 	}
 
-	public TreeSet<String> getFMTablePrimaryKey(String f) {
+	public TreeSet<String> getFMTablePrimaryKey(String f) throws SQLException {
 		return this.fDataAccess.getTablePrimaryKey(f);
 	}
 
