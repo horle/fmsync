@@ -1387,15 +1387,16 @@ public class SQLDataModel {
 	}
 	
 	public TreeBasedTable<String, Integer, TreeMap<String, String>> getWholeFMTable(String currTab) throws SQLException, FilemakerIsCrapException, IOException {
-		TreeBasedTable<String,Integer,TreeMap<String,String>> table = TreeBasedTable.create();
+		TreeBasedTable<String,Integer,
+		TreeMap<String,String>> table = TreeBasedTable.create();
+		String fmpk = getActualPrimaryKey(currTab);
 		
-		String fmSQL = "SELECT * FROM " + currTab;
+		String fmSQL = "SELECT * FROM " + currTab +(fmpk.equals("")?"":(" WHERE \""+fmpk+"\" >= 100000"));
 		
 		// get only common fields from filemaker
 		ResultSet filemaker = sqlAccess.doFMQuery(fmSQL);
 		ResultSetMetaData meta = sqlAccess.getFMRSMetaData(filemaker);
 		
-		String fmpk = getActualPrimaryKey(currTab);
 				
 		while (filemaker.next()) {
 			TreeMap<String,String> row = new TreeMap<String,String>();
