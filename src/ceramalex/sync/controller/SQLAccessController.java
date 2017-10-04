@@ -123,6 +123,16 @@ public class SQLAccessController {
 	public ResultSet getFMTableMetaData() throws SQLException {
 		return this.fDataAccess.getTableMetaData();
 	}
+
+	/**
+	 * get FM metadata object for given table
+	 * @param table
+	 * @return 
+	 * @throws SQLException 
+	 */
+	public ResultSet getFMTableMetaData(String table) throws SQLException {
+		return this.fDataAccess.getTableMetaData(table);
+	}
 	
 	/**
 	 * get FM database metadata object

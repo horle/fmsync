@@ -43,8 +43,6 @@ public class FMDataAccess extends AbstractDatabase {
 	/**
 	 * Method returns metadata of given FM db
 	 * 
-	 * @param table
-	 *            table to get the metadata from
 	 * @return ResultSet with metadata
 	 * @throws SQLException 
 	 */
