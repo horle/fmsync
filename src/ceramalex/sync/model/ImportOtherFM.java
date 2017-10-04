@@ -19,8 +19,8 @@ import com.google.common.collect.TreeBasedTable;
 
 import ceramalex.sync.controller.ConfigController;
 import ceramalex.sync.controller.SQLAccessController;
+import ceramalex.sync.exception.EntityManagementException;
 import ceramalex.sync.exception.FilemakerIsCrapException;
-import javafx.scene.control.TabPaneBuilder;
 
 public class ImportOtherFM {
 	
@@ -115,30 +115,30 @@ public class ImportOtherFM {
 								}
 							}
 							
-							TreeMap<String, String> oldRow = m.isRowOnLocal(pair.getLeft(), pkold, newRow);
+//							TreeMap<String, String> oldRow = m.isRowOnLocal(pair.getLeft(), pkold, newRow);
 							
-							oldRow.remove(pkold);
-							for (String key : newCell.getValue().keySet()) {
-								if (key.startsWith("[")) {
-									oldRow.remove(key);
-								}
-							}
-							
-							if (!oldRow.isEmpty()) {
-								existCount++;
-								if (m.compareFields(oldRow, newRow, pair) != 0) {
-									if (smID == 0) smID = pkval;
-									bgID = pkval;
-									diffCount++;
-									// pk raus, zur add liste TODO?
-								}
-							}
-							else {
+//							oldRow.remove(pkold);
+//							for (String key : newCell.getValue().keySet()) {
+//								if (key.startsWith("[")) {
+//									oldRow.remove(key);
+//								}
+//							}
+//							
+//							if (!oldRow.isEmpty()) {
+//								existCount++;
+//								if (m.compareFields(oldRow, newRow, pair) != 0) {
+//									if (smID == 0) smID = pkval;
+//									bgID = pkval;
+//									diffCount++;
+//									// pk raus, zur add liste TODO?
+//								}
+//							}
+//							else {
 								count++;
 								// pk dazu, zur add liste :>
 								newRow.put(pknew, pknewval);
 								newRows.addElement(newRow);
-							}
+//							}
 						}
 						if (count + diffCount != 0) {
 							System.out.println(count +" n,\t"+existCount+" e,\t"+diffCount +" d\t"+currTab+(diffCount!=0?": "+smID+"-"+bgID:""));
@@ -172,35 +172,47 @@ public class ImportOtherFM {
 		
 		
 	}
-
-	private static TreeMap<String,String> getRowForFK(String table, String pk, String pkval) {
-		for (TreeMap<String,String> row : newRowsPerTable.get(table)) {
-			if (row.get(pk).equals(pkval)) return row;
+	
+	private static void replaceFKandPKinAllTables(String fk, String oldVal, String newVal) {
+		for (String table : newRowsPerTable.keySet()) {
+			replaceFKandPKinTable(table, fk, oldVal, newVal);
 		}
-		return null;
 	}
 	
-	private static void setFKForRow(String table, String fk, String oldval, String newval) {
-		for (TreeMap<String,String> row : newRowsPerTable.get(table)) {
-			if (row.get(fk).equals(oldval)) {
-				row.put(fk, newval);
-				return;
+	/**
+	 * replaces all occurences of fk and old value in table with new value
+	 * @param table
+	 * @param fk
+	 * @param oldval
+	 * @param newval
+	 */
+	private static void replaceFKandPKinTable(String table, String fk, String oldval, String newval) {
+		if (!newRowsPerTable.get(table).isEmpty() && newRowsPerTable.get(table).firstElement().containsKey(fk)) {
+			for (TreeMap<String,String> row : newRowsPerTable.get(table)) {
+				if (row.get(fk) != null && row.get(fk).equals(oldval)) {
+					row.put(fk, newval);
+				}
+				String pk = fk.replace("FS", "PS");
+				if (row.get(pk) != null && row.get(pk).equals(oldval)) {
+					row.put(pk, newval);
+				}
 			}
 		}
 	}
 	
 	private static String getTableFromFK(String fk) {
-		return fk.replace("FS_", "").replace("ID", "");
+		String result = fk.equals("FS_IsolatedSherdID")?"IsolatedSherdMainAbstract": fk.replace("FS_", "").replace("ID", "");
+		return result;
 	}
 	
-	private static void editFKsRecursively(TreeMap<String, String> newRow, String table, String pk) throws FilemakerIsCrapException, SQLException {
+	private static void editFKsRecursively(TreeMap<String, String> newRow, String table, String pk) throws FilemakerIsCrapException, SQLException, IOException, EntityManagementException {
 		if (stack == null) stack = new ArrayDeque<String>();
 		if (cycles == null) cycles = new HashSet<String>();
 		// table name + oldID + newID
 		if (addedList == null) addedList = new HashMap<String,Integer>();
 		
 		// copy row content for editing
-		TreeMap<String, String> rowToApply = new TreeMap<String, String>(newRow);
+//		TreeMap<String, String> rowToApply = new TreeMap<String, String>(newRow);
 		ArrayList<String> fks = new ArrayList<String>();
 		
 		// initial table		
@@ -216,35 +228,34 @@ public class ImportOtherFM {
 			// loop over all foreign keys
 			while (it.hasNext()) {
 				String key = it.next();
-				String keyval = rowToApply.get(key)==null?"0":rowToApply.get(key);
-				if (!keyval.equals("Deutsch") && stack.size()>= 1 && Integer.parseInt(keyval) >= 100000) {
+				String currFK = newRow.get(key)==null?"0":newRow.get(key);
+				if (!currFK.equals("Deutsch") && stack.size()>= 1 && Integer.parseInt(currFK) >= 100000) {
 					
 					// if row behind fk already added
 					Integer alreadyAdded = addedList.get(getTableFromFK(key)+":"+newRow.get(key));
 					
 					if (alreadyAdded != null) {
-						rowToApply.put(key, ""+alreadyAdded);
+						newRow.put(key, ""+alreadyAdded);
 						continue;
 					}
 					
-//					// FK table in stack? => cycle
-//					if (stack.contains(getTableFromFK(key))) {
-//						cycles.add(stack.peek() + "." + key);
-//						// if no other FKs, but cycle, then just pop up
-//						if (!it.hasNext()) stack.pop();
-//						break;
-//					}
+					// FK table in stack? => cycle
+					if (stack.contains(getTableFromFK(key))) {
+						cycles.add(stack.peek() + "." + key);
+						// if no other FKs, but cycle, then just pop up
+						if (!it.hasNext()) stack.pop();
+						break;
+					}
 					// FK not in stack? => jump into table of fk
 					else {
 						String tableName = getTableFromFK(key);
 						// table existent?
-						if (tables.contains(tableName)) {
+						if (newRowsPerTable.keySet().contains(tableName)) {
 							// jump into table
 							// look for correct row
 							for (TreeMap<String,String> row : newRowsPerTable.get(tableName)) {
 								String pknew = m.getActualPrimaryKey(tableName);
 								// pk of child row equal to fk of current row?
-								String currFK = newRow.get(key);
 								if (row.get(pknew).equals(currFK)) {
 									editFKsRecursively(row, tableName, pknew);
 									break;
@@ -255,37 +266,43 @@ public class ImportOtherFM {
 				}
 			}
 			// looped through all FKs? add row to local db
-			
-//			localDB.get(table).add();
+			addAndReplace(newRow.get(pk), pk, newRow);
 		}
 		// no FK's
 		else {
-			String tab = stack.pop();
-			int pkNew = 0;
-			int pkOld = Integer.parseInt(newRow.get(pk));
-			// if this row already added, get this id
-			if (addedList.containsKey(tab+":"+pkOld)){
-				pkNew = addedList.get(tab+":"+pkOld);
-			}
-			// else add row, keep new id!
-			else {
-				// TODO: add row, pkNew = return value
-				pkNew = 0; //TODO
-				// add row with OLD pk to addedList
-				addedList.put(tab+":"+pkOld, pkNew);
-			}
-			// != stack top?
-			if (stack.size() > 0) {
-				// replace old fk value in parent row with new value
-				setFKForRow(stack.peek(), getFKFromTabName(tab), pkOld+"", pkNew+"");
-			}
+			addAndReplace(newRow.get(pk), pk, newRow);
 		}
 		// irgendwie neue row applyen
 		return;
 	}
 
+	private static void addAndReplace(String pkVal, String pk, TreeMap<String, String> newRow) throws SQLException, IOException, EntityManagementException {
+		String tab = stack.pop();
+		int pkNew = 0;
+		int pkOld = Integer.parseInt(pkVal);
+		// if this row already added, get this id
+		if (addedList.containsKey(tab+":"+pkOld)){
+			pkNew = addedList.get(tab+":"+pkOld);
+		}
+		// else add row, keep new id!
+		else {
+			// remove pk with old value
+			newRow.remove(pk);
+			// add row to db, pkNew = return value
+			pkNew = m.insertRowIntoLocal(tab, newRow);
+			// add row with OLD pk to addedList
+			addedList.put(tab+":"+pkOld, pkNew);
+		}
+		// != stack top?
+//		if (stack.size() > 0) {
+			// replace old fk value in parent row with new value
+			replaceFKandPKinAllTables(getFKFromTabName(tab), pkOld+"", pkNew+"");
+//		}
+	}
+	
 	private static String getFKFromTabName(String tab) {
 		if (tab.equals("Ort")) return "FS_PlaceID";
+		if (tab.equals("IsolatedSherdMainAbstract")) return "FS_IsolatedSherdID";
 		else return "FS_"+tab+"ID";
 	}
 }

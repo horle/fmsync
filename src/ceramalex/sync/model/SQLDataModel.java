@@ -69,6 +69,30 @@ public class SQLDataModel {
 	
 	/**
 	 * only for importOtherFM
+	 * fetch all columns for given table
+	 * @param table
+	 * @return list of columns for table
+	 * @throws SQLException
+	 */
+	public ArrayList<String> fetchFMColumns(String table) throws SQLException {
+		ArrayList<String> columns = new ArrayList<String>();
+		
+		if (!sqlAccess.isFMConnected()) {
+			sqlAccess.connect();
+		}
+		
+		ResultSet metaFM = sqlAccess.getFMTableMetaData(table);
+		
+		while (metaFM.next()) {
+			String col = metaFM.getString("COLUMN_NAME");
+			if (!columns.contains(col))
+				columns.add(col);
+		}
+		return columns;
+	}
+	
+	/**
+	 * only for importOtherFM
 	 * @return
 	 * @throws SQLException
 	 */
@@ -99,7 +123,7 @@ public class SQLDataModel {
 	 * @param currTab Pair with current table
 	 * @param pk 
 	 * @param row remote row
-	 * @return row with RAUID, TS, and PK, if row is already in remote db. empty list else.
+	 * @return row without RAUID, TS, and PK, if row is already in remote db. empty list else.
 	 * @throws SQLException
 	 * @throws IOException
 	 */
@@ -107,22 +131,32 @@ public class SQLDataModel {
 			throws SQLException, IOException {
 		String archerMSSkip = "";
 		TreeMap<String,String> result = new TreeMap<String,String>();
-		
 		TreeMap<String,String> remoteRow = new TreeMap<String,String>(row);
+		ArrayList<String> commonColumns = new ArrayList<String>();
 		remoteRow.remove("ArachneEntityID");
 		remoteRow.remove(pk);
 		
-		for (String key : row.keySet()) {
-			if (key.startsWith("[")) remoteRow.remove(key);
-			if (key.contains("ü") || key.contains("ä") || key.contains("ö")) remoteRow.remove(key);
+		ArrayList<String> localCols = fetchFMColumns(currTab);
+		Set<String> remoteCols = row.keySet();
+
+		for (String rem : remoteCols) {
+			String altRem = rem;
+			if (rem.startsWith("[")) remoteRow.remove(rem);
+			if (rem.contains("ü") || rem.contains("ä") || rem.contains("ö")) remoteRow.remove(rem);
+			if (rem.equals("Length")) altRem = "LengthSize";
+			if (rem.equals("PS_PlaceID")) altRem = "PS_OrtID";
+			if (rem.equals("PS_PlaceConnectionID")) altRem = "PS_OrtsbezugID";
+			if (rem.equals("PS_XPlaceIDX")) altRem = "PS_XOrtIDX";
 			
-			String val = remoteRow.get(key);
-			remoteRow.remove(key);
-			if (key.equals("Length")) key = "LengthSize";
-			if (key.equals("PS_PlaceID")) key = "PS_OrtID";
-			if (key.equals("PS_PlaceConnectionID")) key = "PS_OrtsbezugID";
-			if (key.equals("PS_XPlaceIDX")) key = "PS_XOrtIDX";
-			remoteRow.put("\""+key+"\"", val);
+			if (localCols.contains(altRem)) {
+				commonColumns.add(altRem);
+				String val = remoteRow.get(rem);
+				remoteRow.remove(rem);
+				remoteRow.put(altRem, val);
+			}
+			else {
+				remoteRow.remove(rem);
+			}
 		}
 		
 		if (currTab.equalsIgnoreCase("mainabstract")) {
@@ -137,7 +171,8 @@ public class SQLDataModel {
 		while (it.hasNext()) {
 			String key = it.next();
 			String val = remoteRow.get(key);
-			String longName = currTab+"."+key.replace("\"", "");
+			String longName = currTab+"."+key;
+			key = "\""+key+"\"";
 			select += key;
 			
 			if (!isNumericalField(longName)
@@ -756,6 +791,14 @@ public class SQLDataModel {
 		resultIDs.addAll(insertRowsIntoLocal(currTab, new Vector<TreeMap<String,String>>(
 				vector.subList(count * packSize, count * packSize + mod))));
 		return resultIDs;
+	}
+	
+	public int insertRowIntoLocal(String currTab, TreeMap<String, String> row) throws SQLException, IOException, EntityManagementException {
+		Vector<TreeMap<String, String>> v = new Vector<TreeMap<String,String>>();
+		v.add(row);
+		insertRowsIntoLocal(new Pair(currTab,null), v);
+		
+		return 0; //TODO
 	}
 	
 	private ArrayList<Integer> insertRowsIntoLocal(Pair currTab, Vector<TreeMap<String, String>> vector) throws SQLException, IOException, EntityManagementException {
@@ -1387,8 +1430,10 @@ public class SQLDataModel {
 	}
 	
 	public TreeBasedTable<String, Integer, TreeMap<String, String>> getWholeFMTable(String currTab) throws SQLException, FilemakerIsCrapException, IOException {
-		TreeBasedTable<String,Integer,
-		TreeMap<String,String>> table = TreeBasedTable.create();
+		TreeBasedTable<String,Integer,TreeMap<String,String>> table = TreeBasedTable.create();
+		
+		if (currTab.equals("Wertelisten")) return table;
+		
 		String fmpk = getActualPrimaryKey(currTab);
 		
 		String fmSQL = "SELECT * FROM " + currTab +(fmpk.equals("")?"":(" WHERE \""+fmpk+"\" >= 100000"));
@@ -1397,10 +1442,9 @@ public class SQLDataModel {
 		ResultSet filemaker = sqlAccess.doFMQuery(fmSQL);
 		ResultSetMetaData meta = sqlAccess.getFMRSMetaData(filemaker);
 		
-				
 		while (filemaker.next()) {
 			TreeMap<String,String> row = new TreeMap<String,String>();
-			for (int i = 1; i < meta.getColumnCount(); i++) {
+			for (int i = 1; i <= meta.getColumnCount(); i++) {
 				String field = meta.getColumnName(i);
 				if (!(field.equals("lastModified") || field.equals("lastRemoteTS") || field.equals("ArachneEntityID")))
 					row.put(field, filemaker.getString(field));

@@ -154,9 +154,11 @@ public abstract class AbstractDatabase {
 	 */
 	public ResultSet doSQLQuery(String sql) throws SQLException {
 		logger.debug(this.getDriverName() + ": "+ sql);
-		if (this.st == null || this.isConnected())
-			this.st = cn.createStatement();
-		return this.st.executeQuery(sql);
+		if (isConnected()) {
+			PreparedStatement st = cn.prepareStatement(sql);
+			return st.executeQuery();
+		}
+		return null;
 	}
 
 	// -------------------------------------------------------------------------------
