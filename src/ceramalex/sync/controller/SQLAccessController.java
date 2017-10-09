@@ -12,6 +12,8 @@ import java.util.TreeSet;
 
 import org.apache.log4j.Logger;
 
+import com.google.common.collect.TreeBasedTable;
+
 import ceramalex.sync.data.FMDataAccess;
 import ceramalex.sync.data.MySQLDataAccess;
 import ceramalex.sync.model.Pair;
@@ -206,11 +208,10 @@ public class SQLAccessController {
 	 * 
 	 * @param sql
 	 *            SQL-Insert-String
-	 * @return true, if success. false else
 	 * @throws SQLException 
 	 */
-	public ArrayList<Integer> doFMInsert(String sql) throws SQLException {
-		return fDataAccess.doSQLModify(sql);
+	public void doFMInsert(String sql) throws SQLException {
+		fDataAccess.doSQLModify(sql);
 	}
 
 	/**
@@ -460,5 +461,78 @@ public class SQLAccessController {
 			return false;
 		}
 		return false;
+	}
+
+	/**
+	 * get the very last index in the given table in FM
+	 * @param currTab the table in FM
+	 * @param pk the private key field
+	 * @return the last index in the given table
+	 * @throws SQLException
+	 */
+	public int getLastIndexFM(String currTab, String pk) throws SQLException {
+		ResultSet query = this.fDataAccess.doSQLQuery("SELECT MAX(\"" + pk + "\") FROM " + currTab);
+		int lastID = 0;
+		
+		if (query.next()) {
+			lastID = query.getInt(1);
+		}
+		query.close();
+		
+		return lastID;
+	}
+
+	public boolean isColUpdatable(String table, String col) {
+		if (conf.getColPermissions().contains(table, col)) {
+			return conf.getColPermissions().get(table, col).contains("UPDATE");
+		}
+		return false;
+	}
+	public boolean isColInsertable(String table, String col) {
+		if (conf.getColPermissions().contains(table, col)) {
+			return conf.getColPermissions().get(table, col).contains("INSERT");
+		}
+		return false;
+	}
+	public boolean isColDeletable(String table, String col) {
+		if (conf.getColPermissions().contains(table, col)) {
+			return conf.getColPermissions().get(table, col).contains("DELETE");
+		}
+		return false;
+	}
+	public boolean isColReadable(String table, String col) {
+		if (conf.getColPermissions().contains(table, col)) {
+			return conf.getColPermissions().get(table, col).contains("SELECT");
+		}
+		return false;
+	}
+	
+	public TreeBasedTable<String, String, HashSet<String>> fetchColPermissionsFM(ArrayList<String> tables) throws SQLException {
+		TreeBasedTable<String, String, HashSet<String>> perms = conf.getColPermissions();
+		DatabaseMetaData meta = fDataAccess.getDBMetaData();
+		for (String table : tables) {
+			ResultSet privs = meta.getColumnPrivileges(null, conf.getFmDB(), table, "%");
+			
+			while (privs.next()) {
+				String tname = privs.getString("TABLE_NAME");
+				String cname = privs.getString("COLUMN_NAME");
+				String priv = privs.getString("PRIVILEGE");
+				HashSet<String> pList;
+				
+				// list exists and can be extended?
+				if (perms.contains(tname, cname)) {
+					pList = perms.get(tname, cname);
+				}
+				// list does not exist yet?
+				else {
+					pList = new HashSet<String>();
+				}
+				
+				pList.add(priv);
+				perms.put(tname, cname, pList);
+			}
+		}
+		conf.setColPermissions(perms);
+		return conf.getColPermissions();
 	}
 }

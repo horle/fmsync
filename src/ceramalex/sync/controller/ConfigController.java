@@ -6,9 +6,13 @@ import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.TreeSet;
+import java.util.HashSet;
 import java.util.Properties;
+import java.util.TreeMap;
 
 import org.apache.log4j.Logger;
+
+import com.google.common.collect.TreeBasedTable;
 
 import ceramalex.sync.model.Pair;
 
@@ -28,6 +32,7 @@ public class ConfigController {
 
 	private TreeSet<Pair> timestampFields;
 	private TreeSet<String> numericFields;
+	private TreeBasedTable<String,String,HashSet<String>> colPermissions;
 
 	private String fileName = "sync.conf";
 
@@ -56,6 +61,7 @@ public class ConfigController {
 	private ConfigController() throws IOException {
 		propertyFile = new File(fileName);
 		propertyList = new Properties();
+		colPermissions = TreeBasedTable.create();
 		
 		readConfigFile();
 	}
@@ -246,5 +252,17 @@ public class ConfigController {
 	
 	public boolean getIncludeImgFiles() {
 		return new Boolean(propertyList.getProperty("IncludeImgFiles"));
+	}
+
+	public TreeBasedTable<String, String, HashSet<String>> getColPermissions() {
+		return colPermissions;
+	}
+
+	public void setColPermissions(TreeBasedTable<String, String, HashSet<String>> colPermissions) {
+		this.colPermissions = colPermissions;
+	}
+	
+	public void addColPermission(String table, String col, HashSet<String> perm) {
+		this.colPermissions.put(table, col, perm);
 	}
 }

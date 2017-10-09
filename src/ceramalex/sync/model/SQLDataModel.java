@@ -10,8 +10,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
-import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.Vector;
@@ -114,6 +114,7 @@ public class SQLDataModel {
 		
 		conf.setNumericFields(sqlAccess.fetchFMNumericFields(tables));
 		conf.setTimestampFields(sqlAccess.fetchFMTimestampFields(tables));
+		conf.setColPermissions(sqlAccess.fetchColPermissionsFM(tables));
 		return tables;
 	}
 	
@@ -776,43 +777,66 @@ public class SQLDataModel {
 	 * @throws EntityManagementException
 	 * @throws IOException
 	 */
-	public Vector<Integer> prepareRowsAndDownload(Pair currTab,
+	public boolean prepareRowsAndDownload(Pair currTab,
 			Vector<TreeMap<String, String>> vector, int packSize) throws SQLException,
 			EntityManagementException, IOException {
 		int count = vector.size() / packSize;
 		int mod = vector.size() % packSize;
-		Vector<Integer> resultIDs = new Vector<Integer>();
+		boolean result = true;
 		for (int k = 0; k < count; k++) {
-			resultIDs.addAll(insertRowsIntoLocal(
-							currTab,
-							new Vector<TreeMap<String,String>>(vector.subList(k * packSize,
-									(k + 1) * packSize))));
+			result = result && insertRowsIntoLocal(currTab,new Vector<TreeMap<String,String>>(vector.subList(k * packSize,
+									(k + 1) * packSize)));
 		}
-		resultIDs.addAll(insertRowsIntoLocal(currTab, new Vector<TreeMap<String,String>>(
-				vector.subList(count * packSize, count * packSize + mod))));
-		return resultIDs;
+		result = result && insertRowsIntoLocal(currTab, new Vector<TreeMap<String,String>>(
+				vector.subList(count * packSize, count * packSize + mod)));
+		return result;
 	}
 	
-	public int insertRowIntoLocal(String currTab, TreeMap<String, String> row) throws SQLException, IOException, EntityManagementException {
+	/**
+	 * inserts single row.
+	 * @param currTab table as string
+	 * @param pk 
+	 * @param row row as string treemap
+	 * @return integer value of new generated pk
+	 * @throws SQLException
+	 * @throws IOException
+	 * @throws EntityManagementException
+	 * @throws FilemakerIsCrapException
+	 */
+	public int insertRowIntoLocal(String currTab, String pk, TreeMap<String, String> row) throws SQLException, IOException, EntityManagementException, FilemakerIsCrapException {
 		Vector<TreeMap<String, String>> v = new Vector<TreeMap<String,String>>();
-		v.add(row);
-		insertRowsIntoLocal(new Pair(currTab,null), v);
+		int lastID = sqlAccess.getLastIndexFM(currTab, pk);
+		row.put(pk, ""+(lastID+1));
 		
-		return 0; //TODO
+		v.add(row);
+		if (!insertRowsIntoLocal(new Pair(currTab,null), v)) {
+			throw new SQLException("Row could not be inserted into local db!");
+		}
+		
+		return lastID+1;
 	}
 	
-	private ArrayList<Integer> insertRowsIntoLocal(Pair currTab, Vector<TreeMap<String, String>> vector) throws SQLException, IOException, EntityManagementException {
+	private boolean insertRowsIntoLocal(Pair currTab, Vector<TreeMap<String, String>> vector) throws SQLException, IOException, EntityManagementException {
 		if (vector.size() == 0)
-			return null;
+			return true;
 		
 		String sql = "INSERT INTO \"" + currTab.getFMString() + "\" (";
 		String vals = " VALUES (";
+		Set<String> keys = new HashSet<String>();
 		// iterate through rows
 		for (int i = 0; i < vector.size(); i++) {
 			
 			TreeMap<String,String> currRow = vector.get(i);
+			// do all fields have the insert privilege? 
+			if (i == 0) {
+				keys = new HashSet<String>(currRow.keySet());
+				for (String key : keys) {
+					// kick out those who don't
+					if (!sqlAccess.isColInsertable(currTab.getFMString(), key)) currRow.remove(key);
+				}
+			}
 			
-			Iterator<String> it = currRow.keySet().iterator();
+			Iterator<String> it = keys.iterator();
 			// ( col1, col2, col3, ..)
 			while (it.hasNext()) {
 				String currFieldName = it.next();
@@ -855,8 +879,9 @@ public class SQLDataModel {
 				vals += ")";
 			}
 		}
-		// update local AUIDs
-		return sqlAccess.doFMInsert(sql + vals);
+		// unfortunately, filemaker is crap and cannot return generated keys.
+		sqlAccess.doFMInsert(sql + vals);
+		return true;
 	}
 
 	/**
