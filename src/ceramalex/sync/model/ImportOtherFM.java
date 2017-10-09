@@ -1,5 +1,6 @@
 package ceramalex.sync.model;
 
+import java.io.FileWriter;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayDeque;
@@ -26,7 +27,6 @@ public class ImportOtherFM {
 	
 	private static Logger logger = Logger.getLogger(SQLDataModel.class);
 	private static TreeMap<String, Vector<TreeMap<String,String>>> newRowsPerTable;
-	private static TreeMap<String, Vector<TreeMap<String,String>>> localDB;
 	private static ArrayDeque<String> stack;
 	private static ArrayList<String> tables;
 	private static HashSet<String> cycles;
@@ -152,11 +152,20 @@ public class ImportOtherFM {
 			}
 			
 			for (String currTab : newRowsPerTable.keySet()) {
+				String pk = m.getActualPrimaryKey(currTab);
 				for (TreeMap<String,String> newRow : newRowsPerTable.get(currTab)) {
 					
-					editFKsRecursively(newRow, currTab, m.getActualPrimaryKey(currTab));
+					editFKsRecursively(newRow, currTab, pk);
 				}
 			}
+			
+			// grep -E "FS_[[:alpha:]]{1,15}ID=[0-9]{6}"  output.txt -o
+			FileWriter f = new FileWriter("output.txt");
+			f.write(newRowsPerTable.toString().replaceAll("\n", " "));
+			f.close();
+			f = new FileWriter("addedlist.txt");
+			f.write(addedList.toString());
+			f.close();
 			
 			System.out.println("done");
 			
@@ -173,28 +182,38 @@ public class ImportOtherFM {
 		
 	}
 	
-	private static void replaceFKandPKinAllTables(String fk, String oldVal, String newVal) {
+	/**
+	 * 
+	 * @param tabForKey
+	 * @param oldVal
+	 * @param newVal
+	 */
+	private static void replaceFKandPKinAllTables(String tabForKey, String oldVal, String newVal) {
 		for (String table : newRowsPerTable.keySet()) {
-			replaceFKandPKinTable(table, fk, oldVal, newVal);
+			replaceFKandPKinTable(table, tabForKey, oldVal, newVal);
 		}
 	}
 	
 	/**
-	 * replaces all occurences of fk and old value in table with new value
-	 * @param table
-	 * @param fk
-	 * @param oldval
-	 * @param newval
+	 * replaces all occurences of fk/pk and old value in table with new value
+	 * @param table table to search in
+	 * @param lookup table name for fk and pk to look for
+	 * @param oldval old value
+	 * @param newval new value
 	 */
-	private static void replaceFKandPKinTable(String table, String fk, String oldval, String newval) {
-		if (!newRowsPerTable.get(table).isEmpty() && newRowsPerTable.get(table).firstElement().containsKey(fk)) {
+	private static void replaceFKandPKinTable(String table, String lookup, String oldval, String newval) {
+		String fk = getFKFromTabName(lookup);
+		String pk = fk.replace("FS", "PS");
+		if (!newRowsPerTable.get(table).isEmpty()
+				&& (newRowsPerTable.get(table).firstElement().containsKey(fk)
+				|| newRowsPerTable.get(table).firstElement().containsKey(pk))) {
 			for (TreeMap<String,String> row : newRowsPerTable.get(table)) {
 				if (row.get(fk) != null && row.get(fk).equals(oldval)) {
 					row.put(fk, newval);
 				}
-				String pk = fk.replace("FS", "PS");
 				if (row.get(pk) != null && row.get(pk).equals(oldval)) {
 					row.put(pk, newval);
+					break; // unique, when pk.
 				}
 			}
 		}
@@ -211,8 +230,6 @@ public class ImportOtherFM {
 		// table name + oldID + newID
 		if (addedList == null) addedList = new HashMap<String,Integer>();
 		
-		// copy row content for editing
-//		TreeMap<String, String> rowToApply = new TreeMap<String, String>(newRow);
 		ArrayList<String> fks = new ArrayList<String>();
 		
 		// initial table		
@@ -251,15 +268,23 @@ public class ImportOtherFM {
 						String tableName = getTableFromFK(key);
 						// table existent?
 						if (newRowsPerTable.keySet().contains(tableName)) {
+							// bool to check, if row for key is existent at all
+							boolean keyExists = false;
+							// nested pk name
+							String pknew = m.getActualPrimaryKey(tableName);
 							// jump into table
 							// look for correct row
 							for (TreeMap<String,String> row : newRowsPerTable.get(tableName)) {
-								String pknew = m.getActualPrimaryKey(tableName);
 								// pk of child row equal to fk of current row?
 								if (row.get(pknew).equals(currFK)) {
+									keyExists = true;
 									editFKsRecursively(row, tableName, pknew);
 									break;
 								}
+							}
+							// row for given fk is not existent! -> overwrite with null
+							if (!keyExists) {
+								newRow.put(key, null);
 							}
 						}
 					}
@@ -276,7 +301,7 @@ public class ImportOtherFM {
 		return;
 	}
 
-	private static void addAndReplace(String pkVal, String pk, TreeMap<String, String> newRow) throws SQLException, IOException, EntityManagementException {
+	private static void addAndReplace(String pkVal, String pk, TreeMap<String, String> newRow) throws SQLException, IOException, EntityManagementException, FilemakerIsCrapException {
 		String tab = stack.pop();
 		int pkNew = 0;
 		int pkOld = Integer.parseInt(pkVal);
@@ -286,17 +311,15 @@ public class ImportOtherFM {
 		}
 		// else add row, keep new id!
 		else {
-			// remove pk with old value
-			newRow.remove(pk);
 			// add row to db, pkNew = return value
-			pkNew = m.insertRowIntoLocal(tab, newRow);
+			pkNew = m.insertRowIntoLocal(tab, pk, newRow);
 			// add row with OLD pk to addedList
 			addedList.put(tab+":"+pkOld, pkNew);
 		}
 		// != stack top?
 //		if (stack.size() > 0) {
 			// replace old fk value in parent row with new value
-			replaceFKandPKinAllTables(getFKFromTabName(tab), pkOld+"", pkNew+"");
+			replaceFKandPKinAllTables(tab, pkOld+"", pkNew+"");
 //		}
 	}
 	
