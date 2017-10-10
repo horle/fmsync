@@ -159,10 +159,16 @@ public class ImportOtherFM {
 				}
 			}
 			
-			// grep -E "FS_[[:alpha:]]{1,15}ID=[0-9]{6}"  output.txt -o
+			System.out.println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%\nNOW ALL CYCLES\n%%%%%%%%%%%%%%%%%%%%%%%%%%%");
+			for (String cycle : cycles) {
+				System.out.println(cycle);
+			}
+			
+			// grep -E "FS_[[:alpha:]]+ID=[0-9]{6}"  output.txt -o
 			FileWriter f = new FileWriter("output.txt");
 			f.write(newRowsPerTable.toString().replaceAll("\n", " "));
 			f.close();
+			// cat addedlist.txt | grep -o -E "[[:alpha:]]+:[0-9]{6}=[0-9]{1,6}" | sort > addedlist.sorted
 			f = new FileWriter("addedlist.txt");
 			f.write(addedList.toString());
 			f.close();
@@ -203,17 +209,11 @@ public class ImportOtherFM {
 	 */
 	private static void replaceFKandPKinTable(String table, String lookup, String oldval, String newval) {
 		String fk = getFKFromTabName(lookup);
-		String pk = fk.replace("FS", "PS");
 		if (!newRowsPerTable.get(table).isEmpty()
-				&& (newRowsPerTable.get(table).firstElement().containsKey(fk)
-				|| newRowsPerTable.get(table).firstElement().containsKey(pk))) {
+				&& newRowsPerTable.get(table).firstElement().containsKey(fk)) {
 			for (TreeMap<String,String> row : newRowsPerTable.get(table)) {
 				if (row.get(fk) != null && row.get(fk).equals(oldval)) {
 					row.put(fk, newval);
-				}
-				if (row.get(pk) != null && row.get(pk).equals(oldval)) {
-					row.put(pk, newval);
-					break; // unique, when pk.
 				}
 			}
 		}
@@ -249,16 +249,18 @@ public class ImportOtherFM {
 				if (!currFK.equals("Deutsch") && stack.size()>= 1 && Integer.parseInt(currFK) >= 100000) {
 					
 					// if row behind fk already added
-					Integer alreadyAdded = addedList.get(getTableFromFK(key)+":"+newRow.get(key));
+					Integer alreadyAdded = addedList.get(getTableFromFK(key)+":"+ currFK);
 					
 					if (alreadyAdded != null) {
+						System.out.println("endlich mal was schon in der liste! "+getTableFromFK(key) + ": " + currFK + ", " + alreadyAdded);
 						newRow.put(key, ""+alreadyAdded);
 						continue;
 					}
 					
 					// FK table in stack? => cycle
 					if (stack.contains(getTableFromFK(key))) {
-						cycles.add(stack.peek() + "." + key);
+						cycles.add(stack.peek() + "." + key + ":"+ newRow.get(key));
+						System.out.println("CYCLE FOUND: "+stack.peek() + "." + key + ":"+ newRow.get(key));
 						// if no other FKs, but cycle, then just pop up
 						if (!it.hasNext()) stack.pop();
 						break;
@@ -268,7 +270,7 @@ public class ImportOtherFM {
 						String tableName = getTableFromFK(key);
 						// table existent?
 						if (newRowsPerTable.keySet().contains(tableName)) {
-							// bool to check, if row for key is existent at all
+							// bool to check, if row for key val is existent at all
 							boolean keyExists = false;
 							// nested pk name
 							String pknew = m.getActualPrimaryKey(tableName);
@@ -307,6 +309,7 @@ public class ImportOtherFM {
 		int pkOld = Integer.parseInt(pkVal);
 		// if this row already added, get this id
 		if (addedList.containsKey(tab+":"+pkOld)){
+			System.out.println("endlich mal was schon in der liste! "+tab + "." + pkOld + ": " + addedList.get(tab+":"+pkOld));
 			pkNew = addedList.get(tab+":"+pkOld);
 		}
 		// else add row, keep new id!
@@ -317,10 +320,11 @@ public class ImportOtherFM {
 			addedList.put(tab+":"+pkOld, pkNew);
 		}
 		// != stack top?
-//		if (stack.size() > 0) {
+		if (stack.size() > 0) {
 			// replace old fk value in parent row with new value
-			replaceFKandPKinAllTables(tab, pkOld+"", pkNew+"");
-//		}
+			replaceFKandPKinTable(stack.peek(), tab, pkOld+"", pkNew+"");
+//			replaceFKandPKinAllTables(tab, pkOld+"", pkNew+"");
+		}
 	}
 	
 	private static String getFKFromTabName(String tab) {
