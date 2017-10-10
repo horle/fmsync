@@ -822,21 +822,33 @@ public class SQLDataModel {
 		
 		String sql = "INSERT INTO \"" + currTab.getFMString() + "\" (";
 		String vals = " VALUES (";
-		Set<String> keys = new HashSet<String>();
 		// iterate through rows
 		for (int i = 0; i < vector.size(); i++) {
 			
 			TreeMap<String,String> currRow = vector.get(i);
 			// do all fields have the insert privilege? 
 			if (i == 0) {
-				keys = new HashSet<String>(currRow.keySet());
+				Set<String> keys = new HashSet<String>(currRow.keySet());
 				for (String key : keys) {
 					// kick out those who don't
 					if (!sqlAccess.isColInsertable(currTab.getFMString(), key)) currRow.remove(key);
+					String altKey = key;
+					if (key.startsWith("[")) currRow.remove(key);
+					if (key.contains("ü") || key.contains("ä") || key.contains("ö")) currRow.remove(key);
+					if (key.equals("Length")) altKey = "LengthSize";
+					if (key.equals("PS_PlaceID")) altKey = "PS_OrtID";
+					if (key.equals("PS_PlaceConnectionID")) altKey = "PS_OrtsbezugID";
+					if (key.equals("PS_XPlaceIDX")) altKey = "PS_XOrtIDX";
+					
+					if (!altKey.equals(key)) {
+						String val = currRow.get(key);
+						currRow.remove(key);
+						currRow.put(altKey, val);
+					}
 				}
 			}
 			
-			Iterator<String> it = keys.iterator();
+			Iterator<String> it = currRow.keySet().iterator();
 			// ( col1, col2, col3, ..)
 			while (it.hasNext()) {
 				String currFieldName = it.next();
