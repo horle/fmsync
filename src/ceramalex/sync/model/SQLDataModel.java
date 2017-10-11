@@ -834,6 +834,7 @@ public class SQLDataModel {
 					if (!sqlAccess.isColInsertable(currTab.getFMString(), key)) currRow.remove(key);
 					String altKey = key;
 					if (key.startsWith("[")) currRow.remove(key);
+					if (key.equals("PS_GLOBALAbstractID")) currRow.remove(key);
 					if (key.contains("ü") || key.contains("ä") || key.contains("ö")) currRow.remove(key);
 					if (key.equals("Length")) altKey = "LengthSize";
 					if (key.equals("PS_PlaceID")) altKey = "PS_OrtID";
@@ -1479,18 +1480,22 @@ public class SQLDataModel {
 		ResultSet filemaker = sqlAccess.doFMQuery(fmSQL);
 		ResultSetMetaData meta = sqlAccess.getFMRSMetaData(filemaker);
 		
+		int rowCount = 0;
 		while (filemaker.next()) {
 			TreeMap<String,String> row = new TreeMap<String,String>();
 			for (int i = 1; i <= meta.getColumnCount(); i++) {
 				String field = meta.getColumnName(i);
-				if (!(field.equals("lastModified") || field.equals("lastRemoteTS") || field.equals("ArachneEntityID")))
+				if (!(field.startsWith("[") ||field.equals("lastModified") || field.equals("lastRemoteTS") || field.equals("ArachneEntityID"))) {
 					row.put(field, filemaker.getString(field));
+				}
 			}
 			try {
-				int pk = filemaker.getInt(fmpk);
+				Integer pk = filemaker.getInt(fmpk);
 				table.put(currTab, pk, row);
+				rowCount++;
 			} catch (SQLException e) {
-//				System.out.println("error while accessing pk "+fmpk +" in table "+currTab);
+				System.out.println("error while accessing pk "+fmpk +" in table "+currTab);
+				break;
 			}
 		}
 		return table;
