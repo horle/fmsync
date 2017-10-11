@@ -33,6 +33,7 @@ public class ImportOtherFM {
 	// string: table name + ":" +  old id; int: new id
 	private static HashMap<String,Integer> addedList;
 	private static SQLDataModel m;
+	private static HashMap<String, Tuple<Integer,Integer>> addCounts;
 	
 	/**
 	 * import datasets from luana, check for existing, referenced entities, e.g. fabrics, and if they are reused in luana db
@@ -48,6 +49,7 @@ public class ImportOtherFM {
 			SQLAccessController sqlAccess = SQLAccessController.getInstance();
 			m = SQLDataModel.getInstance();
 			newRowsPerTable = new TreeMap<String, Vector<TreeMap<String,String>>>();
+			addCounts = new HashMap<String, Tuple<Integer,Integer>>();
 			
 			Scanner scan = new Scanner(System.in);
 			
@@ -141,6 +143,7 @@ public class ImportOtherFM {
 //							}
 						}
 						if (count + diffCount != 0) {
+							addCounts.put(currTab, new Tuple<Integer,Integer>(count,0));
 							System.out.println(count +" n,\t"+existCount+" e,\t"+diffCount +" d\t"+currTab+(diffCount!=0?": "+smID+"-"+bgID:""));
 						}
 						
@@ -159,7 +162,7 @@ public class ImportOtherFM {
 				}
 			}
 			
-			System.out.println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%\nNOW ALL CYCLES\n%%%%%%%%%%%%%%%%%%%%%%%%%%%");
+			System.out.println("%%%%%%%%%%%%%%%%%%%%%%%%%%%%\n         NOW ALL CYCLES\n%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
 			for (String cycle : cycles) {
 				System.out.println(cycle);
 			}
@@ -172,8 +175,12 @@ public class ImportOtherFM {
 			f = new FileWriter("addedlist.txt");
 			f.write(addedList.toString());
 			f.close();
+			System.out.println("done\n");
 			
-			System.out.println("done");
+			for (String key : addCounts.keySet()) {
+				Tuple<Integer,Integer> t = addCounts.get(key);
+				System.out.println(t.getLeft() + ", " + t.getRight() + "\t" + key);
+			}
 			
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -224,11 +231,37 @@ public class ImportOtherFM {
 		return result;
 	}
 	
-	private static void editFKsRecursively(TreeMap<String, String> newRow, String table, String pk) throws FilemakerIsCrapException, SQLException, IOException, EntityManagementException {
+	private static void editFKsRecursively(TreeMap<String, String> newRow, String table, String pkField) throws FilemakerIsCrapException, SQLException, IOException, EntityManagementException {
 		if (stack == null) stack = new ArrayDeque<String>();
 		if (cycles == null) cycles = new HashSet<String>();
 		// table name + oldID + newID
 		if (addedList == null) addedList = new HashMap<String,Integer>();
+		
+		// duplicate row in source? replace everywhere!
+		String dup = isRowDuplicateInSource(table, pkField, newRow);
+		if (!dup.equals("")) {
+			replaceFKandPKinAllTables(table, newRow.get(pkField), dup);
+			newRow.put(pkField, dup);
+			return;
+		}
+		
+		String pkVal = newRow.get(pkField);
+		
+		// huch? nochmal mit neuem pk aufgerufen!
+		if (!pkVal.equals("Deutsch") && Integer.parseInt(pkVal) < 100000) {
+			return;
+		}
+		
+		if (addCounts.get(table).getLeft() <= addCounts.get(table).getRight()) {
+			System.out.println("!STOP! "+table+" "+addCounts.get(table).getLeft()+ " <= " + addCounts.get(table).getRight());
+		}
+		
+		// current row already added?
+		if (addedList.containsKey(table + ":" + pkVal)) {
+			System.out.println("top level row in "+table+" with ID "+pkVal+" already existent!");
+			newRow.put(pkField, ""+addedList.get(table + ":" + pkVal));
+			return;
+		}
 		
 		ArrayList<String> fks = new ArrayList<String>();
 		
@@ -252,7 +285,7 @@ public class ImportOtherFM {
 					Integer alreadyAdded = addedList.get(getTableFromFK(key)+":"+ currFK);
 					
 					if (alreadyAdded != null) {
-						System.out.println("endlich mal was schon in der liste! "+getTableFromFK(key) + ": " + currFK + ", " + alreadyAdded);
+//						System.out.println("endlich mal was schon in der liste! "+getTableFromFK(key) + ": " + currFK + ", " + alreadyAdded);
 						newRow.put(key, ""+alreadyAdded);
 						continue;
 					}
@@ -263,7 +296,7 @@ public class ImportOtherFM {
 						System.out.println("CYCLE FOUND: "+stack.peek() + "." + key + ":"+ newRow.get(key));
 						// if no other FKs, but cycle, then just pop up
 						if (!it.hasNext()) stack.pop();
-						break;
+						continue;
 					}
 					// FK not in stack? => jump into table of fk
 					else {
@@ -293,14 +326,31 @@ public class ImportOtherFM {
 				}
 			}
 			// looped through all FKs? add row to local db
-			addAndReplace(newRow.get(pk), pk, newRow);
+			addAndReplace(newRow.get(pkField), pkField, newRow);
 		}
 		// no FK's
 		else {
-			addAndReplace(newRow.get(pk), pk, newRow);
+			addAndReplace(newRow.get(pkField), pkField, newRow);
 		}
 		// irgendwie neue row applyen
 		return;
+	}
+
+	private static String isRowDuplicateInSource(String table, String pkField, TreeMap<String, String> nRow) {
+		TreeMap<String, String> newRow = new TreeMap<String, String>(nRow);
+		newRow.remove(pkField);
+		
+		int count = 0;
+		
+		for (TreeMap<String, String> r : newRowsPerTable.get(table)) {
+			TreeMap<String, String> row = new TreeMap<String, String>(r);
+			String dup = row.remove(pkField);
+			if (row.equals(newRow)) {
+				if (count >= 1) return dup;
+				else count++;
+			}
+		}
+		return "";
 	}
 
 	private static void addAndReplace(String pkVal, String pk, TreeMap<String, String> newRow) throws SQLException, IOException, EntityManagementException, FilemakerIsCrapException {
@@ -309,24 +359,36 @@ public class ImportOtherFM {
 		int pkOld = Integer.parseInt(pkVal);
 		// if this row already added, get this id
 		if (addedList.containsKey(tab+":"+pkOld)){
-			System.out.println("endlich mal was schon in der liste! "+tab + "." + pkOld + ": " + addedList.get(tab+":"+pkOld));
+//			System.out.println("endlich mal was schon in der liste! "+tab + "." + pkOld + ": " + addedList.get(tab+":"+pkOld));
 			pkNew = addedList.get(tab+":"+pkOld);
 		}
 		// else add row, keep new id!
 		else {
 			// add row to db, pkNew = return value
 			pkNew = m.insertRowIntoLocal(tab, pk, newRow);
+			increaseCount(tab);
 			// add row with OLD pk to addedList
 			addedList.put(tab+":"+pkOld, pkNew);
 		}
+		// ENTWEDER
 		// != stack top?
-		if (stack.size() > 0) {
+//		if (stack.size() > 0) {
 			// replace old fk value in parent row with new value
-			replaceFKandPKinTable(stack.peek(), tab, pkOld+"", pkNew+"");
-//			replaceFKandPKinAllTables(tab, pkOld+"", pkNew+"");
-		}
+//			replaceFKandPKinTable(stack.peek(), tab, pkOld+"", pkNew+"");
+//		}
+		// ODER
+		replaceFKandPKinAllTables(tab, pkOld+"", pkNew+"");
 	}
 	
+	private static void increaseCount(String tab) {
+		Tuple<Integer, Integer> tmp;
+		if (addCounts.containsKey(tab)) {
+			tmp = addCounts.get(tab);
+			tmp.setRight(tmp.getRight()+1);
+			addCounts.put(tab, tmp);
+		}
+	}
+
 	private static String getFKFromTabName(String tab) {
 		if (tab.equals("Ort")) return "FS_PlaceID";
 		if (tab.equals("IsolatedSherdMainAbstract")) return "FS_IsolatedSherdID";
