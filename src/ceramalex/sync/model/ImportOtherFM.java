@@ -203,7 +203,7 @@ public class ImportOtherFM {
 	 */
 	private static void replaceFKandPKinAllTables(String tabForKey, String oldVal, String newVal) {
 		for (String table : newRowsPerTable.keySet()) {
-			replaceFKandPKinTable(table, tabForKey, oldVal, newVal);
+			replaceFKinTable(table, tabForKey, oldVal, newVal);
 		}
 	}
 	
@@ -214,7 +214,7 @@ public class ImportOtherFM {
 	 * @param oldval old value
 	 * @param newval new value
 	 */
-	private static void replaceFKandPKinTable(String table, String lookup, String oldval, String newval) {
+	private static void replaceFKinTable(String table, String lookup, String oldval, String newval) {
 		String fk = getFKFromTabName(lookup);
 		if (!newRowsPerTable.get(table).isEmpty()
 				&& newRowsPerTable.get(table).firstElement().containsKey(fk)) {
@@ -283,9 +283,7 @@ public class ImportOtherFM {
 					
 					// if row behind fk already added
 					Integer alreadyAdded = addedList.get(getTableFromFK(key)+":"+ currFK);
-					
 					if (alreadyAdded != null) {
-//						System.out.println("endlich mal was schon in der liste! "+getTableFromFK(key) + ": " + currFK + ", " + alreadyAdded);
 						newRow.put(key, ""+alreadyAdded);
 						continue;
 					}
@@ -359,7 +357,6 @@ public class ImportOtherFM {
 		int pkOld = Integer.parseInt(pkVal);
 		// if this row already added, get this id
 		if (addedList.containsKey(tab+":"+pkOld)){
-//			System.out.println("endlich mal was schon in der liste! "+tab + "." + pkOld + ": " + addedList.get(tab+":"+pkOld));
 			pkNew = addedList.get(tab+":"+pkOld);
 		}
 		// else add row, keep new id!
