@@ -74,7 +74,6 @@ public class ImportOtherFM {
 			sqlAccess.close();
 			System.out.println("DONE; CHANGE DB AND PRESS ENTER WHEN READY!");
 			scan.nextLine();
-			scan.close();
 			
 			sqlAccess.connectFM();
 			tables = m.fetchFMTables();
@@ -155,6 +154,10 @@ public class ImportOtherFM {
 			}
 			
 			for (String currTab : newRowsPerTable.keySet()) {
+				System.out.println("Table "+currTab+" cross table?! press 's' and enter!");
+				String in = scan.next();
+				if (in.equals("s")) continue;
+				
 				String pk = m.getActualPrimaryKey(currTab);
 				for (TreeMap<String,String> newRow : newRowsPerTable.get(currTab)) {
 					
@@ -181,6 +184,8 @@ public class ImportOtherFM {
 				Tuple<Integer,Integer> t = addCounts.get(key);
 				System.out.println(t.getLeft() + ", " + t.getRight() + "\t" + key);
 			}
+
+			scan.close();
 			
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -252,7 +257,7 @@ public class ImportOtherFM {
 			return;
 		}
 		
-		if (addCounts.get(table).getLeft() <= addCounts.get(table).getRight()) {
+		if (addCounts.get(table).getLeft() < addCounts.get(table).getRight()) {
 			System.out.println("!STOP! "+table+" "+addCounts.get(table).getLeft()+ " <= " + addCounts.get(table).getRight());
 		}
 		
@@ -369,12 +374,12 @@ public class ImportOtherFM {
 		}
 		// ENTWEDER
 		// != stack top?
-//		if (stack.size() > 0) {
+		if (stack.size() > 0) {
 			// replace old fk value in parent row with new value
-//			replaceFKandPKinTable(stack.peek(), tab, pkOld+"", pkNew+"");
-//		}
+			replaceFKinTable(stack.peek(), tab, pkOld+"", pkNew+"");
+		}
 		// ODER
-		replaceFKandPKinAllTables(tab, pkOld+"", pkNew+"");
+//		replaceFKandPKinAllTables(tab, pkOld+"", pkNew+"");
 	}
 	
 	private static void increaseCount(String tab) {
