@@ -43,6 +43,7 @@ import org.apache.log4j.xml.DOMConfigurator;
 
 import ceramalex.sync.controller.ConfigController;
 import ceramalex.sync.controller.SQLAccessController;
+import ceramalex.sync.exception.FilemakerIsCrapException;
 import ceramalex.sync.model.ComparisonResult;
 import ceramalex.sync.model.Pair;
 import ceramalex.sync.model.SQLDataModel;
@@ -132,12 +133,15 @@ public class MainFrame {
 		
 		if (msg.startsWith("MySQL:"))
 			prefix = "MySQL: ";
+		if (e.toString().contains("FileMaker"))
+			prefix = "FileMaker: ";
 
-		if (e.toString().contains("CancellationException") || 
-				e.toString().contains("The driver has not received any packets from the server."))
+		if (e.toString().contains("The driver has not received any packets from the server."))
 			msg = "Server did not answer.";
-		if (msg.contains("Access denied"))
+		else if (msg.contains("Access denied"))
 			msg = "Access denied: Wrong user name or password.";
+		else if (e.toString().contains("CancellationException"))
+			msg = "Connection failed";
 
 		return prefix + msg;
 	}
@@ -360,18 +364,17 @@ public class MainFrame {
 		} catch (IOException | SQLException e) {
 			JOptionPane.showMessageDialog(frame, getErrorMsg(e),
 					"Error", JOptionPane.ERROR_MESSAGE);
-			applyStatus(FrameStatus.closedError(getErrorMsg(e)));
 			logger.error(e);
+			disconnect(getErrorMsg(e));
 		}
 		worker.execute();
 		try {
 			worker.get();
-			applyStatus(FrameStatus.closed("Changes to databases applied without errors."));
+			disconnect("Changes to databases applied without errors.");
 		} catch (InterruptedException | ExecutionException e) {
-			JOptionPane.showMessageDialog(frame, getErrorMsg(e),
-					"Error", JOptionPane.ERROR_MESSAGE);
-			applyStatus(FrameStatus.closedError(getErrorMsg(e)));
+			JOptionPane.showMessageDialog(frame, getErrorMsg(e), "Error", JOptionPane.ERROR_MESSAGE);
 			logger.error(e);
+			disconnect(getErrorMsg(e));
 		}
 	}
 
@@ -401,15 +404,17 @@ public class MainFrame {
 						data.resetResults();
 						publish(FrameStatus.connecting());
 
-						if (sqlAccess.connect()) {
+						String success = sqlAccess.connect();
+						
+						if (success.isEmpty()) {
 							connected = true;
 							publish(FrameStatus.open());
 							logger.info(FrameStatus.open().getLogMsg());
 							return true;
 						} else {
 							connected = false;
-							publish(FrameStatus.closedError());
-							logger.error(FrameStatus.closedError().getLogMsg());
+							publish(FrameStatus.closedError(success));
+							logger.error(FrameStatus.closedError(success).getLogMsg());
 							this.cancel(true);
 							sqlAccess.close();
 							return false;
@@ -473,14 +478,34 @@ public class MainFrame {
 				}
 				// execute this
 				if (connected) {
-					invokeComparisonCalculation();
+					try {
+						invokeComparisonCalculation();
+					} catch (FilemakerIsCrapException | SQLException e) {
+						JOptionPane.showMessageDialog(frame, e.toString(), "Error while comparing DBs", JOptionPane.ERROR_MESSAGE);
+						disconnect(e.toString());
+					}
 				}
 			}
 		};
 		watcher.execute();
 	}
 	
-	private void invokeComparisonCalculation() {
+	private void invokeComparisonCalculation() throws SQLException, FilemakerIsCrapException {
+		
+		data.fetchCommonTables();
+		
+		applyStatus(FrameStatus.connecting("Performing self-test ..."));
+		String testResult = data.performLocalDBTest();
+		
+		if (testResult == null)
+			throw new FilemakerIsCrapException("Self-test on local db resulted with error(s). Aborting");
+		else if (!testResult.isEmpty()) {
+			JOptionPane.showMessageDialog(frame, new JTextArea(testResult), "Field needs manual action", JOptionPane.WARNING_MESSAGE);
+		}
+		else {
+			applyStatus(FrameStatus.open("Self-test successful. Starting comparison ..."));
+		}
+		
 		ProgressMonitor monitor = ProgressUtil.createModalProgressMonitor(frame, 100, false, 0); 
 		//new ProgressMonitor(null,
 		//"Comparing tables ...", "Current table: ", 0, 100);
@@ -516,19 +541,17 @@ public class MainFrame {
 					} catch (CancellationException e) {
 						disconnect("\nComparison aborted by user.");
 					} catch (Exception e) {
-						sqlAccess.close();
-						connected = false;
+						disconnect(e.toString());
 						applyStatus(FrameStatus.closedError("Error: " + e.getMessage()));
 						handleException(getErrorMsg(e));
 					}
 				}
 			};
 		} catch (IOException | SQLException e) {
-			sqlAccess.close();
-			connected = false;
 			handleException(getErrorMsg(e));
 			applyStatus(FrameStatus.closedError("Error: " + e.getMessage()));
 			logger.error(e);
+			disconnect(e.toString());
 		}
 		worker.addPropertyChangeListener(new PropertyChangeListener() {
 

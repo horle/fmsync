@@ -22,6 +22,7 @@ import ceramalex.sync.controller.ConfigController;
 import ceramalex.sync.controller.SQLAccessController;
 import ceramalex.sync.exception.EntityManagementException;
 import ceramalex.sync.exception.FilemakerIsCrapException;
+import ceramalex.sync.exception.MissingPermissionException;
 
 public class ImportOtherFM {
 	
@@ -213,30 +214,30 @@ public class ImportOtherFM {
 	}
 	
 	/**
-	 * replaces all occurences of fk/pk and old value in table with new value
+	 * replaces all occurences of fk and old value in table with new value
 	 * @param table table to search in
-	 * @param lookup table name for fk and pk to look for
+	 * @param key table name for fk and pk to look for
 	 * @param oldval old value
 	 * @param newval new value
 	 */
-	private static void replaceFKinTable(String table, String lookup, String oldval, String newval) {
-		String fk = getFKFromTabName(lookup);
+	private static void replaceFKinTable(String table, String key, String oldval, String newval) {
+		if (!key.startsWith("FS_")) return;
 		if (!newRowsPerTable.get(table).isEmpty()
-				&& newRowsPerTable.get(table).firstElement().containsKey(fk)) {
+				&& newRowsPerTable.get(table).firstElement().containsKey(key)) {
 			for (TreeMap<String,String> row : newRowsPerTable.get(table)) {
-				if (row.get(fk) != null && row.get(fk).equals(oldval)) {
-					row.put(fk, newval);
+				if (row.get(key) != null && row.get(key).equals(oldval)) {
+					row.put(key, newval);
 				}
 			}
 		}
 	}
 	
-	private static String getTableFromFK(String fk) {
-		String result = fk.equals("FS_IsolatedSherdID")?"IsolatedSherdMainAbstract": fk.replace("FS_", "").replace("ID", "");
+	private static String getTableFromKey(String key) {
+		String result = key.endsWith("S_IsolatedSherdID")?"IsolatedSherdMainAbstract": key.replace("FS_", "").replace("PS_", "").replace("ID", "");
 		return result;
 	}
 	
-	private static void editFKsRecursively(TreeMap<String, String> newRow, String table, String pkField) throws FilemakerIsCrapException, SQLException, IOException, EntityManagementException {
+	private static void editFKsRecursively(TreeMap<String, String> newRow, String table, String pkField) throws FilemakerIsCrapException, SQLException, IOException, EntityManagementException, MissingPermissionException {
 		if (stack == null) stack = new ArrayDeque<String>();
 		if (cycles == null) cycles = new HashSet<String>();
 		// table name + oldID + newID
@@ -262,9 +263,9 @@ public class ImportOtherFM {
 		}
 		
 		// current row already added?
-		if (addedList.containsKey(table + ":" + pkVal)) {
+		if (addedList.containsKey(getTableFromKey(pkField) + ":" + pkVal)) {
 			System.out.println("top level row in "+table+" with ID "+pkVal+" already existent!");
-			newRow.put(pkField, ""+addedList.get(table + ":" + pkVal));
+			newRow.put(pkField, ""+addedList.get(getTableFromKey(pkField) + ":" + pkVal));
 			return;
 		}
 		
@@ -287,14 +288,14 @@ public class ImportOtherFM {
 				if (!currFK.equals("Deutsch") && stack.size()>= 1 && Integer.parseInt(currFK) >= 100000) {
 					
 					// if row behind fk already added
-					Integer alreadyAdded = addedList.get(getTableFromFK(key)+":"+ currFK);
+					Integer alreadyAdded = addedList.get(getTableFromKey(key)+":"+ currFK);
 					if (alreadyAdded != null) {
 						newRow.put(key, ""+alreadyAdded);
 						continue;
 					}
 					
 					// FK table in stack? => cycle
-					if (stack.contains(getTableFromFK(key))) {
+					if (stack.contains(getTableFromKey(key))) {
 						cycles.add(stack.peek() + "." + key + ":"+ newRow.get(key));
 						System.out.println("CYCLE FOUND: "+stack.peek() + "." + key + ":"+ newRow.get(key));
 						// if no other FKs, but cycle, then just pop up
@@ -303,7 +304,7 @@ public class ImportOtherFM {
 					}
 					// FK not in stack? => jump into table of fk
 					else {
-						String tableName = getTableFromFK(key);
+						String tableName = getTableFromKey(key);
 						// table existent?
 						if (newRowsPerTable.keySet().contains(tableName)) {
 							// bool to check, if row for key val is existent at all
@@ -356,13 +357,13 @@ public class ImportOtherFM {
 		return "";
 	}
 
-	private static void addAndReplace(String pkVal, String pk, TreeMap<String, String> newRow) throws SQLException, IOException, EntityManagementException, FilemakerIsCrapException {
+	private static void addAndReplace(String pkVal, String pk, TreeMap<String, String> newRow) throws SQLException, IOException, EntityManagementException, FilemakerIsCrapException, MissingPermissionException {
 		String tab = stack.pop();
 		int pkNew = 0;
 		int pkOld = Integer.parseInt(pkVal);
 		// if this row already added, get this id
-		if (addedList.containsKey(tab+":"+pkOld)){
-			pkNew = addedList.get(tab+":"+pkOld);
+		if (addedList.containsKey(getTableFromKey(pk)+":"+pkOld)){
+			pkNew = addedList.get(getTableFromKey(pk)+":"+pkOld);
 		}
 		// else add row, keep new id!
 		else {
@@ -370,13 +371,13 @@ public class ImportOtherFM {
 			pkNew = m.insertRowIntoLocal(tab, pk, newRow);
 			increaseCount(tab);
 			// add row with OLD pk to addedList
-			addedList.put(tab+":"+pkOld, pkNew);
+			addedList.put(getTableFromKey(pk)+":"+pkOld, pkNew);
 		}
 		// ENTWEDER
 		// != stack top?
 		if (stack.size() > 0) {
 			// replace old fk value in parent row with new value
-			replaceFKinTable(stack.peek(), tab, pkOld+"", pkNew+"");
+			replaceFKinTable(stack.peek(), getTableFromKey(pk), pkOld+"", pkNew+"");
 		}
 		// ODER
 //		replaceFKandPKinAllTables(tab, pkOld+"", pkNew+"");

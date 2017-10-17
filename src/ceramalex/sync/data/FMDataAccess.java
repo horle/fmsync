@@ -41,7 +41,7 @@ public class FMDataAccess extends AbstractDatabase {
 	}
 
 	/**
-	 * Method returns metadata of given FM db
+	 * Retrieves meta resultset of all tables in db
 	 * 
 	 * @return ResultSet with metadata
 	 * @throws SQLException 
@@ -49,7 +49,8 @@ public class FMDataAccess extends AbstractDatabase {
 	@Override
 	public ResultSet getTableMetaData() throws SQLException {
 			DatabaseMetaData md = cn.getMetaData();
-			return md.getColumns(null, serverDataSource, "%", "%");
+			String[] types = {"TABLE"};
+			return md.getTables(null, serverDataSource, "%", types);
 	}
 	
 	/**
