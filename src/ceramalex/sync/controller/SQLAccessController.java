@@ -122,10 +122,53 @@ public class SQLAccessController {
 	 * @return FM metadata for all tables object as ResultSet
 	 * @throws SQLException
 	 */
-	public ResultSet getFMTableMetaData() throws SQLException {
-		return this.fDataAccess.getTableMetaData();
+//	public ResultSet getFMTableMetaData() throws SQLException {
+//		return this.fDataAccess.getTableMetaData();
+//	}
+	
+	/**
+	 * returns a set of all local table names 
+	 * @return HashSet of table names
+	 * @throws SQLException
+	 */
+	public HashSet<String> getLocalTables() throws SQLException {
+		ResultSet r = fDataAccess.getTableMetaData();
+		HashSet<String> tables = new HashSet<String>();
+		while (r.next()) {
+			tables.add(r.getString("TABLE_NAME"));
+		}
+		return tables;
 	}
 
+	/**
+	 * returns a set of all remote table names 
+	 * @return HashSet of table names
+	 * @throws SQLException
+	 */
+	public HashSet<String> getRemoteTables() throws SQLException {
+		ResultSet r = mDataAccess.getTableMetaData();
+		HashSet<String> tables = new HashSet<String>();
+		while (r.next()) {
+			tables.add(r.getString("TABLE_NAME"));
+		}
+		return tables;
+	}
+	
+	/**
+	 * returns a set of local column names in given table
+	 * @param table
+	 * @return Hashset of column names
+	 * @throws SQLException 
+	 */
+	public HashSet<String> getLocalColumns(String table) throws SQLException {
+		ResultSet r = fDataAccess.getTableMetaData(table);
+		HashSet<String> tables = new HashSet<String>();
+		while (r.next()) {
+			tables.add(r.getString("COLUMN_NAME"));
+		}
+		return tables;
+	}
+	
 	/**
 	 * get FM metadata object for given table
 	 * @param table
@@ -231,14 +274,13 @@ public class SQLAccessController {
 	 * creates connections to filemaker and mysql, if they don't exist.
 	 * 
 	 * @return true, if both are established.
-	 * @throws SQLException
 	 */
-	public boolean connect() {
+	public String connect() {
 
-		boolean mRes = connectMySQL();
-		boolean fRes = connectFM();
+		String mRes = connectMySQL();
+		String fRes = connectFM();
 		
-		return mRes && fRes;
+		return (!mRes.isEmpty()?mRes+"\n":"") + (!fRes.isEmpty()?fRes : "");
 	}
 
 	/**
@@ -431,36 +473,36 @@ public class SQLAccessController {
 		return fDataAccess.doSQLAlter(sql);
 	}
 
-	public boolean connectFM() {
+	public String connectFM() {
 		try {
 			fDataAccess = new FMDataAccess(conf.getFmURL(),
 						conf.getFmUser(), conf.getFmPassword(),
 						conf.getFmDB());
 			
 			if (!fDataAccess.isConnected()) {
-				return fDataAccess.createConnection();
+				return fDataAccess.createConnection() ? "" : "Connection to FM failed";
 			}
 			
 		} catch (SQLException e) {
-			return false;
+			return e.toString();
 		}
-		return false;
+		return "Connection to FM failed";
 	}
 	
-	public boolean connectMySQL() {
+	public String connectMySQL() {
 		try {
 			mDataAccess = new MySQLDataAccess(conf.getMySQLURL(),
 						conf.getMySQLUser(), conf.getMySQLPassword(),
 						conf.getMySQLDB());
 		
 			if (!mDataAccess.isConnected()) {
-				return mDataAccess.createConnection();
+				return mDataAccess.createConnection() ? "" : "Connection to MySQL failed";
 			}
 			
 		} catch (SQLException e) {
-			return false;
+			return e.toString();
 		}
-		return false;
+		return "Connection to MySQL failed";
 	}
 
 	/**
@@ -507,10 +549,10 @@ public class SQLAccessController {
 		return false;
 	}
 	
-	public TreeBasedTable<String, String, HashSet<String>> fetchColPermissionsFM(ArrayList<String> tables) throws SQLException {
+	public TreeBasedTable<String, String, HashSet<String>> fetchColPermissionsFM(ArrayList<String> commonTables) throws SQLException {
 		TreeBasedTable<String, String, HashSet<String>> perms = conf.getColPermissions();
 		DatabaseMetaData meta = fDataAccess.getDBMetaData();
-		for (String table : tables) {
+		for (String table : commonTables) {
 			ResultSet privs = meta.getColumnPrivileges(null, conf.getFmDB(), table, "%");
 			
 			while (privs.next()) {
@@ -535,4 +577,5 @@ public class SQLAccessController {
 		conf.setColPermissions(perms);
 		return conf.getColPermissions();
 	}
+
 }

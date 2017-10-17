@@ -1,6 +1,7 @@
 package ceramalex.sync.model;
 
 import java.io.IOException;
+import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
@@ -26,6 +27,7 @@ import ceramalex.sync.controller.ConfigController;
 import ceramalex.sync.controller.SQLAccessController;
 import ceramalex.sync.exception.EntityManagementException;
 import ceramalex.sync.exception.FilemakerIsCrapException;
+import ceramalex.sync.exception.MissingPermissionException;
 import ceramalex.sync.exception.SyncException;
 
 /**
@@ -42,6 +44,8 @@ public class SQLDataModel {
 	private ArrayList<Pair> commonTables;
 	private TreeMap<Pair,ComparisonResult> results;
 	private ConfigController conf;
+	
+	private final TreeMap<String,String> internalFMmapping;
 
 	public TreeMap<Pair,ComparisonResult> getResults() {
 		return results;
@@ -65,6 +69,10 @@ public class SQLDataModel {
 		sqlAccess = SQLAccessController.getInstance();
 		conf = ConfigController.getInstance();
 		results = new TreeMap<Pair, ComparisonResult>();
+		
+		internalFMmapping = new TreeMap<String,String>();
+		internalFMmapping.put("DatierungMainAbstract", "Datierung");
+		internalFMmapping.put("DatierungBefund", "Datierung");
 	}
 	
 	/**
@@ -103,11 +111,9 @@ public class SQLDataModel {
 			sqlAccess.connect();
 		}
 		
-		ResultSet metaFM = sqlAccess.getFMTableMetaData();
 		System.out.println("IDENTIFIER QUOTE: "+sqlAccess.getFMDBMetaData().getIdentifierQuoteString());
 		
-		while (metaFM.next()) {
-			String table = metaFM.getString("TABLE_NAME");
+		for (String table : sqlAccess.getLocalTables()) {
 			if (!tables.contains(table))
 				tables.add(table);
 		}
@@ -209,35 +215,29 @@ public class SQLDataModel {
 	public ArrayList<Pair> fetchCommonTables() throws SQLException {
 		commonTables = new ArrayList<Pair>();
 
-		ArrayList<String> fmNames = new ArrayList<String>();
-		ArrayList<String> msNames = new ArrayList<String>();
+		HashSet<String> fmNames = sqlAccess.getLocalTables();
+		HashSet<String> msNames = sqlAccess.getRemoteTables();
 
 		if (!sqlAccess.isFMConnected() || !sqlAccess.isMySQLConnected()) {
 			sqlAccess.connect();
 		}
-
-		ResultSet metaFM = sqlAccess.getFMTableMetaData();
+		
 		ResultSet metaMS = sqlAccess.getMySQLDBMetaData();
-
+		
 		if (sqlAccess.isMySQLConnected() && sqlAccess.isFMConnected()) {
-			while (metaFM.next()) {
-				fmNames.add(metaFM.getString("TABLE_NAME"));
-			}
 			while (metaMS.next()) {
 				msNames.add(metaMS.getString("TABLE_NAME"));
 			}
 
-			for (int i = 0; i < msNames.size(); i++) {
-				for (int j = 0; j < fmNames.size(); j++) {
-					if (msNames.get(i).toLowerCase()
-							.equals(fmNames.get(j).toLowerCase())) {
-						Pair t = new Pair(fmNames.get(j), msNames.get(i));
+			for (String ms : msNames) {
+				for (String fm : fmNames) {
+					if (ms.toLowerCase().equals(fm.toLowerCase())) {
+						Pair t = new Pair(fm, ms);
 						commonTables.add(t);
 					}
 					// IsolatedSherdMainAbstract maps to isolatedsherd
-					if (fmNames.get(j).equals("IsolatedSherdMainAbstract")
-							&& msNames.get(i).equals("isolatedsherd")) {
-						Pair t = new Pair(fmNames.get(j), msNames.get(i));
+					if (fm.equals("IsolatedSherdMainAbstract") && ms.equals("isolatedsherd")) {
+						Pair t = new Pair(fm, ms);
 						commonTables.add(t);
 					}
 				}
@@ -255,32 +255,25 @@ public class SQLDataModel {
 	private boolean addLastModifiedField(String table) throws SQLException,
 			FilemakerIsCrapException, IOException {
 		try {
-			ResultSet fmColumns = sqlAccess.getFMColumnMetaData(table);
-
-			while (fmColumns.next()) {
-				if (fmColumns.getString("COLUMN_NAME").equalsIgnoreCase(
-						"lastModified")) {
-					return true;
-				}
+			if (sqlAccess.getLocalColumns(table).contains("lastModified")) {
+				return true;
 			}
 
 			if (sqlAccess.doFMAlter("ALTER TABLE " + table
 					+ " ADD lastModified TIMESTAMP")) {
 				throw new FilemakerIsCrapException(
-						"Column lastModified has been added manually into table \""
-								+ table
-								+ "\", but has still to be updated in FileMaker with the following script:\n"
+						"Column \"lastModified\" has been added into table \""+ table+ "\", but has still to be updated in FileMaker with the following script:\n"
 								+ "SetzeVar (\n" + 
-								"	[\n" + 
-								"		trigger = HoleFeldwert ( \"\" ) ; // note the innovative use of GetField\n" + 
-								"		ros = Hole ( DatensatzOffenStatus ) ;\n" + 
-								"		ies = IstLeer ( Hole ( ScriptName ) ) ;\n" + 
-								"		ts = LiesAlsZeitstempel( Hole ( SystemUhrzeitUTCMillisekunden )/1000)\n" + 
-								"	] ;\n" + 
-								"	Falls (\n" + 
-								"		ros = 1 ; \"\" ;\n" + 
-								"			ros = 2 UND ies = 1 ; ts ; Selbst\n" + 
-								"	)\n" + 
+								"   [\n" + 
+								"      trigger = HoleFeldwert ( \"\" ) ; // note the innovative use of GetField\n" + 
+								"      ros = Hole ( DatensatzOffenStatus ) ;\n" + 
+								"      ies = IstLeer ( Hole ( ScriptName ) ) ;\n" + 
+								"      ts = LiesAlsZeitstempel( Hole ( SystemUhrzeitUTCMillisekunden )/1000)\n" + 
+								"   ] ;\n" + 
+								"   Falls (\n" + 
+								"      ros = 1 ; \"\" ;\n" + 
+								"         ros = 2 UND ies = 1 ; ts ; Selbst\n" + 
+								"   )\n" + 
 								")\n");
 			} else
 				throw new FilemakerIsCrapException(
@@ -298,15 +291,8 @@ public class SQLDataModel {
 	private boolean addLastRemoteTSField(String table) throws SQLException,
 			FilemakerIsCrapException, IOException {
 		try {
-			ResultSet fmColumns = sqlAccess.getFMColumnMetaData(table);
-
-			while (fmColumns.next()) {
-				{
-					if (fmColumns.getString("COLUMN_NAME").equalsIgnoreCase(
-							"lastRemoteTS")) {
-						return true;
-					}
-				}
+			if (sqlAccess.getLocalColumns(table).contains("lastRemoteTS")) {
+				return true;
 			}
 
 			if (sqlAccess.doFMAlter("ALTER TABLE " + table
@@ -328,15 +314,8 @@ public class SQLDataModel {
 	private boolean addAUIDField(String table) throws SQLException,
 			FilemakerIsCrapException, IOException {
 		try {
-			ResultSet fmColumns = sqlAccess.getFMColumnMetaData(table);
-
-			while (fmColumns.next()) {
-				{
-					if (fmColumns.getString("COLUMN_NAME").equalsIgnoreCase(
-							"ArachneEntityID")) {
-						return true;
-					}
-				}
+			if (sqlAccess.getLocalColumns(table).contains("ArachneEntityID")) {
+				return true;
 			}
 
 			if (sqlAccess.doFMAlter("ALTER TABLE " + table
@@ -360,8 +339,25 @@ public class SQLDataModel {
 		return true;
 	}
 	
-	private boolean performLocalTest() {
-		return true; //TODO
+	public String performLocalDBTest() throws SQLException, FilemakerIsCrapException {
+		ArrayList<String> tables = new ArrayList<String>();
+		String lastModifiedScript = "";
+		try {
+			for (Pair table : commonTables) {
+				tables.add(table.getFMString());
+				addAUIDField(table.getFMString());
+				try {
+					addLastModifiedField(table.getFMString());
+				} catch (FilemakerIsCrapException e) {
+					lastModifiedScript = e.getMessage();
+				}
+				addLastRemoteTSField(table.getFMString());
+			}
+			sqlAccess.fetchColPermissionsFM(tables);
+		} catch (SQLException | IOException e) {
+			return null;
+		}
+		return lastModifiedScript;
 	}
 	
 	/**
@@ -441,17 +437,15 @@ public class SQLDataModel {
 			result.setMsColumns(msColumnMeta);
 			
 			commonFields = getCommonFields(currTab, fmColumnMeta, msColumnMeta);
-
-			// test, if fields are available in FM
-			addAUIDField(currTab.getLeft());
-			addLastModifiedField(currTab.getLeft());
-			addLastRemoteTSField(currTab.getLeft());
 			commonFields.add("ArachneEntityID");
 			commonFields.add("lastModified");
 			result.setCommonFields(commonFields);
 			
 			fmpk = getActualPrimaryKey((currTab.getLeft()));
 			mspk = sqlAccess.getMySQLTablePrimaryKey(currTab.getRight());
+			
+//			if (!fmpk.equalsIgnoreCase(mspk)) throw new EntityManagementException("Primary key fields in table "+currTab.getFMString()+" do not have the same name. Cannot synchronize!");
+			
 			// pk, map
 			TreeMap<Integer, TreeMap<String, String>> remotePKs = getRemoteSyncInfo(currTab, mspk);	
 			
@@ -736,6 +730,14 @@ public class SQLDataModel {
 		return result;
 	}
 	
+	/**
+	 * retrieves all sync relevant information for the given table from remote, e.g. UUID and timestamp
+	 *  
+	 * @param currTab the given table
+	 * @param mspk the private key name
+	 * @return Map of maps with integer primary key and the relevant fields as string maps
+	 * @throws SQLException
+	 */
 	private TreeMap<Integer, TreeMap<String, String>> getRemoteSyncInfo(Pair currTab, String mspk) throws SQLException {
 		TreeMap<Integer, TreeMap<String, String>> list = new TreeMap<Integer, TreeMap<String, String>>();
 		String tab = currTab.getRight();
@@ -776,10 +778,11 @@ public class SQLDataModel {
 	 * @throws SQLException
 	 * @throws EntityManagementException
 	 * @throws IOException
+	 * @throws MissingPermissionException 
 	 */
 	public boolean prepareRowsAndDownload(Pair currTab,
 			Vector<TreeMap<String, String>> vector, int packSize) throws SQLException,
-			EntityManagementException, IOException {
+			EntityManagementException, IOException, MissingPermissionException {
 		int count = vector.size() / packSize;
 		int mod = vector.size() % packSize;
 		boolean result = true;
@@ -802,8 +805,9 @@ public class SQLDataModel {
 	 * @throws IOException
 	 * @throws EntityManagementException
 	 * @throws FilemakerIsCrapException
+	 * @throws MissingPermissionException 
 	 */
-	public int insertRowIntoLocal(String currTab, String pk, TreeMap<String, String> row) throws SQLException, IOException, EntityManagementException, FilemakerIsCrapException {
+	public int insertRowIntoLocal(String currTab, String pk, TreeMap<String, String> row) throws SQLException, IOException, EntityManagementException, FilemakerIsCrapException, MissingPermissionException {
 		Vector<TreeMap<String, String>> v = new Vector<TreeMap<String,String>>();
 		int lastID = sqlAccess.getLastIndexFM(currTab, pk);
 		row.put(pk, ""+(lastID+1));
@@ -816,7 +820,7 @@ public class SQLDataModel {
 		return lastID+1;
 	}
 	
-	private boolean insertRowsIntoLocal(Pair currTab, Vector<TreeMap<String, String>> vector) throws SQLException, IOException, EntityManagementException {
+	private boolean insertRowsIntoLocal(Pair currTab, Vector<TreeMap<String, String>> vector) throws SQLException, IOException, EntityManagementException, MissingPermissionException {
 		if (vector.size() == 0)
 			return true;
 		
@@ -847,6 +851,7 @@ public class SQLDataModel {
 						currRow.put(altKey, val);
 					}
 				}
+				if (currRow.isEmpty()) throw new MissingPermissionException("Cannot write to any local db field in table "+currTab.getFMString()+"!");
 			}
 			
 			Iterator<String> it = currRow.keySet().iterator();
@@ -944,7 +949,7 @@ public class SQLDataModel {
 		
 		String sql = "INSERT INTO " + currTab.getRight() + " (";
 		String vals = " VALUES (";
-		String keyField = sqlAccess.getMySQLTablePrimaryKey(currTab.getRight());
+		String keyField = sqlAccess.getMySQLTablePrimaryKey(currTab.getMySQLString());
 		ArrayList<Integer> localIDs = new ArrayList<Integer>();
 		
 		// ( col1, col2, col3, ..)
@@ -1342,7 +1347,7 @@ public class SQLDataModel {
 		if (tuple.getLeft().size() == 0 || tuple.getRight().size() == 0)
 			return false;
 		
-		String sql = "UPDATE " + currTab.getLeft() + " SET ";
+		String sql = "UPDATE " + currTab.getMySQLString() + " SET ";
 		
 		TreeMap<String, String> set = tuple.getRight();
 		TreeMap<String, String> where = new TreeMap<String,String>(tuple.getLeft());
@@ -1364,16 +1369,17 @@ public class SQLDataModel {
 		
 		while (it.hasNext()) {
 			String currFieldName = it.next();
-			String longName = currTab.getLeft() + "." + currFieldName;
+			String longName = currTab.getMySQLString() + "." + currFieldName;
+			String lookupName = currTab.getFMString() + "." + currFieldName;
 			String currFieldVal = set.get(currFieldName);
 			
-			if (!isNumericalField(longName)
-					&& !isTimestampField(longName)
+			if (!isNumericalField(lookupName)
+					&& !isTimestampField(lookupName)
 					&& !currFieldName.equals("lastRemoteTS")
 					&& currFieldVal != null) {
 				sql += longName + "=" + "'" + escapeChars(currFieldVal) + "'";
 			}
-			else if ((isTimestampField(longName) || currFieldName.equals("lastRemoteTS")) && currFieldVal != null) {
+			else if ((isTimestampField(lookupName) || currFieldName.equals("lastRemoteTS")) && currFieldVal != null) {
 				sql += longName + "=" + "TIMESTAMP '" + currFieldVal + "'";
 			}
 			else {
@@ -1390,16 +1396,17 @@ public class SQLDataModel {
 		sql += " WHERE ";
 		while (it.hasNext()) {
 			String currFieldName = it.next();
-			String longName = currTab.getLeft() + "." + currFieldName;
+			String longName = currTab.getMySQLString() + "." + currFieldName;
+			String lookupName = currTab.getFMString() + "." + currFieldName;
 			String currFieldVal = where.get(currFieldName);
 			
-			if (!isNumericalField(longName)
-					&& !isTimestampField(longName)
+			if (!isNumericalField(lookupName)
+					&& !isTimestampField(lookupName)
 					&& !currFieldName.equals("lastRemoteTS")
 					&& currFieldVal != null) {
 				sql += longName + "=" + "'" + escapeChars(currFieldVal) + "'";
 			}
-			else if (isTimestampField(longName) && currFieldVal != null) {
+			else if (isTimestampField(lookupName) && currFieldVal != null) {
 				sql += longName + "=TIMESTAMP '" + currFieldVal + "'";
 			}
 			else {
@@ -1488,6 +1495,10 @@ public class SQLDataModel {
 				if (!(field.startsWith("[") ||field.equals("lastModified") || field.equals("lastRemoteTS") || field.equals("ArachneEntityID"))) {
 					row.put(field, filemaker.getString(field));
 				}
+				if (field.equals("Dateipfad"))
+					row.put(field, filemaker.getString("[DateipfadRelativeExport]"));
+				if (field.equals("Dateiname"))
+					row.put(field, filemaker.getString("[Dateiname]"));
 			}
 			try {
 				Integer pk = filemaker.getInt(fmpk);

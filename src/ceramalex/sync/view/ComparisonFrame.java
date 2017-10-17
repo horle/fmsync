@@ -81,7 +81,6 @@ public class ComparisonFrame extends JFrame {
 	
 	private JPanel container;
 	private ComparisonFrame frame;
-	private final ButtonGroup buttonGroup = new ButtonGroup();
 
 	private TreeMap<Pair, ComparisonResult> comps;
 	private SQLDataModel data;
@@ -89,8 +88,6 @@ public class ComparisonFrame extends JFrame {
 
 	private static Logger logger = Logger.getLogger(ComparisonFrame.class);
 	private JTabbedPane tabs;
-	private JRadioButton chkTimestamp;
-	private JRadioButton chkContent;
 	private JButton btnReload;
 	private JToggleButton btnPairs;
 	private JGradientButton btnDownload;
@@ -134,8 +131,6 @@ public class ComparisonFrame extends JFrame {
 		container.setLayout(new BorderLayout(0, 0));
 
 		tabs = new JTabbedPane(JTabbedPane.TOP);
-		chkTimestamp = new JRadioButton("by Timestamp");
-		chkContent = new JRadioButton("by Content");
 		btnReload = new JButton("Refetch tables");
 		btnPairs = new JToggleButton("Pairs");
 		btnDownload = new JGradientButton("<-");
@@ -252,11 +247,6 @@ public class ComparisonFrame extends JFrame {
 		pnlOptions.add(btnReload, "2, 2");
 		btnReload.setFont(new Font("Dialog", Font.PLAIN, 12));
 
-		chkTimestamp.setSelected(true);
-		buttonGroup.add(chkTimestamp);
-		chkTimestamp.setFont(new Font("Dialog", Font.PLAIN, 12));
-		pnlOptions.add(chkTimestamp, "4, 2");
-
 		chkSyncAttr.setFont(new Font("Dialog", Font.PLAIN, 12));
 		chkSyncAttr.setSelected(true);
 		chkSyncAttr.addItemListener(new ItemListener(){
@@ -266,14 +256,6 @@ public class ComparisonFrame extends JFrame {
 			}
 		});
 		pnlOptions.add(chkSyncAttr, "6, 2");
-
-		buttonGroup.add(chkContent);
-		chkContent.setFont(new Font("Dialog", Font.PLAIN, 12));
-		pnlOptions.add(chkContent, "4, 4");
-
-		JCheckBox chckbxNewCheckBox_3 = new JCheckBox("New check box");
-		chckbxNewCheckBox_3.setFont(new Font("Dialog", Font.PLAIN, 12));
-		pnlOptions.add(chckbxNewCheckBox_3, "6, 4");
 
 		JPanel pnlActions = new JPanel();
 		pnlTop.add(pnlActions, BorderLayout.EAST);

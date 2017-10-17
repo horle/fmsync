@@ -7,7 +7,7 @@ import java.text.SimpleDateFormat;
 import ceramalex.sync.controller.ConfigController;
 
 /**
- * Private class ("struct") for representing frontend element status
+ * fabric class for constructing frontend element status
  * 
  * @author horle (Felix Kussmaul)
  */
@@ -120,6 +120,14 @@ class FrameStatus {
 				+ config.getMySQLUser() + " ...\nTrying to connect to "
 				+ config.getShortFMURL() + ":2399" + " as " + config.getFmUser()
 				+ " ...", false, false);
+	}
+
+	public static FrameStatus connecting(String msg) {
+		return new FrameStatus(msg, false, true);
+	}
+
+	public static FrameStatus open(String msg) {
+		return new FrameStatus(msg, false, true);
 	}
 	
 }

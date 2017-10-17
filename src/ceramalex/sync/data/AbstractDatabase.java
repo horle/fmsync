@@ -351,9 +351,7 @@ public abstract class AbstractDatabase {
 			return false;
 		}
 		try {
-			Statement s = cn.createStatement();
-			s.executeQuery("SELECT 1 FROM fabric");
-			s.close();
+			getDBMetaData();
 			return true;
 		} catch (SQLException e) {
 			if (e.toString().contains("Connection is closed") || e.toString().contains("connection closed")) return false;
