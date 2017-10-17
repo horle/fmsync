@@ -6,9 +6,12 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
-import java.util.SortedSet;
+import java.util.Iterator;
+import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.Vector;
 
 import org.apache.log4j.Logger;
 
@@ -19,7 +22,7 @@ import ceramalex.sync.data.MySQLDataAccess;
 import ceramalex.sync.model.Pair;
 
 /**
- * Singleton class for FileMaker and MySQL access control
+ * Singleton class for FileMaker and MySQL access and functions
  * 
  * @author horle (Felix Kussmaul)
  */
@@ -84,7 +87,7 @@ public class SQLAccessController {
 	 * @return true, if connected
 	 * @throws SQLException
 	 */
-	public boolean isMySQLConnected() throws SQLException {
+	private boolean isMySQLConnected() throws SQLException {
 		return this.mDataAccess.isConnected();
 	}
 
@@ -549,6 +552,67 @@ public class SQLAccessController {
 		return false;
 	}
 	
+	/**
+	 * TODO UNDER CONSTRUCTION
+	 * wrapper method for selects
+	 * @param select collection of fields to select
+	 * @param from string for "from" tables
+	 * @param where conjugated list of key-value pairs for "where" statement
+	 * @return row list as result of query, null if not connected
+	 * @throws SQLException 
+	 */
+	public Vector<TreeMap<String, String>> doLocalSelect(Collection<String> select, String from, TreeMap<String,String> where) throws SQLException {
+		if (isFMConnected()) {
+			Vector<TreeMap<String,String>> result = new Vector<TreeMap<String,String>>();
+			String query = "SELECT ";
+			// select s1, s2, s3, ... 
+			if (select == null || select.isEmpty()) {
+				query += "*";
+			}
+			else {
+				Iterator<String> it = select.iterator();
+				while (it.hasNext()) {
+					query += it.hasNext() ? "," : "";
+				}
+			}
+			query += " FROM " + from;
+			
+			// where k1=v1 AND k2=v2 ...
+			if (where != null && where.isEmpty()) {
+				
+			}
+			
+			ResultSet ret = fDataAccess.doSQLQuery(query);
+			ResultSetMetaData meta = fDataAccess.getRSMetaData(ret);
+			
+			while (ret.next()) {
+				TreeMap<String,String> row = new TreeMap<String,String>();
+				for (int i = 1; i <= meta.getColumnCount(); i++) {
+//					String currFieldName = it.next();
+//					String longName = currTab.getLeft() + "." + currFieldName;
+//					String currFieldVal = set.get(currFieldName);
+//					
+//					if (!isNumericalField(longName)
+//							&& !isTimestampField(longName)
+//							&& !currFieldName.equals("lastRemoteTS")
+//							&& currFieldVal != null) {
+//						sql += currFieldName + "='" + escapeChars(currFieldVal) + "'";
+//					}
+//					else if ((isTimestampField(longName) || currFieldName.equals("lastRemoteTS")) && currFieldVal != null) {
+//						sql += currFieldName + "={ts '" + currFieldVal + "'}";
+//					}
+//					else {
+//						sql += currFieldName + "=" + currFieldVal;
+//					}
+					row.put(meta.getColumnName(i), ret.getString(i));
+				}
+			}
+			ret.close();
+			return result;
+		}
+		else return null;
+	}
+	
 	public TreeBasedTable<String, String, HashSet<String>> fetchColPermissionsFM(ArrayList<String> commonTables) throws SQLException {
 		TreeBasedTable<String, String, HashSet<String>> perms = conf.getColPermissions();
 		DatabaseMetaData meta = fDataAccess.getDBMetaData();
@@ -578,4 +642,11 @@ public class SQLAccessController {
 		return conf.getColPermissions();
 	}
 
+	/**
+	 * @return true, if dbs on both sides (local and remote) are connected 
+	 * @throws SQLException
+	 */
+	public boolean areBothConnected() throws SQLException {
+		return isFMConnected() && isMySQLConnected();
+	}
 }
