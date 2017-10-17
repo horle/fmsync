@@ -143,7 +143,7 @@ public class SQLDataModel {
 		for (String rem : remoteCols) {
 			String altRem = rem;
 			if (rem.startsWith("[")) remoteRow.remove(rem);
-			if (rem.contains("ü") || rem.contains("ä") || rem.contains("ö")) remoteRow.remove(rem);
+			if (rem.contains("ï¿½") || rem.contains("ï¿½") || rem.contains("ï¿½")) remoteRow.remove(rem);
 			if (rem.equals("Length")) altRem = "LengthSize";
 			if (rem.equals("PS_PlaceID")) altRem = "PS_OrtID";
 			if (rem.equals("PS_PlaceConnectionID")) altRem = "PS_OrtsbezugID";
@@ -212,14 +212,14 @@ public class SQLDataModel {
 		ArrayList<String> fmNames = new ArrayList<String>();
 		ArrayList<String> msNames = new ArrayList<String>();
 
-		if (!sqlAccess.isFMConnected() || !sqlAccess.isMySQLConnected()) {
+		if (!sqlAccess.areBothConnected()) {
 			sqlAccess.connect();
 		}
 
 		ResultSet metaFM = sqlAccess.getFMTableMetaData();
 		ResultSet metaMS = sqlAccess.getMySQLDBMetaData();
 
-		if (sqlAccess.isMySQLConnected() && sqlAccess.isFMConnected()) {
+		if (sqlAccess.areBothConnected()) {
 			while (metaFM.next()) {
 				fmNames.add(metaFM.getString("TABLE_NAME"));
 			}
@@ -433,7 +433,7 @@ public class SQLDataModel {
 		TreeBasedTable<Integer,Integer,TreeMap<String,String>> local = TreeBasedTable.create();
 		TreeBasedTable<Integer,Integer,TreeMap<String,String>> remote = TreeBasedTable.create();		
 		
-		if (sqlAccess.isMySQLConnected() && sqlAccess.isFMConnected()) {
+		if (sqlAccess.areBothConnected()) {
 			
 			ResultSet fmColumnMeta = sqlAccess.getFMColumnMetaData(currTab.getLeft());
 			ResultSet msColumnMeta = sqlAccess.getMySQLColumnMetaData(currTab.getRight());
@@ -510,8 +510,9 @@ public class SQLDataModel {
 					row.put(field, filemaker.getString(field));
 				}
 				row.put("lastRemoteTS", filemaker.getString("lastRemoteTS"));
-				
-				local.put(filemaker.getInt("ArachneEntityID"), filemaker.getInt(fmpk), row);
+				int uuID = filemaker.getInt("ArachneEntityID");
+				int lID = filemaker.getInt(fmpk);
+				local.put(uuID, lID, row);
 			}
 			while (mysql.next()) {
 				TreeMap<String,String> row = new TreeMap<String,String>();
@@ -686,6 +687,7 @@ public class SQLDataModel {
 					result.addToUpdateList(localRow, localDiffs, true);
 					break;
 				// local after last remote AND remote after last remote: CONFLICT
+				// alternative: no local timestamps.
 				case 3: case 4:
 					if (compareFields(commonFields, localRow, remoteRow, currTab) != 0)
 						result.addToConflictList(localRow, remoteRow);
@@ -835,7 +837,7 @@ public class SQLDataModel {
 					String altKey = key;
 					if (key.startsWith("[")) currRow.remove(key);
 					if (key.equals("PS_GLOBALAbstractID")) currRow.remove(key);
-					if (key.contains("ü") || key.contains("ä") || key.contains("ö")) currRow.remove(key);
+					if (key.contains("ï¿½") || key.contains("ï¿½") || key.contains("ï¿½")) currRow.remove(key);
 					if (key.equals("Length")) altKey = "LengthSize";
 					if (key.equals("PS_PlaceID")) altKey = "PS_OrtID";
 					if (key.equals("PS_PlaceConnectionID")) altKey = "PS_OrtsbezugID";
@@ -1467,6 +1469,14 @@ public class SQLDataModel {
 		}
 	}
 	
+	/**
+	 * ONLY for import tool
+	 * @param currTab
+	 * @return
+	 * @throws SQLException
+	 * @throws FilemakerIsCrapException
+	 * @throws IOException
+	 */
 	public TreeBasedTable<String, Integer, TreeMap<String, String>> getWholeFMTable(String currTab) throws SQLException, FilemakerIsCrapException, IOException {
 		TreeBasedTable<String,Integer,TreeMap<String,String>> table = TreeBasedTable.create();
 		
