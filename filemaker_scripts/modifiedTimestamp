@@ -1,0 +1,12 @@
+SetzeVar (
+	[
+		trigger = HoleFeldwert ( "" ) ; // note the innovative use of GetField
+		ros = Hole ( DatensatzOffenStatus ) ;
+		ies = IstLeer ( Hole ( ScriptName ) ) ;
+		ts = LiesAlsZeitstempel( Hole ( SystemUhrzeitUTCMillisekunden )/1000)
+	] ;
+	Falls (
+		ros = 1 ; "" ;
+			ros = 2 UND ies = 1 ; ts ; Selbst
+	)
+)
