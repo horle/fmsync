@@ -1,12 +1,13 @@
 package ceramalex.sync.view;
 
-import javax.swing.*; 
-import java.awt.*; 
-import java.awt.event.WindowAdapter; 
-import java.awt.event.WindowEvent; 
-import java.lang.reflect.InvocationHandler; 
-import java.lang.reflect.Method; 
-import java.lang.reflect.Proxy; 
+import java.awt.Frame;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
+
+import javax.swing.JFrame; 
  
 // @author Santhosh Kumar T - santhosh@in.fiorano.com 
 public class ModalFrameUtil{ 

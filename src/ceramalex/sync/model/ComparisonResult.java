@@ -1,12 +1,9 @@
 package ceramalex.sync.model;
 
 import java.sql.ResultSet;
-import java.util.ArrayList;
-import java.util.TreeSet;
-import java.util.TreeMap;
-import java.util.Iterator;
 import java.util.Map.Entry;
-import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.Vector;
 
 /**

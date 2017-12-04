@@ -1,8 +1,8 @@
 package ceramalex.sync.view;
 
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
@@ -24,19 +24,14 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.ListCellRenderer;
 import javax.swing.ListModel;
+import javax.swing.ListSelectionModel;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
-import javax.swing.ListSelectionModel;
 
-import ceramalex.sync.model.Pair;
 import ceramalex.sync.model.Tuple;
-import ceramalex.sync.view.ComparisonFrame.ColourCellRenderer;
-import ceramalex.sync.view.ComparisonFrame.ColourTableModel;
-
-import java.awt.Dimension;
 
 public class ConflictResolveDialog extends JDialog {
 

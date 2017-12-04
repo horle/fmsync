@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.net.URL;
 import java.sql.SQLException;
 import java.text.NumberFormat;
-import java.util.ArrayList;
 import java.util.TreeMap;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -21,6 +20,7 @@ import java.util.concurrent.TimeoutException;
 
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
@@ -47,9 +47,6 @@ import ceramalex.sync.exception.FilemakerIsCrapException;
 import ceramalex.sync.model.ComparisonResult;
 import ceramalex.sync.model.Pair;
 import ceramalex.sync.model.SQLDataModel;
-
-import com.mysql.jdbc.exceptions.jdbc4.CommunicationsException;
-import javax.swing.JCheckBox;
 
 /**
  * CeramalexSync main window to control DB sync actions
@@ -524,7 +521,11 @@ public class MainFrame {
 							if (JOptionPane.showConfirmDialog(frame, "Your local database is equal to the remote database! Close?", "Already in sync", JOptionPane.OK_CANCEL_OPTION) == JOptionPane.YES_OPTION) {
 								frame.dispose();
 								return;
-							} else return;
+							} else {
+								sqlAccess.close();
+								connected = false;
+								applyStatus(FrameStatus.closed("Connection closed."));
+							}
 						} else {
 							if (chkShowDetails.isSelected()) {
 								invokeComparisonFrame();
