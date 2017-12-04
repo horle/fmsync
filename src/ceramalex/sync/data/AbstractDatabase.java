@@ -11,7 +11,6 @@ import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.SortedSet;
 
 import org.apache.log4j.Logger;

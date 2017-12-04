@@ -2,7 +2,6 @@ package ceramalex.sync.model;
 
 import java.util.ArrayList;
 import java.util.TreeMap;
-import java.util.Vector;
 
 import org.apache.log4j.Logger;
 import org.apache.log4j.xml.DOMConfigurator;

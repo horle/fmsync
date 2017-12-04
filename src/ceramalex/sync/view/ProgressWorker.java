@@ -8,10 +8,7 @@ import java.util.List;
 import java.util.TreeMap;
 import java.util.Vector;
 
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JTextArea;
-import javax.swing.ProgressMonitor;
 import javax.swing.SwingWorker;
 
 import ceramalex.sync.exception.EntityManagementException;
@@ -70,7 +67,7 @@ public class ProgressWorker extends SwingWorker<Void, String> {
 				if (imgs != null && imgs.getRowCount() > 0) {
 					
 				}
-				System.out.println("HÖHÖHÖ BILDER");
+				System.out.println("Hï¿½Hï¿½Hï¿½ BILDER");
 			}
 			return null;
 		case JOB_APPLY_CHANGES:
