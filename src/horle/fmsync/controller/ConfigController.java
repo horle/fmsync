@@ -54,6 +54,13 @@ public class ConfigController {
 		propertyList.setProperty("ImagePath", "");
 		propertyList.setProperty("ShowDetailFrame", "true");
 		propertyList.setProperty("IncludeImgFiles", "true");
+		propertyList.setProperty("UUIDFieldName", "ArachneEntityID");
+		propertyList.setProperty("EntityDeletedFieldName", "isDeleted");
+		propertyList.setProperty("ForeignKeyFieldName", "ForeignKey");
+		propertyList.setProperty("ForeignKeyTableFieldName", "TableName");
+		propertyList.setProperty("LastModifiedFieldName", "lastModified");
+		propertyList.setProperty("LastRemoteTSFieldName", "lastRemoteTS");
+		propertyList.setProperty("EntityManagementTable", "arachneentityidentification");
 		return writeConfigFile();
 	}
 	
@@ -122,102 +129,6 @@ public class ConfigController {
 		}
 	}
 
-	public String getShortMySQLURL() {
-		return propertyList.getProperty("MySQLURL");
-	}
-	
-	public String getMySQLURL() {
-		return MYSQL_URL_PREFIX + propertyList.getProperty("MySQLURL");
-	}
-
-	public String getMySQLUser() {
-		return propertyList.getProperty("MySQLUser");
-	}
-
-	public String getMySQLPassword() {
-		return propertyList.getProperty("MySQLPassword");
-	}
-
-	public String getFmURL() {
-		return FM_URL_PREFIX + propertyList.getProperty("FMURL");
-	}
-	
-	public String getShortFMURL() {
-		return propertyList.getProperty("FMURL");
-	}
-
-	public String getFmUser() {
-		return propertyList.getProperty("FMUser");
-	}
-
-	public String getFmPassword() {
-		return propertyList.getProperty("FMPassword");
-	}
-
-	public void setMySQLURL(String mySQLURL) {
-		propertyList.setProperty("MySQLURL", mySQLURL);
-	}
-
-	public void setMySQLUser(String mySQLUser) {
-		propertyList.setProperty("MySQLUser", mySQLUser);
-	}
-
-	public void setMySQLPassword(String mySQLPassword) {
-		propertyList.setProperty("MySQLPassword", mySQLPassword);
-	}
-
-	public void setFmURL(String fmURL) {
-		propertyList.setProperty("FMURL",fmURL);
-	}
-
-	public void setFmUser(String fmUser) {
-		propertyList.setProperty("FMUser", fmUser);
-	}
-
-	public void setFmPassword(String fmPassword) {
-		propertyList.setProperty("FMPassword", fmPassword);
-	}
-
-	public String getMySQLDB() {
-		return propertyList.getProperty("MySQLDB");
-	}
-
-	public String getFmDB() {
-		return propertyList.getProperty("FMDB");
-	}
-
-	public void setMySQLDB(String mySQLDB) {
-		propertyList.setProperty("MySQLDB",  mySQLDB);
-	}
-
-	public void setFmDB(String fmDB) {
-		propertyList.setProperty("FMDB", fmDB);
-	}
-
-	public String getMySQLPort() {
-		return propertyList.getProperty("MySQLPort");
-	}
-
-	public void setMySQLPort(String mySQLPort) {
-		propertyList.setProperty("MySQLPort", mySQLPort);
-	}
-
-	public TreeSet<String> getNumericFields() {
-		return numericFields;
-	}
-
-	public void setNumericFields(TreeSet<String> list) {
-		this.numericFields = list;
-	}
-
-	public TreeSet<Pair> getTimestampFields() {
-		return timestampFields;
-	}
-
-	public void setTimestampFields(TreeSet<Pair> list) {
-		this.timestampFields = list;
-	}
-
 	public boolean writeConfigFile() throws IOException {
 		FileWriter fw = new FileWriter(propertyFile);
 		propertyList.store(fw, "");
@@ -225,33 +136,65 @@ public class ConfigController {
 		return true;
 	}
 
-	public String getFMPort() {
-		return fmPort;
-	}
-
-	public String getImagePath() {
-		return propertyList.getProperty("ImagePath");
-	}
+	/*
+	 * database connection information
+	 */
+	// MySQL
+	public String getShortMySQLURL() 					{return propertyList.getProperty("MySQLURL");}	
+	public String getMySQLURL() 						{return MYSQL_URL_PREFIX + propertyList.getProperty("MySQLURL");}
+	public String getMySQLUser() 						{return propertyList.getProperty("MySQLUser");}
+	public String getMySQLPassword() 					{return propertyList.getProperty("MySQLPassword");}
+	public String getMySQLPort() 						{return propertyList.getProperty("MySQLPort");}
+	public void setMySQLPort(String mySQLPort) 			{propertyList.setProperty("MySQLPort", mySQLPort);}
+	public void setMySQLDB(String mySQLDB) 				{propertyList.setProperty("MySQLDB",  mySQLDB);}
+	public void setMySQLURL(String mySQLURL) 			{propertyList.setProperty("MySQLURL", mySQLURL);}
+	public void setMySQLUser(String mySQLUser) 			{propertyList.setProperty("MySQLUser", mySQLUser);}
+	public void setMySQLPassword(String mySQLPassword) 	{propertyList.setProperty("MySQLPassword", mySQLPassword);}
+	public String getMySQLDB() 							{return propertyList.getProperty("MySQLDB");}
+	// FM
+	public String getFmURL() 							{return FM_URL_PREFIX + propertyList.getProperty("FMURL");}	
+	public String getShortFMURL() 						{return propertyList.getProperty("FMURL");}
+	public String getFmUser() 							{return propertyList.getProperty("FMUser");}
+	public String getFmPassword() 						{return propertyList.getProperty("FMPassword");}
+	public void setFmURL(String fmURL) 					{propertyList.setProperty("FMURL",fmURL);}
+	public void setFmUser(String fmUser) 				{propertyList.setProperty("FMUser", fmUser);}
+	public void setFmPassword(String fmPassword) 		{propertyList.setProperty("FMPassword", fmPassword);}
+	public String getFmDB() 							{return propertyList.getProperty("FMDB");}
+	public String getFMPort() 							{return fmPort;}
+	public void setFmDB(String fmDB) 					{propertyList.setProperty("FMDB", fmDB);}
+	// general
+	public TreeSet<String> getNumericFields() 			{return numericFields;}
+	public void setNumericFields(TreeSet<String> list) 	{this.numericFields = list;}
+	public TreeSet<Pair> getTimestampFields() 			{return timestampFields;}
+	public void setTimestampFields(TreeSet<Pair> list)	{this.timestampFields = list;}
 	
-	public void setImagePath(String img) {
-		propertyList.setProperty("ImagePath", img);
-	}
+	/*
+	 * ui options
+	 */
+	public void setShowDetailsFrame(boolean show) 		{propertyList.setProperty("ShowDetailFrame", ""+show);}	
+	public boolean getShowDetailsFrame() 				{return new Boolean(propertyList.getProperty("ShowDetailFrame"));}	
+	public void setIncludeImgFiles(boolean inc) 		{propertyList.setProperty("IncludeImgFiles", ""+inc);}
+	public boolean getIncludeImgFiles() 				{return new Boolean(propertyList.getProperty("IncludeImgFiles"));}
+	public String getImagePath() 						{return propertyList.getProperty("ImagePath");}
+	public void setImagePath(String img) 				{propertyList.setProperty("ImagePath", img);}	
 	
-	public void setShowDetailsFrame(boolean show) {
-		propertyList.setProperty("ShowDetailFrame", ""+show);
-	}
-	
-	public boolean getShowDetailsFrame() {
-		return new Boolean(propertyList.getProperty("ShowDetailFrame"));
-	}
-	
-	public void setIncludeImgFiles(boolean inc) {
-		propertyList.setProperty("IncludeImgFiles", ""+inc);
-	}
-	
-	public boolean getIncludeImgFiles() {
-		return new Boolean(propertyList.getProperty("IncludeImgFiles"));
-	}
+	/*
+	 * entity management field names
+	 */
+	public String getEntityManagementTable() 			{return propertyList.getProperty("EntityManagementTable");}	
+	public void setEntityManagementTable(String table) 	{propertyList.setProperty("EntityManagementTable", table);}	
+	public String getUUIDFieldName() 					{return propertyList.getProperty("UUIDFieldName");}	
+	public void setUUIDFieldName(String uuid) 			{propertyList.setProperty("UUIDFieldName", uuid);}	
+	public String getFKFieldName() 						{return propertyList.getProperty("ForeignKeyFieldName");}	
+	public void setFKFieldName(String fk) 				{propertyList.setProperty("ForeignKeyFieldName", fk);}
+	public String getFKTableFieldName() 				{return propertyList.getProperty("ForeignKeyTableFieldName");}	
+	public void setFKTableFieldName(String fkt) 		{propertyList.setProperty("ForeignKeyTableFieldName", fkt);}
+	public String getModificationTSFieldName()  		{return propertyList.getProperty("LastModifiedFieldName");}
+	public void setModificationTSFieldName(String lm) 	{propertyList.setProperty("LastModifiedFieldName", lm);}
+	public String getLastRemoteTSFieldName()  		{return propertyList.getProperty("LastRemoteTSFieldName");}
+	public void setLastRemoteTSFieldName(String lrts) 	{propertyList.setProperty("LastRemoteTSFieldName", lrts);}
+	public String getDeletedFieldName()  				{return propertyList.getProperty("EntityDeletedFieldName");}
+	public void setDeletedFieldName(String del) 		{propertyList.setProperty("EntityDeletedFieldName", del);}
 
 	public TreeBasedTable<String, String, HashSet<String>> getColPermissions() {
 		return colPermissions;
