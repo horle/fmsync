@@ -149,7 +149,7 @@ public class MainFrame {
 	private void initialize() {
 		connected = false;
 
-		frame = new JFrame("FMalexSync");
+		frame = new JFrame("FMSync");
 		frame.setResizable(false);
 		frame.setBounds(100, 100, 800, 346);
 		frame.setLocationRelativeTo(null);

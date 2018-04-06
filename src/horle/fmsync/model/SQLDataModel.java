@@ -138,7 +138,7 @@ public class SQLDataModel {
 		TreeMap<String,String> result = new TreeMap<String,String>();
 		TreeMap<String,String> remoteRow = new TreeMap<String,String>(row);
 		ArrayList<String> commonColumns = new ArrayList<String>();
-		remoteRow.remove("ArachneEntityID");
+		remoteRow.remove(conf.getUUIDFieldName());
 		remoteRow.remove(pk);
 		
 		ArrayList<String> localCols = fetchFMColumns(currTab);
@@ -248,14 +248,14 @@ public class SQLDataModel {
 	private boolean addLastModifiedField(String table) throws SQLException,
 			FilemakerIsCrapException, IOException {
 		try {
-			if (sqlAccess.getLocalColumns(table).contains("lastModified")) {
+			if (sqlAccess.getLocalColumns(table).contains(conf.getModificationTSFieldName())) {
 				return true;
 			}
 
 			if (sqlAccess.doFMAlter("ALTER TABLE " + table
-					+ " ADD lastModified TIMESTAMP")) {
+					+ " ADD "+conf.getModificationTSFieldName()+" TIMESTAMP")) {
 				throw new FilemakerIsCrapException(
-						"Column \"lastModified\" has been added into table \""+ table+ "\", but has still to be updated in FileMaker with the following script:\n"
+						"Column \""+conf.getModificationTSFieldName()+"\" has been added into table \""+ table+ "\", but has still to be updated in FileMaker with the following script:\n"
 								+ "SetzeVar (\n" + 
 								"   [\n" + 
 								"      trigger = HoleFeldwert ( \"\" ) ; // note the innovative use of GetField\n" + 
@@ -270,7 +270,7 @@ public class SQLDataModel {
 								")\n");
 			} else
 				throw new FilemakerIsCrapException(
-						"Column lastModified has to be added manually into table \""
+						"Column "+conf.getModificationTSFieldName()+" has to be added manually into table \""
 								+ table + "\"");
 
 		} catch (FMSQLException e) {
@@ -284,16 +284,16 @@ public class SQLDataModel {
 	private boolean addLastRemoteTSField(String table) throws SQLException,
 			FilemakerIsCrapException, IOException {
 		try {
-			if (sqlAccess.getLocalColumns(table).contains("lastRemoteTS")) {
+			if (sqlAccess.getLocalColumns(table).contains(conf.getLastRemoteTSFieldName())) {
 				return true;
 			}
 
 			if (sqlAccess.doFMAlter("ALTER TABLE " + table
-					+ " ADD lastRemoteTS TIMESTAMP")) {
+					+ " ADD "+conf.getLastRemoteTSFieldName()+" TIMESTAMP")) {
 				return true;
 			} else
 				throw new FilemakerIsCrapException(
-						"Column lastRemoteTS has to be added manually into table \""
+						"Column "+conf.getLastRemoteTSFieldName()+" has to be added manually into table \""
 								+ table + "\"");
 
 		} catch (FMSQLException e) {
@@ -307,16 +307,16 @@ public class SQLDataModel {
 	private boolean addAUIDField(String table) throws SQLException,
 			FilemakerIsCrapException, IOException {
 		try {
-			if (sqlAccess.getLocalColumns(table).contains("ArachneEntityID")) {
+			if (sqlAccess.getLocalColumns(table).contains(conf.getUUIDFieldName())) {
 				return true;
 			}
 
 			if (sqlAccess.doFMAlter("ALTER TABLE " + table
-					+ " ADD ArachneEntityID NUMERIC")) {
+					+ " ADD "+conf.getUUIDFieldName()+" NUMERIC")) {
 				return true;
 			} else
 				throw new FilemakerIsCrapException(
-						"Column ArachneEntityID has to be added manually into table \""
+						"Column "+conf.getUUIDFieldName()+" has to be added manually into table \""
 								+ table + "\"");
 
 		} catch (FMSQLException e) {
@@ -430,8 +430,8 @@ public class SQLDataModel {
 			result.setMsColumns(msColumnMeta);
 			
 			commonFields = getCommonFields(currTab, fmColumnMeta, msColumnMeta);
-			commonFields.add("ArachneEntityID");
-			commonFields.add("lastModified");
+			commonFields.add(conf.getUUIDFieldName());
+			commonFields.add(conf.getModificationTSFieldName());
 			result.setCommonFields(commonFields);
 			
 			fmpk = getActualPrimaryKey((currTab.getLeft()));
@@ -451,15 +451,15 @@ public class SQLDataModel {
 			Iterator<String> it = commonFields.iterator();
 			while (it.hasNext()) {
 				String next = it.next();
-				if (next.equals("ArachneEntityID")) continue;
+				if (next.equals(conf.getUUIDFieldName())) continue;
 				if (!it.hasNext()) {
-					if (!next.equals("lastModified"))
+					if (!next.equals(conf.getModificationTSFieldName()))
 						sqlCommonFields += currTab.getRight()+".";
 					sqlCommonFields += next;
 					sqlCommonFieldsFM += currTab.getLeft()+"."+next;
 				}
 				else{
-					if (!next.equals("lastModified"))
+					if (!next.equals(conf.getModificationTSFieldName()))
 						sqlCommonFields += currTab.getRight()+".";
 					sqlCommonFields += next + ",";
 					sqlCommonFieldsFM += currTab.getLeft()+"."+next + ",";
@@ -474,16 +474,16 @@ public class SQLDataModel {
 						+ ".ImportSource!='Comprehensive Table'";
 			}
 
-			String fmSQL = "SELECT ArachneEntityID, " + sqlCommonFieldsFM + ", "+currTab.getLeft()+".lastRemoteTS FROM " + currTab.getLeft()
+			String fmSQL = "SELECT "+conf.getUUIDFieldName()+", " + sqlCommonFieldsFM + ", "+currTab.getLeft()+"."+conf.getLastRemoteTSFieldName()+" FROM " + currTab.getLeft()
 					+ archerFMSkip;
-			String msSQL = "SELECT arachneentityidentification.ArachneEntityID, arachneentityidentification.isDeleted, arachneentityidentification.ForeignKey,arachneentityidentification.lastModified AS deletedTS,"
-					+ sqlCommonFields.replace("lastModified", "DATE_FORMAT(CONVERT_TZ(" + currTab.getRight() + ".`lastModified`, @@session.time_zone, '+00:00'),'%Y-%m-%d %H:%i:%s') as lastModified")
-					+ " FROM arachneentityidentification"
+			String msSQL = "SELECT "+conf.getEntityManagementTable()+"."+conf.getUUIDFieldName()+", "+conf.getEntityManagementTable()+"."+conf.getDeletedFieldName()+", "+conf.getEntityManagementTable()+"."+conf.getFKFieldName()+","+conf.getEntityManagementTable()+"."+conf.getModificationTSFieldName()+" AS deletedTS,"
+					+ sqlCommonFields.replace(conf.getModificationTSFieldName(), "DATE_FORMAT(CONVERT_TZ(" + currTab.getRight() + ".`"+conf.getModificationTSFieldName()+"`, @@session.time_zone, '+00:00'),'%Y-%m-%d %H:%i:%s') as "+conf.getModificationTSFieldName()+"")
+					+ " FROM "+conf.getEntityManagementTable()
 					// left join includes deleted or empty entries
 					+ " LEFT JOIN " + currTab.getRight()
-					+ " ON arachneentityidentification.ForeignKey = "
+					+ " ON "+conf.getEntityManagementTable()+"."+conf.getFKFieldName()+" = "
 					+ currTab.getRight() + "." + sqlAccess.getMySQLTablePrimaryKey(currTab.getRight())
-					+ " WHERE arachneentityidentification.TableName=\""
+					+ " WHERE "+conf.getEntityManagementTable()+"."+conf.getFKTableFieldName()+"=\""
 					+ currTab.getRight() + "\"" + archerMSSkip;
 
 			// get only common fields from filemaker
@@ -496,8 +496,8 @@ public class SQLDataModel {
 				for (String field : commonFields) {
 					row.put(field, filemaker.getString(field));
 				}
-				row.put("lastRemoteTS", filemaker.getString("lastRemoteTS"));
-				int uuID = filemaker.getInt("ArachneEntityID");
+				row.put(conf.getLastRemoteTSFieldName(), filemaker.getString(conf.getLastRemoteTSFieldName()));
+				int uuID = filemaker.getInt(conf.getUUIDFieldName());
 				int lID = filemaker.getInt(fmpk);
 				local.put(uuID, lID, row);
 			}
@@ -506,10 +506,10 @@ public class SQLDataModel {
 				for (String field : commonFields) {
 					row.put(field, mysql.getString(field));
 				}
-				row.put("isDeleted", mysql.getString("isDeleted"));
-				row.put("ForeignKey", mysql.getString("ForeignKey"));
+				row.put(conf.getDeletedFieldName(), mysql.getString(conf.getDeletedFieldName()));
+				row.put(conf.getFKFieldName(), mysql.getString(conf.getFKFieldName()));
 				
-				remote.put(mysql.getInt("ArachneEntityID"), mysql.getInt("ForeignKey"), row);
+				remote.put(mysql.getInt(conf.getUUIDFieldName()), mysql.getInt(conf.getFKFieldName()), row);
 			}
 		}
 		
@@ -521,7 +521,7 @@ public class SQLDataModel {
 			int uid = cell.getRowKey();
 			int rID = cell.getColumnKey();
 			TreeMap<String, String> remoteRow = cell.getValue();
-			boolean isDeletedRemotely = remoteRow.get("isDeleted").equals("1") ? true : false;
+			boolean isDeletedRemotely = remoteRow.get(conf.getDeletedFieldName()).equals("1") ? true : false;
 			
 			/**
 			 *  RUID == LUID
@@ -536,9 +536,9 @@ public class SQLDataModel {
 				int lID = Integer.parseInt(localRow.get(fmpk));
 				
 				if (isDeletedRemotely) {
-					localRow.remove("lastRemoteTS");
-					remoteRow.remove("ForeignKey");
-					remoteRow.remove("isDeleted");
+					localRow.remove(conf.getLastRemoteTSFieldName());
+					remoteRow.remove(conf.getFKFieldName());
+					remoteRow.remove(conf.getDeletedFieldName());
 					remoteRow.put(mspk, rID+"");
 					result.addToDeleteList(localRow, remoteRow);
 					it.remove();
@@ -546,13 +546,13 @@ public class SQLDataModel {
 					continue;
 				}
 			
-				String currRTS = remoteRow.get("lastModified"); // current arachne timestamp
-				String currLTS = localRow.get("lastModified"); // current fm timestamp
-				String currLRTS = localRow.get("lastRemoteTS"); // last remote timestamp saved in fm
+				String currRTS = remoteRow.get(conf.getModificationTSFieldName()); // current arachne timestamp
+				String currLTS = localRow.get(conf.getModificationTSFieldName()); // current fm timestamp
+				String currLRTS = localRow.get(conf.getLastRemoteTSFieldName()); // last remote timestamp saved in fm
 				
-				localRow.remove("lastRemoteTS");
-				remoteRow.remove("ForeignKey");
-				remoteRow.remove("isDeleted");
+				localRow.remove(conf.getLastRemoteTSFieldName());
+				remoteRow.remove(conf.getFKFieldName());
+				remoteRow.remove(conf.getDeletedFieldName());
 				
 				int timestampResult = examineTimestamps(currRTS, currLTS, currLRTS);
 				// timestamps all equal: remote and SKIP
@@ -568,7 +568,7 @@ public class SQLDataModel {
 				// local after remote, remote did not change: UPDATE REMOTELY
 				case 1:
 					for (String field : commonFields) {
-						if (field.equals("lastModified")) continue;
+						if (field.equals(conf.getModificationTSFieldName())) continue;
 						String rVal = remoteRow.get(field);
 						String lVal = localRow.get(field);
 						if (rVal != null && lVal != null && !rVal.equals(lVal))
@@ -576,7 +576,7 @@ public class SQLDataModel {
 						else if (rVal == null && lVal != null || lVal == null && rVal != null)
 							diffs.put(field, lVal);
 					}
-					diffs.put("lastModified", currLTS);
+					diffs.put(conf.getModificationTSFieldName(), currLTS);
 					result.addToUpdateList(remoteRow, diffs, false);
 					it.remove();
 					local.remove(uid, lID);
@@ -584,7 +584,7 @@ public class SQLDataModel {
 				// remote after local AND (local <= last remote <= remote): UPDATE LOCALLY
 				case 2:
 					for (String field : commonFields) {
-						if (field.equals("lastModified")) continue;
+						if (field.equals(conf.getModificationTSFieldName())) continue;
 						String rVal = remoteRow.get(field);
 						String lVal = localRow.get(field);
 						if (rVal != null && lVal != null && !rVal.equals(lVal))
@@ -592,8 +592,8 @@ public class SQLDataModel {
 						else if (rVal == null && lVal != null || lVal == null && rVal != null)
 							diffs.put(field, rVal);
 					}
-					diffs.put("lastModified", currRTS);
-					diffs.put("lastRemoteTS", currRTS);
+					diffs.put(conf.getModificationTSFieldName(), currRTS);
+					diffs.put(conf.getLastRemoteTSFieldName(), currRTS);
 					result.addToUpdateList(localRow, diffs, true);
 					it.remove();
 					local.remove(uid, lID);
@@ -604,8 +604,8 @@ public class SQLDataModel {
 						result.addToConflictList(localRow, remoteRow);
 					}
 					else {
-						diffs.put("lastModified", currRTS);
-						diffs.put("lastRemoteTS", currRTS);
+						diffs.put(conf.getModificationTSFieldName(), currRTS);
+						diffs.put(conf.getLastRemoteTSFieldName(), currRTS);
 						result.addToUpdateList(localRow, diffs, true);
 					}
 					it.remove();
@@ -620,13 +620,13 @@ public class SQLDataModel {
 			else if (local.contains(0, rID)) {
 				TreeMap<String, String> localRow = local.get(0, rID);
 				
-				String currRTS = remoteRow.get("lastModified"); // current arachne timestamp
-				String currLTS = localRow.get("lastModified"); // current fm timestamp
-				String currLRTS = localRow.get("lastRemoteTS"); // last remote timestamp saved in fm
+				String currRTS = remoteRow.get(conf.getModificationTSFieldName()); // current arachne timestamp
+				String currLTS = localRow.get(conf.getModificationTSFieldName()); // current fm timestamp
+				String currLRTS = localRow.get(conf.getLastRemoteTSFieldName()); // last remote timestamp saved in fm
 				
-				localRow.remove("lastRemoteTS");
-				remoteRow.remove("ForeignKey");
-				remoteRow.remove("isDeleted");
+				localRow.remove(conf.getLastRemoteTSFieldName());
+				remoteRow.remove(conf.getFKFieldName());
+				remoteRow.remove(conf.getDeletedFieldName());
 				
 				if (isDeletedRemotely) {
 					remoteRow.put(mspk, rID+"");
@@ -653,9 +653,9 @@ public class SQLDataModel {
 							remoteDiffs.put(field, lVal);
 					}
 					result.addToUpdateList(remoteRow, remoteDiffs, false);
-					localDiffs.put("lastModified", currRTS);
-					localDiffs.put("lastRemoteTS", currRTS);
-					localDiffs.put("ArachneEntityID", ""+uid);
+					localDiffs.put(conf.getModificationTSFieldName(), currRTS);
+					localDiffs.put(conf.getLastRemoteTSFieldName(), currRTS);
+					localDiffs.put(conf.getUUIDFieldName(), ""+uid);
 					result.addToUpdateList(localRow, localDiffs, true);
 					break;
 				// remote after local AND (local <= last remote <= remote): UPDATE LOCALLY
@@ -668,9 +668,9 @@ public class SQLDataModel {
 						else if (rVal == null && lVal != null || lVal == null && rVal != null)
 							localDiffs.put(field, rVal);
 					}
-					localDiffs.put("lastModified", currRTS);
-					localDiffs.put("lastRemoteTS", currRTS);
-					localDiffs.put("ArachneEntityID", ""+uid);
+					localDiffs.put(conf.getModificationTSFieldName(), currRTS);
+					localDiffs.put(conf.getLastRemoteTSFieldName(), currRTS);
+					localDiffs.put(conf.getUUIDFieldName(), ""+uid);
 					result.addToUpdateList(localRow, localDiffs, true);
 					break;
 				// local after last remote AND remote after last remote: CONFLICT
@@ -691,8 +691,8 @@ public class SQLDataModel {
 			else if (!local.containsColumn(rID)) {
 				
 				if (!isDeletedRemotely) {
-					remoteRow.remove("ForeignKey");
-					remoteRow.remove("isDeleted");
+					remoteRow.remove(conf.getFKFieldName());
+					remoteRow.remove(conf.getDeletedFieldName());
 					result.addToDeleteOrDownloadList(remoteRow);
 				}
 				it.remove();
@@ -714,7 +714,7 @@ public class SQLDataModel {
 			 */
 			if (!remote.containsColumn(lID)) {
 				//TODO vllt ts, uid updaten?!
-				localRow.remove("lastRemoteTS");
+				localRow.remove(conf.getLastRemoteTSFieldName());
 				result.addToUploadList(localRow);
 				it.remove();
 				continue;
@@ -736,16 +736,16 @@ public class SQLDataModel {
 	private TreeMap<Integer, TreeMap<String, String>> getRemoteSyncInfo(Pair currTab, String mspk) throws SQLException {
 		TreeMap<Integer, TreeMap<String, String>> list = new TreeMap<Integer, TreeMap<String, String>>();
 		String tab = currTab.getRight();
-		ResultSet r = sqlAccess.doMySQLQuery("SELECT "+tab+"."+mspk+", arachneentityidentification.ArachneEntityID, "+tab+".lastModified FROM "+tab
-				+ " JOIN arachneentityidentification on arachneentityidentification.ForeignKey = " + tab+"."+mspk 
-				+ " WHERE arachneentityidentification.TableName='"+tab+"'");
+		ResultSet r = sqlAccess.doMySQLQuery("SELECT "+tab+"."+mspk+", "+conf.getEntityManagementTable()+"."+conf.getUUIDFieldName()+", "+tab+"."+conf.getModificationTSFieldName()+" FROM "+tab
+				+ " JOIN "+conf.getEntityManagementTable()+" on "+conf.getEntityManagementTable()+"."+conf.getFKFieldName()+" = " + tab+"."+mspk 
+				+ " WHERE "+conf.getEntityManagementTable()+"."+conf.getFKTableFieldName()+"='"+tab+"'");
 		while (r.next()) {
 			TreeMap<String, String> tmp = new TreeMap<String,String>();
 			Integer pk = r.getInt(mspk);
-			String lm = r.getString("lastModified");
-			String uid = r.getString("ArachneEntityID");
-			tmp.put("lastModified", lm);
-			tmp.put("ArachneEntityID", uid);
+			String lm = r.getString(conf.getModificationTSFieldName());
+			String uid = r.getString(conf.getUUIDFieldName());
+			tmp.put(conf.getModificationTSFieldName(), lm);
+			tmp.put(conf.getUUIDFieldName(), uid);
 			list.put(pk, tmp);
 		}
 		return list;
@@ -855,8 +855,8 @@ public class SQLDataModel {
 				String currFieldName = it.next();
 				String longName = currTab.getFMString() + "." + currFieldName;
 				if (i == 0) {
-					if (currFieldName.endsWith("lastModified")){
-						sql += "lastModified,lastRemoteTS";
+					if (currFieldName.endsWith(conf.getModificationTSFieldName())){
+						sql += ""+conf.getModificationTSFieldName()+","+conf.getLastRemoteTSFieldName()+"";
 					}
 					else
 						sql += currFieldName;
@@ -870,7 +870,7 @@ public class SQLDataModel {
 				}
 				else if (isTimestampField(longName)
 						&& currFieldVal != null) {
-					if (currFieldName.endsWith("lastModified")){
+					if (currFieldName.endsWith(conf.getModificationTSFieldName())){
 						currFieldVal = "TIMESTAMP '" + currFieldVal + "', TIMESTAMP '" + currFieldVal + "'";
 					}
 					else
@@ -950,7 +950,7 @@ public class SQLDataModel {
 		// ( col1, col2, col3, ..)
 		if (!vector.isEmpty()) {
 			TreeSet<String> keys = new TreeSet<String>(vector.get(0).keySet());
-			keys.remove("ArachneEntityID");
+			keys.remove(conf.getUUIDFieldName());
 			Iterator<String> it = keys.iterator();
 			while (it.hasNext()) {
 				sql += "`" + it.next() + "`";
@@ -963,7 +963,7 @@ public class SQLDataModel {
 		// rows
 		for (int i = 0; i < vector.size(); i++) {
 			TreeMap<String,String> currRow = new TreeMap<String,String>(vector.get(i));
-			currRow.remove("ArachneEntityID");
+			currRow.remove(conf.getUUIDFieldName());
 			Iterator<String> it = currRow.keySet().iterator();
 			// values for row
 			while (it.hasNext()) {
@@ -1006,21 +1006,21 @@ public class SQLDataModel {
 		}
 		
 		// get remote AUID and TS
-		ResultSet id = sqlAccess.doMySQLQuery("SELECT arachneentityidentification.ArachneEntityID,"
+		ResultSet id = sqlAccess.doMySQLQuery("SELECT "+conf.getEntityManagementTable()+"."+conf.getUUIDFieldName()+","
 					+ currTab.getRight() + "." + keyField + ","
-					+ "CONVERT_TZ(" + currTab.getRight() + ".`lastModified`, @@session.time_zone, '+00:00') as lastModified "
-					+ " FROM arachneentityidentification JOIN "
+					+ "CONVERT_TZ(" + currTab.getRight() + ".`"+conf.getModificationTSFieldName()+"`, @@session.time_zone, '+00:00') as "+conf.getModificationTSFieldName()+" "
+					+ " FROM "+conf.getEntityManagementTable()+" JOIN "
 					+ currTab.getRight()
-					+ " ON arachneentityidentification.ForeignKey="
+					+ " ON "+conf.getEntityManagementTable()+"."+conf.getFKFieldName()+"="
 					+ currTab.getRight() + "." + keyField
-					+ " AND arachneentityidentification.TableName='"
+					+ " AND "+conf.getEntityManagementTable()+"."+conf.getFKTableFieldName()+"='"
 					+ currTab.getRight() + "'" 
 					+ (ids.equals("") ? ";" : " WHERE " + ids + ";"));
 		while (id.next()) {
 			proof++;
-			int RAUID = id.getInt("ArachneEntityID");
+			int RAUID = id.getInt(conf.getUUIDFieldName());
 			int lID =  id.getInt(keyField);
-			Timestamp ts = id.getTimestamp("lastModified");
+			Timestamp ts = id.getTimestamp(conf.getModificationTSFieldName());
 			
 			if (!updateLocalUIDAndTS(currTab, RAUID, ts, keyField, lID))
 				throw new EntityManagementException("Updating local AUID "
@@ -1057,9 +1057,9 @@ public class SQLDataModel {
 		
 		// locate row by local ID
 		if (sqlAccess.doFMUpdate("UPDATE \"" + currTab.getLeft()
-				+ "\" SET ArachneEntityID=" + currRAUID
-				+ ", lastModified={ts '" + ldt.format(formatTS) + "'}"
-				+ ", lastRemoteTS={ts '" + ldt.format(formatTS) + "'}"
+				+ "\" SET "+conf.getUUIDFieldName()+"=" + currRAUID
+				+ ", "+conf.getModificationTSFieldName()+"={ts '" + ldt.format(formatTS) + "'}"
+				+ ", "+conf.getLastRemoteTSFieldName()+"={ts '" + ldt.format(formatTS) + "'}"
 				+ " WHERE " + pkName + "=" + pkVal) != null) {
 			return true;
 		} else {
@@ -1109,8 +1109,8 @@ public class SQLDataModel {
 		for (String currField : commonFields) {
 
 			// skip UID field, this is not equal anyway
-			if (currField.equalsIgnoreCase("ArachneEntityID")
-					|| currField.equalsIgnoreCase("lastModified"))
+			if (currField.equalsIgnoreCase(conf.getUUIDFieldName())
+					|| currField.equalsIgnoreCase(conf.getModificationTSFieldName()))
 				continue;
 
 			// Strings to compare in field with equal name
@@ -1231,8 +1231,8 @@ public class SQLDataModel {
 
 		while (fmColumns.next()) {
 			msColumns.beforeFirst();
-			if (fmColumns.getString("COLUMN_NAME").equalsIgnoreCase("ArachneEntityID") && !result.contains("ArachneEntityID")) {
-				result.add("ArachneEntityID");
+			if (fmColumns.getString("COLUMN_NAME").equalsIgnoreCase(conf.getUUIDFieldName()) && !result.contains(conf.getUUIDFieldName())) {
+				result.add(conf.getUUIDFieldName());
 				continue;
 			}
 			while (msColumns.next()) {
@@ -1285,11 +1285,11 @@ public class SQLDataModel {
 			
 			if (!isNumericalField(longName)
 					&& !isTimestampField(longName)
-					&& !currFieldName.equals("lastRemoteTS")
+					&& !currFieldName.equals(conf.getLastRemoteTSFieldName())
 					&& currFieldVal != null) {
 				sql += currFieldName + "='" + escapeChars(currFieldVal) + "'";
 			}
-			else if ((isTimestampField(longName) || currFieldName.equals("lastRemoteTS")) && currFieldVal != null) {
+			else if ((isTimestampField(longName) || currFieldName.equals(conf.getLastRemoteTSFieldName())) && currFieldVal != null) {
 				sql += currFieldName + "={ts '" + currFieldVal + "'}";
 			}
 			else {
@@ -1307,11 +1307,11 @@ public class SQLDataModel {
 			
 			if (!isNumericalField(longName)
 					&& !isTimestampField(longName)
-					&& !currFieldName.equals("lastRemoteTS")
+					&& !currFieldName.equals(conf.getLastRemoteTSFieldName())
 					&& currFieldVal != null) {
 				sql += currFieldName + "='" + escapeChars(currFieldVal) + "'";
 			}
-			else if ((isTimestampField(longName) || currFieldName.equals("lastRemoteTS")) && currFieldVal != null) {
+			else if ((isTimestampField(longName) || currFieldName.equals(conf.getLastRemoteTSFieldName())) && currFieldVal != null) {
 				sql += currFieldName + "=TIMESTAMP '" + currFieldVal + "'";
 			}
 			else if (currFieldVal == null) {
@@ -1348,17 +1348,17 @@ public class SQLDataModel {
 		TreeMap<String, String> where = new TreeMap<String,String>(tuple.getLeft());
 		
 		// local UUID = null? update locally!
-		if (set.containsKey("ArachneEntityID")) {
-			if (set.get("ArachneEntityID") == null) {
-				if (where.containsKey("ArachneEntityID")) {
+		if (set.containsKey(conf.getUUIDFieldName())) {
+			if (set.get(conf.getUUIDFieldName()) == null) {
+				if (where.containsKey(conf.getUUIDFieldName())) {
 					String keyField = getActualPrimaryKey(currTab.getFMString());
-					Timestamp ts = where.get("lastModified") == null ? null : Timestamp.valueOf(where.get("lastModified"));
-					updateLocalUIDAndTS(currTab, Integer.parseInt(where.get("ArachneEntityID")), ts, keyField, Integer.parseInt(where.get(keyField)));
+					Timestamp ts = where.get(conf.getModificationTSFieldName()) == null ? null : Timestamp.valueOf(where.get(conf.getModificationTSFieldName()));
+					updateLocalUIDAndTS(currTab, Integer.parseInt(where.get(conf.getUUIDFieldName())), ts, keyField, Integer.parseInt(where.get(keyField)));
 				}
 			}
 		}
 		
-		set.remove("ArachneEntityID");
+		set.remove(conf.getUUIDFieldName());
 		
 		Iterator<String> it = set.keySet().iterator();
 		
@@ -1370,11 +1370,11 @@ public class SQLDataModel {
 			
 			if (!isNumericalField(lookupName)
 					&& !isTimestampField(lookupName)
-					&& !currFieldName.equals("lastRemoteTS")
+					&& !currFieldName.equals(conf.getLastRemoteTSFieldName())
 					&& currFieldVal != null) {
 				sql += longName + "=" + "'" + escapeChars(currFieldVal) + "'";
 			}
-			else if ((isTimestampField(lookupName) || currFieldName.equals("lastRemoteTS")) && currFieldVal != null) {
+			else if ((isTimestampField(lookupName) || currFieldName.equals(conf.getLastRemoteTSFieldName())) && currFieldVal != null) {
 				sql += longName + "=" + "TIMESTAMP '" + currFieldVal + "'";
 			}
 			else {
@@ -1382,10 +1382,10 @@ public class SQLDataModel {
 			}
 			if (it.hasNext()) sql += ",";
 		}
-		// ArachneEntityID is not in same table
-		where.remove("ArachneEntityID");
+		// UUID is not in same table
+		where.remove(conf.getUUIDFieldName());
 		// lastModified: problem with timezone...
-		where.remove("lastModified");
+		where.remove(conf.getModificationTSFieldName());
 		
 		it = where.keySet().iterator();
 		sql += " WHERE ";
@@ -1397,7 +1397,7 @@ public class SQLDataModel {
 			
 			if (!isNumericalField(lookupName)
 					&& !isTimestampField(lookupName)
-					&& !currFieldName.equals("lastRemoteTS")
+					&& !currFieldName.equals(conf.getLastRemoteTSFieldName())
 					&& currFieldVal != null) {
 				sql += longName + "=" + "'" + escapeChars(currFieldVal) + "'";
 			}
@@ -1495,7 +1495,7 @@ public class SQLDataModel {
 			TreeMap<String,String> row = new TreeMap<String,String>();
 			for (int i = 1; i <= meta.getColumnCount(); i++) {
 				String field = meta.getColumnName(i);
-				if (!(field.startsWith("[") ||field.equals("lastModified") || field.equals("lastRemoteTS") || field.equals("ArachneEntityID"))) {
+				if (!(field.startsWith("[") ||field.equals(conf.getModificationTSFieldName()) || field.equals(conf.getLastRemoteTSFieldName()) || field.equals(conf.getUUIDFieldName()))) {
 					row.put(field, filemaker.getString(field));
 				}
 				if (field.equals("Dateipfad"))
