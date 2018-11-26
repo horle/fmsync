@@ -834,7 +834,7 @@ public class SQLDataModel {
 					String altKey = key;
 					if (key.startsWith("[")) currRow.remove(key);
 					if (key.equals("PS_GLOBALAbstractID")) currRow.remove(key);
-					if (key.contains("ï¿½") || key.contains("ï¿½") || key.contains("ï¿½")) currRow.remove(key);
+					if (key.contains("ü") || key.contains("ä") || key.contains("ö")) currRow.remove(key);
 					if (key.equals("Length")) altKey = "LengthSize";
 					if (key.equals("PS_PlaceID")) altKey = "PS_OrtID";
 					if (key.equals("PS_PlaceConnectionID")) altKey = "PS_OrtsbezugID";
@@ -1454,6 +1454,13 @@ public class SQLDataModel {
 		return null;
 	}
 
+	/**
+	 * method to request primary keys from DB
+	 * @param currTab
+	 * @return
+	 * @throws FilemakerIsCrapException
+	 * @throws SQLException
+	 */
 	public String getActualPrimaryKey(String currTab) throws FilemakerIsCrapException, SQLException {
 		TreeSet<String> pks = sqlAccess.getFMTablePrimaryKey(currTab);
 		if (pks.size() == 1) return pks.first();

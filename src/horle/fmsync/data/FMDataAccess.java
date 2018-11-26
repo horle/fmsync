@@ -25,9 +25,9 @@ public class FMDataAccess extends AbstractDatabase {
 	
 	
 	/**
-	 * Method returns primary key of filemaker table
+	 * Method returns names of primary key columns of filemaker table. The column names are fetched by their names "PS_%", since FM JDBC does not provide a nicer way
 	 * 
-	 * @return name of primary key for certain table. if not found, returns empty string
+	 * @return list of names of primary keys for certain table. if not found, returns empty list
 	 * @throws SQLException 
 	 */
 	@Override

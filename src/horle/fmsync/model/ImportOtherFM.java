@@ -65,6 +65,7 @@ public class ImportOtherFM {
 			sqlAccess.connectFM();
 			tables = m.fetchFMTables();
 			
+			// copy all relevant tables as pairs (name, table-content) to memory
 			for (String currTab : tables) {
 				if (!("S".equals(currTab) || "Sprache".equals(currTab))) {
 					TreeBasedTable<String, Integer, TreeMap<String, String>> table = m.getWholeFMTable(currTab);
@@ -79,6 +80,7 @@ public class ImportOtherFM {
 			sqlAccess.connectFM();
 			tables = m.fetchFMTables();
 			
+			// loop through existing tables
 			for (String currTab : tables) {
 				// NEW -> RIGHT
 				// OLD -> LEFT
@@ -95,22 +97,28 @@ public class ImportOtherFM {
 				int diffCount = 0;
 				Vector<TreeMap<String,String>> newRows = new Vector<TreeMap<String,String>>();
 				
+				// strange filemaker tables. not related to content
 				if (!("S".equals(currTab) || currTab.startsWith("["))) {
 					int smID = 0;
 					int bgID = 0;
+					
+					// choose table copy
 					TreeBasedTable<String, Integer, TreeMap<String, String>> newTable = newList.get(pair.getRight());
 					if (newTable != null) {
+						// map old primary key column name to english import
 						String pkold = m.getActualPrimaryKey(currTab);
 						String pknew = pkold;
 						if (pkold.contains("Ortsbezug")) pknew = "PS_PlaceConnectionID";
 						else if (pkold.contains("XOrtX")) pknew = "PS_XPlaceIDX";
 						else if (pkold.contains("Ort")) pknew = "PS_PlaceID";
 						
+						// google's "Cell" here corresponds to a row
 						for (Cell<String, Integer, TreeMap<String, String>> newCell : newTable.cellSet()) {
 							int pkval = newCell.getColumnKey();
 							TreeMap<String,String> newRow = new TreeMap<String,String>(newCell.getValue());
 
-							String pknewval = newRow.remove(pknew);
+							// get PK value and remove it from row (for local search)
+//							String pknewval = newRow.remove(pknew);
 							for (String key : newCell.getValue().keySet()) {
 								if (key.startsWith("[")) {
 									newRow.remove(key);
@@ -137,12 +145,13 @@ public class ImportOtherFM {
 //							}
 //							else {
 								count++;
-								// pk dazu, zur add liste :>
-								newRow.put(pknew, pknewval);
+								// after local search, out PK value back
+//								newRow.put(pknew, pknewval);
 								newRows.addElement(newRow);
 //							}
 						}
-						if (count + diffCount != 0) {
+						// check, if sth has happened
+						if (count + diffCount > 0) {
 							addCounts.put(currTab, new Tuple<Integer,Integer>(count,0));
 							System.out.println(count +" n,\t"+existCount+" e,\t"+diffCount +" d\t"+currTab+(diffCount!=0?": "+smID+"-"+bgID:""));
 						}
@@ -155,13 +164,15 @@ public class ImportOtherFM {
 			}
 			
 			for (String currTab : newRowsPerTable.keySet()) {
-				System.out.println("Table "+currTab+" cross table?! press 's' and enter!");
+				System.out.println("Table "+currTab+" generated cross table?! press 'y' and enter!");
 				String in = scan.next();
-				if (in.equals("s")) continue;
+				// they are not relevant.
+				if (in.equals("y")) continue;
 				
 				String pk = m.getActualPrimaryKey(currTab);
+				
+				// recursive foreign key handling
 				for (TreeMap<String,String> newRow : newRowsPerTable.get(currTab)) {
-					
 					editFKsRecursively(newRow, currTab, pk);
 				}
 			}

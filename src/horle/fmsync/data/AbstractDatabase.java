@@ -11,6 +11,7 @@ import java.sql.SQLException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Properties;
 import java.util.SortedSet;
 
 import org.apache.log4j.Logger;
@@ -114,23 +115,6 @@ public abstract class AbstractDatabase {
 			if (getDriverName().contains("mysql"))
 				eMsg = "MySQL: " + e;
 			throw new SQLException(eMsg); // throw to gui ... 
-		}
-		// Verbindungswarnungen holen + ";serverDataSource=" + dbName
-		SQLWarning warning = null;
-		try {
-			warning = cn.getWarnings();
-			if (warning == null) {
-				logger.debug("Keine Warnungen");
-				return result;
-			}
-			while (warning != null) {
-				logger.warn(warning);
-				warning = warning.getNextWarning();
-			}
-		} catch (SQLException e) {
-			logger.error(e);
-			e.printStackTrace();
-			return false;
 		}
 
 		try {
