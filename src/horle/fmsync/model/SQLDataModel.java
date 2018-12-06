@@ -147,7 +147,7 @@ public class SQLDataModel {
 		for (String rem : remoteCols) {
 			String altRem = rem;
 			if (rem.startsWith("[")) remoteRow.remove(rem);
-			if (rem.contains("ï¿½") || rem.contains("ï¿½") || rem.contains("ï¿½")) remoteRow.remove(rem);
+			if (rem.contains("ä") || rem.contains("ö") || rem.contains("ü")) remoteRow.remove(rem);
 			if (rem.equals("Length")) altRem = "LengthSize";
 			if (rem.equals("PS_PlaceID")) altRem = "PS_OrtID";
 			if (rem.equals("PS_PlaceConnectionID")) altRem = "PS_OrtsbezugID";
@@ -1491,7 +1491,8 @@ public class SQLDataModel {
 		
 		String fmpk = getActualPrimaryKey(currTab);
 		
-		String fmSQL = "SELECT * FROM " + currTab +(fmpk.equals("")?"":(" WHERE \""+fmpk+"\" >= 100000"));
+		// if key field name is empty (fm is crap), 
+		String fmSQL = "SELECT * FROM \"" + currTab + "\"" +(fmpk.equals("")?"":(" WHERE \""+fmpk+"\" >= 100000"));
 		
 		// get only common fields from filemaker
 		ResultSet filemaker = sqlAccess.doFMQuery(fmSQL);

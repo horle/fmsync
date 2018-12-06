@@ -194,7 +194,9 @@ public class ImportOtherFM {
 			
 			for (String key : addCounts.keySet()) {
 				Tuple<Integer,Integer> t = addCounts.get(key);
-				System.out.println(t.getLeft() + ", " + t.getRight() + "\t" + key);
+				if (t.getRight() != 0)
+					// print all new rows, and finally imported ones
+					System.out.println(t.getLeft() + ", " + t.getRight() + "\t" + key);
 			}
 
 			scan.close();
